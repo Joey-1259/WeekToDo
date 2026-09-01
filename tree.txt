@@ -1,0 +1,183 @@
+.
+├── babel.config.js
+├── build
+│   ├── icon
+│   │   ├── icon.icns
+│   │   ├── icon.ico
+│   │   └── icon.png
+│   ├── icon.icns
+│   ├── icon.ico
+│   ├── icon.png
+│   └── icons
+│       ├── icon.icns
+│       ├── icon.ico
+│       └── icon.png
+├── changelog.md
+├── CONTRIBUTING.md
+├── crowdin.yml
+├── docker-compose.yml
+├── Dockerfile
+├── LICENSE
+├── netlify.toml
+├── package.json
+├── public
+│   ├── apple-touch-icon.png
+│   ├── Avatar.webp
+│   ├── browserconfig.xml
+│   ├── fav_icons
+│   │   ├── android-chrome-192x192.png
+│   │   ├── android-chrome-512x512.png
+│   │   ├── favicon-16x16.png
+│   │   ├── favicon-32x32.png
+│   │   ├── mstile-144x144.png
+│   │   ├── mstile-150x150.png
+│   │   ├── mstile-310x150.png
+│   │   ├── mstile-310x310.png
+│   │   ├── mstile-70x70.png
+│   │   └── safari-pinned-tab.svg
+│   ├── favicon.ico
+│   ├── googled50c8321df2bd61b.html
+│   ├── icon.png
+│   ├── img
+│   │   ├── logo-color.svg
+│   │   ├── logo-white.svg
+│   │   ├── weektodo-isologo-color.svg
+│   │   ├── weektodo-isologo-white.svg
+│   │   ├── WeekToDoDarkLogo.webp
+│   │   └── WeekToDoLightLogo.webp
+│   ├── index.html
+│   ├── libs
+│   │   └── honeybadger.min.js
+│   ├── manifest.json
+│   ├── sounds
+│   │   ├── loud-bell.ogg
+│   │   ├── metal-gear.ogg
+│   │   ├── piano.ogg
+│   │   ├── pop-alert.ogg
+│   │   ├── positive.ogg
+│   │   ├── soft-bell.ogg
+│   │   ├── soft.ogg
+│   │   └── tiny.ogg
+│   ├── sw.js
+│   ├── trayIcon.ico
+│   ├── trayIcon.png
+│   ├── trayIcon@2x.png
+│   ├── trayIcon@3x.png
+│   ├── trayIconDark.ico
+│   ├── trayIconDark.png
+│   ├── trayIconDark@2x.png
+│   ├── trayIconDark@3x.png
+│   ├── version.json
+│   ├── WeekToDo-icon-128.png
+│   ├── WeekToDo-icon-white-128.png
+│   ├── WeekToDo-logo-512x512.png
+│   └── WeekToDo-Logo-Color.svg
+├── README.md
+├── SECURITY.md
+├── src
+│   ├── App.vue
+│   ├── assets
+│   │   ├── img
+│   │   │   └── WeekToDo-icon-white-128.png
+│   │   ├── languages
+│   │   │   ├── ar.json
+│   │   │   ├── de.json
+│   │   │   ├── en.json
+│   │   │   ├── es.json
+│   │   │   ├── fr.json
+│   │   │   ├── he.json
+│   │   │   ├── hi.json
+│   │   │   ├── it.json
+│   │   │   ├── ja.json
+│   │   │   ├── ko.json
+│   │   │   ├── languages.js
+│   │   │   ├── pl.json
+│   │   │   ├── pt.json
+│   │   │   ├── ru.json
+│   │   │   ├── tr.json
+│   │   │   ├── uk.json
+│   │   │   ├── vi.json
+│   │   │   ├── zh-CN.json
+│   │   │   └── zh-TW.json
+│   │   └── style
+│   │       ├── globalVars.scss
+│   │       ├── main.scss
+│   │       └── uiComponents.scss
+│   ├── background.js
+│   ├── components
+│   │   ├── activeToDo.vue
+│   │   ├── comfirmModal.vue
+│   │   ├── comfirmModals
+│   │   │   ├── clearDataModal.vue
+│   │   │   ├── clearListModal.vue
+│   │   │   └── removeCustomList.vue
+│   │   ├── layout
+│   │   │   └── sideBar.vue
+│   │   ├── linkList.vue
+│   │   ├── listHeader.vue
+│   │   ├── paymentMethod.vue
+│   │   ├── splashScreen.vue
+│   │   ├── toastMessage.vue
+│   │   ├── toDoItem.vue
+│   │   └── toDoList.vue
+│   ├── helpers
+│   │   ├── exportTool.js
+│   │   ├── initialDataCreator.js
+│   │   ├── languageHelper.js
+│   │   ├── markdownTargetBlankLinks.js
+│   │   ├── notifications.js
+│   │   ├── repeatingEvents.js
+│   │   └── tasksHelper.js
+│   ├── main.js
+│   ├── migrations
+│   │   └── migrations.js
+│   ├── repositories
+│   │   ├── configRepository.js
+│   │   ├── customToDoListIdsRepository.js
+│   │   ├── dbRepository.js
+│   │   ├── repeatingEventByDateRepository.js
+│   │   ├── repeatingEventRepository.js
+│   │   ├── storageRepository.js
+│   │   └── toDoListRepository.js
+│   ├── store
+│   │   ├── modules
+│   │   │   ├── actions.store.js
+│   │   │   ├── activeTodo.store.js
+│   │   │   ├── config.store.js
+│   │   │   ├── main.store.js
+│   │   │   ├── notifications.store.js
+│   │   │   ├── repeatingEvent.store.js
+│   │   │   ├── repeatingEventDateCache.store.js
+│   │   │   └── todolist.store.js
+│   │   └── store.js
+│   └── views
+│       ├── aboutModal.vue
+│       ├── configList.js
+│       ├── configModal.vue
+│       ├── donate
+│       │   ├── donateLists.js
+│       │   └── paymentDetails.vue
+│       ├── donateModal.vue
+│       ├── importingModal.vue
+│       ├── RecurrentEventsModal.vue
+│       ├── ReorderCustomListsModal.vue
+│       ├── sponsorModal.vue
+│       ├── tipsModal.vue
+│       ├── toDoModal
+│       │   ├── colorPicker.vue
+│       │   ├── descriptionTextArea.vue
+│       │   ├── repeatingEvent.vue
+│       │   ├── timePicker.vue
+│       │   └── toDoModal.vue
+│       ├── welcome
+│       │   ├── appView.vue
+│       │   ├── doneView.vue
+│       │   ├── languageView.vue
+│       │   ├── privacityView.vue
+│       │   └── themeView.vue
+│       └── welcomeModal.vue
+├── tree.txt
+├── vue.config.js
+└── yarn.lock
+
+26 directories, 155 files

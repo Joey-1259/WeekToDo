@@ -8,8 +8,14 @@
       </div>
     </div>
 
-    <list-header :id="id" :customTodoList="customTodoList" :cTodoListIndex="cTodoListIndex" :toDoList="toDoListState"
-      :pickedDate="pickedDate" @reorderCustomList="$emit('reorderCustomList')">
+    <list-header
+      :id="id"
+      :customTodoList="customTodoList"
+      :cTodoListIndex="cTodoListIndex"
+      :toDoList="toDoListState"
+      :pickedDate="pickedDate"
+      @reorderCustomList="$emit('reorderCustomList')"
+    >
     </list-header>
     <ul class="to-do-list">
       <li v-for="(toDo, index) in toDoListState" :key="index">
@@ -22,8 +28,16 @@
       @dragenter.self="onDragenter" @dragleave.self="onDragleave" @dragover.prevent
       :class="{ 'fake-drag-hover': fakeItemsDragHover }">
       <div class="todo-item-container">
-        <input class="todo-input new-todo-input" type="text" ref="newToDoInput" v-model="newToDo.text" @blur="addToDo()"
-          @keyup.enter="addToDo()" @keyup.esc="cancelAdd()" />
+        <textarea
+          class="todo-input new-todo-input"
+          ref="newToDoInput"
+          rows="1"
+          v-model="newToDo.text"
+          @input="autoGrow($event)"
+          @blur="addToDo()"
+          @keydown.enter.exact.prevent="addToDo()"
+          @keyup.esc="cancelAdd()"
+        ></textarea>
       </div>
       <div class="fake-lines" :class="{ 'custom-list': customTodoList }" @click="$refs.newToDoInput.focus()"></div>
     </div>
@@ -49,7 +63,7 @@ export default {
     customTodoList: { required: false, default: false, type: Boolean },
     cTodoListIndex: { required: false, type: Number },
     showCustomList: { required: false, type: Boolean },
-    pickedDate: { required: false, default: null, type: String },
+    pickedDate: { required: false, type: String, default: null },
   },
   emits: ["todoListMounted", "reorderCustomList"],
   data() {
@@ -83,7 +97,7 @@ export default {
   },
   methods: {
     addToDo: function () {
-      if (this.newToDo.text != "") {
+      if (this.newToDo.text.trim() != "") {
         var newTodo = {
           text: this.newToDo.text,
           checked: false,
@@ -99,11 +113,22 @@ export default {
         };
         this.$store.commit("addTodo", newTodo);
         this.updateTodoList(this.id, this.$store.getters.todoLists[this.id]);
-        this.newToDo.text = "";
       }
+      this.newToDo.text = "";
+      this.resetInputHeight();
     },
     cancelAdd: function () {
       this.newToDo.text = "";
+      this.resetInputHeight();
+    },
+    autoGrow: function (e) {
+      e.target.style.height = "auto";
+      e.target.style.height = e.target.scrollHeight + "px";
+    },
+    resetInputHeight: function () {
+      this.$nextTick(function () {
+        if (this.$refs.newToDoInput) this.$refs.newToDoInput.style.height = "auto";
+      });
     },
     moments: function (date) {
       return moment(date);
@@ -201,11 +226,26 @@ export default {
 }
 
 .todo-input {
-  height: 1.28rem;
   line-height: 1.3rem;
   font-size: 0.865rem;
   margin: 2px 0px 2px 0px;
   padding: 0 6px 0 6px;
+}
+
+.new-todo-input {
+  min-height: 1.28rem;
+  max-height: 120px;
+  overflow-y: hidden;
+  resize: none;
+  border: none;
+  width: 100%;
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.new-todo-input:focus {
+  outline: none;
 }
 
 .to-do-list-container {
@@ -303,17 +343,6 @@ export default {
   height: calc(100% - 24px);
 }
 
-.todo-input {
-  line-height: 1.3rem;
-  width: 100%;
-  border: none;
-  font-size: 0.865rem;
-}
-
-.todo-input:focus {
-  outline: none;
-}
-
 .loading-spinner {
   position: relative;
   margin: auto;
@@ -323,7 +352,7 @@ export default {
 
 .todo-item-container {
   border-bottom: 1px solid #eaecef;
-  height: 26px;
+  min-height: 26px;
   z-index: 1;
   margin-bottom: -1px;
 }

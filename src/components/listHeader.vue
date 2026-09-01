@@ -1,22 +1,31 @@
 <template>
-  <div class="weekly-to-do-header d-flex" :class="{ 'drag-hover-header': dragHover }"
-    :draggable="customTodoList" @dragstart="startCListDrag" @dragover.prevent
-    @dragenter.self="onCListDragEnter" @dragleave.self="onCListDragLeave" @drop="onCListDrop">
-    <i v-show="!editing" class="header-menu-icons align-self-center dropdown-toggle-split"
-      :class="customTodoList ? 'bi-grip-vertical drag-grip-icon' : 'bi-info'"
-      :style="customTodoList ? {} : { visibility: 'hidden' }"
-      :title="customTodoList ? $t('ui.reorderCustomLists') : ''"
-    ></i>
+  <div class="weekly-to-do-header d-flex">
+    <i v-show="!editing" class="bi-info header-menu-icons align-self-center dropdown-toggle-split "
+      style="visibility: hidden"></i>
     <div style="flex-grow: 1" class="noselect">
-      <div v-if="!customTodoList" :class="{ 'today-date': is_today, 'picked-date': is_picked && !is_today }">
-        <h4>
+      <div v-if="!customTodoList">
+        <h4 :class="{ 'today-date': is_today, 'picked-date': is_picked }">
           {{ moments(id).locale(language).format("dddd") }}
         </h4>
         <span class="weekly-to-do-subheader">
           {{ moments(id).locale(language).format("LL") }}
         </span>
+        <span v-if="holidayInfo" class="holiday-badge" :class="{ 'workday-badge': !holidayInfo.isOffDay }" :title="holidayInfo.name">
+          {{ holidayInfo.isOffDay ? holidayInfo.name : '班' }}
+        </span>
       </div>
-      <div v-else>
+      <div
+        v-else
+        class="custom-list-title d-flex align-items-center justify-content-center"
+        draggable="true"
+        @dragstart="startListDrag($event)"
+        @dragover.prevent
+        @dragenter.prevent="onListDragEnter"
+        @dragleave="onListDragLeave"
+        @drop="onListDrop($event)"
+        :class="{ 'list-drag-hover': listDragHover }"
+      >
+        <i class="bi-grip-vertical drag-handle-icon" :title="$t('ui.reorder')"></i>
         <h4 v-show="!editing" @dblclick="editToDoListName"> {{ todo_list_name }} </h4>
         <input class="custom-todo-input" v-show="editing" type="text" v-model="name" ref="cTodoInput" @blur="doneEdit()"
           @keyup.enter="doneEdit()" @keyup.esc="cancelEdit()" />
@@ -75,6 +84,7 @@ import toDoListRepository from "../repositories/toDoListRepository";
 import customToDoListIdsRepository from "../repositories/customToDoListIdsRepository";
 import notifications from "../helpers/notifications";
 import tasksHelper from "../helpers/tasksHelper";
+import holidayHelper from "../helpers/holidayHelper";
 import { Toast } from 'bootstrap';
 
 export default {
@@ -84,14 +94,14 @@ export default {
     customTodoList: { required: false, default: false, type: Boolean },
     cTodoListIndex: { required: false, type: Number },
     toDoList: { required: false, type: Array },
-    pickedDate: { required: false, default: null, type: String },
+    pickedDate: { required: false, type: String, default: null },
   },
   emits: ["reorderCustomList"],
   data() {
     return {
       editing: false,
       name: "",
-      dragHover: false,
+      listDragHover: false,
     };
   },
   mounted() {
@@ -195,29 +205,24 @@ export default {
           .focus();
       });
     },
-    // 以下四个方法只在自定义列表表头生效，用来支持“直接拖动表头调整列表顺序”
-    startCListDrag: function (event) {
-      if (!this.customTodoList) return;
-      event.dataTransfer.effectAllowed = "move";
+    startListDrag: function (event) {
       event.dataTransfer.setData("customListIndex", String(this.cTodoListIndex));
+      event.dataTransfer.effectAllowed = "move";
     },
-    onCListDragEnter: function () {
-      if (!this.customTodoList) return;
-      this.dragHover = true;
+    onListDragEnter: function () {
+      this.listDragHover = true;
     },
-    onCListDragLeave: function () {
-      if (!this.customTodoList) return;
-      this.dragHover = false;
+    onListDragLeave: function () {
+      this.listDragHover = false;
     },
-    onCListDrop: function (event) {
-      if (!this.customTodoList) return;
-      this.dragHover = false;
-      const fromIndex = parseInt(event.dataTransfer.getData("customListIndex"));
-      const toIndex = this.cTodoListIndex;
+    onListDrop: function (event) {
+      this.listDragHover = false;
+      let fromIndex = parseInt(event.dataTransfer.getData("customListIndex"));
+      let toIndex = this.cTodoListIndex;
       if (isNaN(fromIndex) || fromIndex === toIndex) return;
 
-      const customLists = this.$store.getters.cTodoListIds;
-      const moved = customLists.splice(fromIndex, 1)[0];
+      let customLists = this.$store.getters.cTodoListIds;
+      let moved = customLists.splice(fromIndex, 1)[0];
       customLists.splice(toIndex, 0, moved);
       customToDoListIdsRepository.update(customLists);
       this.$emit("reorderCustomList");
@@ -228,7 +233,11 @@ export default {
       return moment().format("YYYYMMDD") == this.id;
     },
     is_picked: function () {
-      return !!this.pickedDate && this.pickedDate == this.id;
+      return !this.customTodoList && !!this.pickedDate && this.pickedDate == this.id;
+    },
+    holidayInfo: function () {
+      if (this.customTodoList) return null;
+      return holidayHelper.getDayInfo(this.id);
     },
     todo_list_name: function () {
       return this.$store.getters.cTodoListIds[this.cTodoListIndex].listName;
@@ -252,53 +261,38 @@ export default {
   justify-content: center;
 }
 
-.weekly-to-do-header.drag-hover-header {
-  border-radius: 8px;
-  box-shadow: rgb(244, 243, 243) 0px 0px 0px 2px inset;
-  background-color: rgb(250, 249, 249);
+.today-date,
+.picked-date {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
 }
 
-.dark-theme .weekly-to-do-header.drag-hover-header {
-  box-shadow: #0b0d12 0px 0px 0px 2px inset;
-  background-color: #0c0d14;
+.holiday-badge {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 11px;
+  line-height: 16px;
+  padding: 0 5px;
+  border-radius: 4px;
+  color: #d9363e;
+  background-color: rgba(217, 54, 62, 0.08);
+  vertical-align: middle;
 }
 
-.drag-grip-icon {
-  visibility: visible !important;
-  opacity: 0.35;
-  cursor: grab;
+.workday-badge {
+  color: #b8860b;
+  background-color: rgba(184, 134, 11, 0.08);
 }
 
-.drag-grip-icon:hover {
-  opacity: 1;
+.dark-theme .holiday-badge {
+  color: #ff7875;
+  background-color: rgba(255, 120, 117, 0.12);
 }
 
-.drag-grip-icon:active {
-  cursor: grabbing;
-}
-
-.today-date h4,
-.today-date .weekly-to-do-subheader {
-  color: #2563eb;
-}
-.today-date h4 {
-  font-weight: 700;
-}
-.dark-theme .today-date h4,
-.dark-theme .today-date .weekly-to-do-subheader {
-  color: #60a5fa;
-}
-
-.picked-date h4,
-.picked-date .weekly-to-do-subheader {
-  color: #f59e0b;
-}
-.picked-date h4 {
-  font-weight: 700;
-}
-.dark-theme .picked-date h4,
-.dark-theme .picked-date .weekly-to-do-subheader {
-  color: #fbbf24;
+.dark-theme .workday-badge {
+  color: #e0a95c;
+  background-color: rgba(224, 169, 92, 0.12);
 }
 
 .weekly-to-do-header h4 {
@@ -338,6 +332,43 @@ export default {
   visibility: hidden;
   opacity: 0;
   transition: 0.4s cubic-bezier(0.2, 1, 0.1, 1);
+}
+
+.custom-list-title {
+  position: relative;
+  cursor: grab;
+  border-radius: 6px;
+  padding: 2px 4px;
+  transition: background-color 0.2s ease-out;
+}
+
+.custom-list-title:hover {
+  background-color: #f7f8fa;
+}
+
+.dark-theme .custom-list-title:hover {
+  background-color: #1a1e24;
+}
+
+.list-drag-hover {
+  box-shadow: rgb(244, 243, 243) 0px 0px 4px 1px inset;
+  background-color: rgb(250, 249, 249);
+}
+
+.dark-theme .list-drag-hover {
+  box-shadow: #0b0d12 0px 0px 4px 1px inset;
+  background-color: #0c0d14;
+}
+
+.drag-handle-icon {
+  font-size: 14px;
+  color: #b0b3b8;
+  margin-right: 4px;
+  cursor: grab;
+}
+
+.dark-theme .drag-handle-icon {
+  color: #565b62;
 }
 
 .custom-todo-input {

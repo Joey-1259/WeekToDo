@@ -37,15 +37,7 @@ i {
   transition: 0.4s cubic-bezier(0.2, 1, 0.1, 1);
 }
 
-.old-date .item-text,
-.old-date .item-time {
-  color: #a1a1a1;
-}
-
-.dark-theme .old-date .item-text,
-.dark-theme .old-date .item-time {
-  color: #636363;
-}
+/* 历史日期不再置灰，保持与其他日期一致的文字颜色 */
 
 .main-horizontal-divider {
   cursor: row-resize;
@@ -55,7 +47,6 @@ i {
   margin-right: 40px;
   -webkit-box-sizing: border-box;
   box-sizing: border-box;
-  /*padding: 0;*/
   color: rgba(0, 0, 0, 0.85);
   line-height: 1.5715;
   list-style: none;
@@ -101,7 +92,6 @@ i {
 }
 
 #side-bar-date-picker-input {
-  /*hiding input but it need to be visible to get the focus*/
   position: fixed;
   top: -50px;
 }
@@ -129,11 +119,11 @@ i {
 }
 
 .noselect {
-  -webkit-touch-callout: none; /* iOS Safari */
-  -webkit-user-select: none; /* Safari */
-  -khtml-user-select: none; /* Konqueror HTML */
-  -moz-user-select: none; /* Old versions of Firefox */
-  -ms-user-select: none; /* Internet Explorer/Edge */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
   user-select: none;
 }
 
@@ -154,12 +144,56 @@ i {
   background-color: #2e353d !important;
 }
 
+/* 小日历里"今天"与"选中日期"统一改为下划线标记，不再使用彩色背景块 */
 .v3dp__elements button.selected span {
-  background-color: #3f377e !important;
+  background-color: transparent !important;
+  color: inherit !important;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 
 .v3dp__elements button:not(:disabled):hover span {
-  background-color: #3f377e !important;
+  background-color: transparent !important;
+  color: inherit !important;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.v3dp__elements button.current span {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+/* 节假日圆点标记：红色=法定节假日，黄色=调休上班日 */
+.v3dp__elements button span {
+  position: relative;
+}
+
+.holiday-dot {
+  display: block;
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #d9363e;
+}
+
+.workday-day .holiday-dot {
+  background-color: #b8860b;
+}
+
+.dark-theme .holiday-dot {
+  background-color: #ff7875;
+}
+
+.dark-theme .workday-day .holiday-dot {
+  background-color: #e0a95c;
 }
 
 .dark-theme .form-switch .form-check-input:not(:checked) {
@@ -284,10 +318,6 @@ i {
   margin-left: -30px;
 }
 
-/*#todo-date-picker-input:focus {*/
-/*    outline: unset;*/
-/*}*/
-
 .todo-description p {
   white-space: pre-wrap;
   line-height: 21px;
@@ -307,14 +337,16 @@ i {
 }
 
 .checked-todo .show-alarm-indicator {
-  background-color: #c4c4c4;
+  background-color: #16a34a;
+  opacity: 0.5;
 }
 
 .dark-theme .checked-todo .show-alarm-indicator {
-  background-color: #3a3a40;
+  background-color: #4ade80;
+  opacity: 0.5;
 }
 
-/*TOast*/
+/*Toast*/
 
 .toast {
   width: auto;
@@ -370,7 +402,7 @@ i {
 
 .dark-theme .todo-item .checked-todo a,
 .dark-theme .inline-todo-item .checked-todo a {
-  color: #3a3a40;
+  color: #4ade80;
 }
 
 #toDoModal a {
@@ -402,9 +434,9 @@ i {
 }
 
 * {
-  -webkit-print-color-adjust: exact !important;   /* Chrome, Safari 6 – 15.3, Edge */
-  color-adjust: exact !important;                 /* Firefox 48 – 96 */
-  print-color-adjust: exact !important;           /* Firefox 97+, Safari 15.4+ */
+  -webkit-print-color-adjust: exact !important;
+  color-adjust: exact !important;
+  print-color-adjust: exact !important;
 }
 
 /*Media querys*/

@@ -27,32 +27,16 @@
       v-model="pickedDate"
       :locale="language"
       :weekStartsOn="weekStartOnMonday"
+      @opened="onCalendarOpened"
+      @monthPageChanged="onCalendarPageChanged"
+      @yearPageChanged="onCalendarPageChanged"
     />
     <i v-if="showCalendar" class="bi-calendar-event" @click="changeDate" :title="$t('ui.calendar')"> </i>
     <!--
-      以下三个入口已按需求隐藏：
-      1. 重复任务管理（bi-arrow-repeat，原打开 #RecurrentEventsModal）
-      2. 新建自定义列表（bi-clipboard-plus，原调用 newCustomTodoList）——已迁移为主界面自定义列表区域末尾的“+”色块
-      3. 重新排序自定义列表（bi-arrow-left-right，原打开 #ReorderCustomListsModal）——已迁移为直接在自定义列表表头拖动排序
-      对应弹窗组件本身未删除，只是暂时没有入口触发；如需恢复，把注释还原即可。
-    -->
-    <!--
-    <i
-      v-if="showCalendar"
-      class="bi-arrow-repeat"
-      :title="$t('ui.recurringTasks')"
-      data-bs-toggle="modal"
-      data-bs-target="#RecurrentEventsModal"
-    >
-    </i>
-    <i v-if="showCustomList" class="bi bi-clipboard-plus" @click="newCustomTodoList" :title="$t('ui.newCustomList')"></i>
-    <i
-      v-if="showCustomList"
-      class="bi bi-arrow-left-right"
-      data-bs-target="#ReorderCustomListsModal"
-      data-bs-toggle="modal"
-      :title="$t('ui.reorderCustomLists')"
-    ></i>
+      以下三个入口按需求隐藏：
+      - 重复任务（bi-arrow-repeat）
+      - 新建自定义列表（bi-clipboard-plus）：功能已移到主界面自定义列表末尾的"+"图块
+      - 重新排序自定义列表（bi-arrow-left-right）：功能已改为直接拖拽自定义列表表头
     -->
     <span style="flex-grow: 1"></span>
     <div class="dropend d-flex justify-content-center sidebar-extra-menu">
@@ -94,6 +78,7 @@
 import moment from "moment";
 import Datepicker from "vue3-datepicker";
 import languageHelper from "../../helpers/languageHelper.js";
+import holidayHelper from "../../helpers/holidayHelper.js";
 
 export default {
   name: "sideBar",
@@ -105,6 +90,7 @@ export default {
     return {
       pickedDate: new Date(),
       datepickerEnabled: false,
+      calendarPageDate: new Date(),
     };
   },
   mounted() {
@@ -142,11 +128,53 @@ export default {
     openConfigModal: function () {
       document.getElementById("config-general-tab").click();
     },
-    openDonateModal: function () {
-      window.open("https://weektodo.me/support-us", "_blank");
-    },
     print: function () {
       window.print();
+    },
+    onCalendarOpened: function () {
+      this.calendarPageDate = this.pickedDate || new Date();
+      this.markHolidaysInCalendar();
+    },
+    onCalendarPageChanged: function (pageDate) {
+      this.calendarPageDate = pageDate;
+      this.markHolidaysInCalendar();
+    },
+    // 由于 vue3-datepicker 没有暴露"单日格自定义内容"的插槽，
+    // 这里在弹层打开/翻页后按库内部生成网格同样的算法反推每个按钮对应的日期，
+    // 再往对应按钮里追加一个节假日/调休上班日的小圆点标记。
+    // 如果未来升级 vue3-datepicker 且其内部 DOM 结构变化，这段匹配逻辑需要同步调整。
+    markHolidaysInCalendar: function () {
+      this.$nextTick(() => {
+        let container = document.querySelector(".side-bar .v3dp__popout-day .v3dp__elements");
+        if (!container) return;
+        let buttons = container.querySelectorAll("button");
+        if (!buttons.length) return;
+
+        let weekStartsOnValue = this.weekStartOnMonday ? 1 : 0;
+        let monthStart = moment(this.calendarPageDate).startOf("month");
+        let startDay = monthStart.day();
+        let diff = (startDay - weekStartsOnValue + 7) % 7;
+        let cursor = monthStart.clone().subtract(diff, "days");
+
+        buttons.forEach((btn) => {
+          let dateStr = cursor.format("YYYYMMDD");
+          let info = holidayHelper.getDayInfo(dateStr);
+          let span = btn.querySelector("span");
+          if (span) {
+            let existingDot = span.querySelector(".holiday-dot");
+            if (existingDot) existingDot.remove();
+          }
+          btn.classList.remove("holiday-day", "workday-day");
+          if (info && span) {
+            btn.classList.add(info.isOffDay ? "holiday-day" : "workday-day");
+            let dot = document.createElement("i");
+            dot.className = "holiday-dot";
+            dot.title = info.name;
+            span.appendChild(dot);
+          }
+          cursor.add(1, "day");
+        });
+      });
     },
   },
   watch: {

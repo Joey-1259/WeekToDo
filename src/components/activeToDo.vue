@@ -4,16 +4,15 @@
     :class="{ 'dragging': todoDragging }" @mouseleave="hideToDoItem">
     <div class="d-flex">
       <span class="noselect item-text" :class="{ 'checked-todo': activeTodo.toDo.checked }" style="flex-grow: 1"
-        @click="editTodoClickHandler" @click.middle="showToDoDetails">
-        <span v-if="activeTodo.toDo.color != 'none'" class="cicle-icon" :style="'color: ' + activeTodo.toDo.color"
-          @click.stop="checkTodoClickhandler"
-          :class="{
-            'bi-check-circle-fill': activeTodo.toDo.checked,
-            'bi-circle-fill': !activeTodo.toDo.checked,
-          }"></span>
-        <span v-else class="cicle-icon" @click.stop="checkTodoClickhandler"
-          :class="{ 'bi-check-circle': activeTodo.toDo.checked, 'bi-circle': !activeTodo.toDo.checked, }"></span>
-        <span v-html="todoText"></span>
+        @click.middle="showToDoDetails">
+        <span v-if="activeTodo.toDo.color != 'none'" class="cicle-icon" :style="'color: ' + activeTodo.toDo.color" :class="{
+          'bi-check-circle-fill': activeTodo.toDo.checked,
+          'bi-circle-fill': !activeTodo.toDo.checked,
+        }" @click.stop="checkTodoClickhandler"></span>
+        <span v-else class="cicle-icon"
+          :class="{ 'bi-check-circle': activeTodo.toDo.checked, 'bi-circle': !activeTodo.toDo.checked, }"
+          @click.stop="checkTodoClickhandler"></span>
+        <span v-html="todoText" @click="editTodoClickHandler"></span>
         <span class="time-details"> {{ timeFormat(activeTodo.toDo.time) }}
           <div class="alarm-indicator"
             :class="{ 'show-alarm-indicator': notificationIndicator && activeTodo.toDo.alarm }"></div>
@@ -80,18 +79,14 @@ export default {
       let modal = new Modal(document.getElementById("toDoModal"), { keyboard: false });
       modal.show();
     },
-    // 只在点击左侧圆点时触发：切换完成状态
     checkTodoClickhandler: function (e) {
       if (e.target.href) return;
-
       this.$store.commit("checkTodo", { toDoListId: this.activeTodo.toDoListId, index: this.activeTodo.index, });
       this.checkToDo(this.activeTodo.toDoListId, this.activeTodo.index);
     },
-    // 点击文字区域：直接进入编辑态，不再影响完成状态
     editTodoClickHandler: function (e) {
       if (e.target.href) return;
-
-      this.activeTodo.edit(e);
+      this.activeTodo.edit();
     },
     checkToDo: function (toDoListId, index) {
       if (this.$store.getters.todoLists[toDoListId][index].checked && this.$store.getters.config.moveCompletedTaskToBottom) {
@@ -211,7 +206,6 @@ export default {
     overflow-wrap: break-word;
     word-wrap: break-word;
     z-index: 1;
-    cursor: text;
   }
 }
 
@@ -230,6 +224,10 @@ export default {
   font-size: 0.865rem;
   margin: 2px 0px 2px 0px;
   padding: 0 3px 0 7px;
+
+  .cicle-icon {
+    cursor: pointer;
+  }
 }
 
 .item-time {
@@ -256,7 +254,6 @@ export default {
   opacity: unset;
 }
 
-/* 完成态：不再置灰、不再加删除线，改为绿色字体 */
 .checked-todo {
   color: #16a34a;
 
@@ -365,8 +362,6 @@ export default {
 .cicle-icon {
   font-size: 10px;
   margin-right: 5px;
-  cursor: pointer;
-  padding: 2px;
 }
 
 .bi-check-circle-fill,

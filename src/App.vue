@@ -89,15 +89,11 @@
               :customTodoList="true"
               :cTodoListIndex="index"
               :showCustomList="showCustomList"
+              :pickedDate="pickedDate"
               @todo-list-mounted="todoListMounted"
               @reorderCustomList="resetCustomList"
             ></to-do-list>
-            <div
-              class="to-do-list-container add-list-tile d-flex flex-column align-items-center justify-content-center"
-              :style="`flex: 0 0 ${100 / customColumns}%;`"
-              @click="newCustomTodoList"
-              :title="$t('ui.newCustomList')"
-            >
+            <div class="add-list-tile d-flex flex-column align-items-center justify-content-center" @click="newCustomTodoList" :title="$t('ui.newCustomList')">
               <i class="bi-plus-lg add-list-icon"></i>
             </div>
           </div>
@@ -126,7 +122,6 @@
       <tips-modal></tips-modal>
       <to-do-modal :selectedTodo="selectedTodo"></to-do-modal>
       <active-to-do :activeTodo="activeTodo"> </active-to-do>
-      <recurrent-events-modal></recurrent-events-modal>
       <importing-modal :id="'importingModal'" :text="$t('settings.importing')"></importing-modal>
       <importing-modal :id="'exportingModal'" :text="$t('settings.exporting')"></importing-modal>
     </div>
@@ -182,12 +177,12 @@ import notifications from "./helpers/notifications";
 import clearDataModal from "./components/comfirmModals/clearDataModal.vue";
 import clearListModal from "./components/comfirmModals/clearListModal.vue";
 import importingModal from "./views/importingModal.vue";
-import RecurrentEventsModal from "./views/RecurrentEventsModal.vue";
 import repeatingEventRepository from "./repositories/repeatingEventRepository";
 import toDoListRepository from "./repositories/toDoListRepository";
 import toastMessage from "./components/toastMessage";
 import activeToDo from "./components/activeToDo.vue";
 import tasksHelper from "./helpers/tasksHelper";
+import holidayHelper from "./helpers/holidayHelper";
 
 export default {
   name: "App",
@@ -203,7 +198,6 @@ export default {
     tipsModal,
     toDoModal,
     clearDataModal,
-    RecurrentEventsModal,
     importingModal,
     clearListModal,
     toastMessage,
@@ -240,6 +234,7 @@ export default {
         let totalCustomListCount = this.$store.getters.cTodoListIds.length;
         this.initialListToLoad = totalDaysCount + totalCustomListCount;
         this.deleteOldRepeatingEvents();
+        // 默认锚定到本周周一，而不是"今天"，保证一打开就是完整的一周视图
         this.selected_date = moment().startOf("isoWeek").format("YYYYMMDD");
         this.$nextTick(() => {
           this.weekResetScroll();
@@ -272,6 +267,9 @@ export default {
         this.syncElectronConfig();
       }
     }
+
+    // 每次打开应用检查一次节假日数据是否需要更新，同一天内只会真正发起一次网络请求
+    holidayHelper.checkForUpdate();
 
     this.resetAppOnDayChange();
   },
@@ -324,30 +322,35 @@ export default {
       return this.$refs.customListContainer.clientWidth / this.customColumns;
     },
     setSelectedDate: function (payload) {
-      let date = typeof payload === "string" ? payload : payload.date;
-      let picked = typeof payload === "object" && !!payload.picked;
+      // 兼容旧的字符串调用方式，同时支持 {date, picked} 的新格式
+      let date, picked;
+      if (typeof payload === "string") {
+        date = payload;
+        picked = false;
+      } else {
+        date = payload.date;
+        picked = payload.picked;
+      }
 
-      this.pickedDate = picked ? date : null;
+      // 无论点选哪一天，主视图始终锚定到该日期所在周的周一
       this.selected_date = moment(date).startOf("isoWeek").format("YYYYMMDD");
+      this.pickedDate = picked ? date : null;
 
       this.$nextTick(function () {
-        let list = document.getElementById("list" + date);
-        if (list) {
-          let input = list.getElementsByClassName("new-todo-input")[0];
+        let listEl = document.getElementById("list" + date);
+        if (listEl) {
+          let input = listEl.getElementsByClassName("new-todo-input")[0];
           if (input) input.focus();
         }
       });
     },
-    // 主界面自定义列表区域末尾“+”色块的点击回调：新建一个空自定义列表，
-    // 并自动把横向滚动条拉到最右，让新列表进入可视区域；
-    // 新建后 listHeader.vue 会依据 actions.cListCreated 自动聚焦列表名输入框
     newCustomTodoList: function () {
       const customTodoListId = { listId: moment().format("YYYYMMDDTHHmmssS"), listName: "" };
       this.$store.commit("actionsCListCreatedUpdate", true);
       this.$store.commit("newCustomTodoList", customTodoListId);
       customToDoListIdsRepository.update(this.$store.getters.cTodoListIds);
       toDoListRepository.update(customTodoListId.listId, this.$store.getters.todoLists[customTodoListId.listId]);
-      this.$nextTick(() => {
+      this.$nextTick(function () {
         this.$refs.customListContainer.scrollLeft = this.$refs.customListContainer.scrollWidth;
       });
     },
@@ -722,30 +725,6 @@ body {
   scroll-behavior: smooth;
 }
 
-/* “+”新建自定义列表色块：不再画边框，只保留鼠标可点提示 */
-.add-list-tile {
-  cursor: pointer;
-  margin-bottom: 5px;
-  min-height: 80px;
-}
-
-.add-list-tile:hover {
-  background-color: #f7f8fa;
-}
-
-.add-list-icon {
-  font-size: 1.6rem;
-  color: #8a8f98;
-}
-
-.dark-theme .add-list-tile:hover {
-  background-color: #1a1e24;
-}
-
-.dark-theme .add-list-icon {
-  color: #8a8f98;
-}
-
 .dark-theme *::-webkit-scrollbar-thumb {
   background: #333940;
   border-radius: 5px;
@@ -844,8 +823,7 @@ body {
     .inner-main-horizontal-divider {
       display: none;
     }
-
-    .divider-icons-container {
+        .divider-icons-container {
       margin-top: -25px;
       visibility: visible;
       opacity: 0.3;
@@ -905,5 +883,24 @@ body {
 
 .full-screen-divider {
   height: 100% !important;
+}
+
+/*----------------自定义列表末尾的"+"新建图块---------------*/
+.add-list-tile {
+  cursor: pointer;
+  margin-bottom: 5px;
+  min-height: 80px;
+  flex: 0 0 80px;
+  display: flex;
+  align-self: stretch;
+}
+
+.add-list-icon {
+  font-size: 1.4rem;
+  color: #8a8f98;
+}
+
+.dark-theme .add-list-icon {
+  color: #6b7078;
 }
 </style>

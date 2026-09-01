@@ -27,13 +27,12 @@
       <textarea
         v-show="editing"
         class="edit todo-input"
+        rows="1"
         v-model="text"
         ref="toDoEditInput"
-        rows="1"
+        @input="autoGrow($event)"
         @blur="doneEdit()"
-        @input="autoGrow"
         @keydown.enter.exact.prevent="doneEdit()"
-        @keydown.enter.shift.exact="onShiftEnter"
         @keyup.esc="cancelEdit()"
       ></textarea>
     </div>
@@ -61,33 +60,17 @@ export default {
     };
   },
   methods: {
-    editToDo: function (e) {
+    editToDo: function () {
       this.text = this.toDo.text;
       this.editing = true;
-      const clickX = e ? e.clientX : null;
-      const clickY = e ? e.clientY : null;
-      this.$nextTick(() => {
+      this.$nextTick(function () {
+        this.$refs.toDoEditInput.style.height = "auto";
+        this.$refs.toDoEditInput.style.height = this.$refs.toDoEditInput.scrollHeight + "px";
         this.$refs.toDoEditInput.focus();
-        this.autoGrow({ target: this.$refs.toDoEditInput });
-        if (clickX !== null && clickY !== null && document.caretRangeFromPoint) {
-          const range = document.caretRangeFromPoint(clickX, clickY);
-          if (range) {
-            const offset = range.startOffset;
-            this.$refs.toDoEditInput.setSelectionRange(offset, offset);
-          }
-        } else {
-          const len = this.text ? this.text.length : 0;
-          this.$refs.toDoEditInput.setSelectionRange(len, len);
-        }
+        this.$refs.toDoEditInput.select();
       });
       document.getElementById("todo-item-active").style.display = 'none';
     },
-    autoGrow: function (e) {
-      const el = e.target;
-      el.style.height = "auto";
-      el.style.height = el.scrollHeight + "px";
-    },
-    onShiftEnter: function () {},
     doneEdit: function () {
       this.editing = false;
       this.$store.commit("updateTodo", {
@@ -101,8 +84,16 @@ export default {
       this.text = this.toDo.text;
       this.editing = false;
     },
-    onDragenter: function () { this.todoDragHover = true; },
-    onDragleave: function () { this.todoDragHover = false; },
+    autoGrow: function (e) {
+      e.target.style.height = "auto";
+      e.target.style.height = e.target.scrollHeight + "px";
+    },
+    onDragenter: function () {
+      this.todoDragHover = true;
+    },
+    onDragleave: function () {
+      this.todoDragHover = false;
+    },
     timeFormat: function (date) {
       if (date) {
         return moment(date, "HH:mm").format("hh:mm a");
@@ -117,8 +108,9 @@ export default {
         container: this.$refs.itemContainer
       };
       this.$store.commit('setActiveTodo', activeTodo);
+
       const activeTodoItem = document.getElementById("todo-item-active");
-      this.$nextTick(() => {
+      this.$nextTick(function () {
         const bounding = this.$refs.itemContainer.getBoundingClientRect();
         activeTodoItem.style.width = `${bounding.width}px`;
         activeTodoItem.style.top = `${bounding.y}px`;
@@ -134,16 +126,47 @@ export default {
     todoText: function () {
       return linkifyStr(this.toDo.text, this.options).replace(/\n/g, "<br>");
     },
-    compactView: function () { return this.$store.getters.config.compactView; },
-    notificationIndicator: function () { return this.$store.getters.config.notificationIndicator; }
+    compactView: function () {
+      return this.$store.getters.config.compactView;
+    },
+    notificationIndicator: function () {
+      return this.$store.getters.config.notificationIndicator;
+    }
   }
 };
 </script>
 
 <style scoped lang="scss">
-.todo-item-container { border-bottom: 1px solid #eaecef; min-height: 26px; z-index: 1; .dark-theme & { border-bottom: 1px solid #30363d; } }
-.dragging-item .item-drop-zone * { pointer-events: none; }
-.todo-input { line-height: 1.3rem; width: 100%; border: none; font-size: 0.865rem; resize: none; overflow: hidden; font-family: inherit; padding: 0 3px 0 7px; &:focus { outline: none; } }
+.todo-item-container {
+  border-bottom: 1px solid #eaecef;
+  min-height: 26px;
+  z-index: 1;
+
+  .dark-theme & {
+    border-bottom: 1px solid #30363d;
+  }
+}
+
+.dragging-item .item-drop-zone * {
+  pointer-events: none;
+}
+
+.todo-input {
+  line-height: 1.3rem;
+  width: 100%;
+  border: none;
+  font-size: 0.865rem;
+  font-family: inherit;
+  resize: none;
+  overflow-y: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+
+  &:focus {
+    outline: none;
+  }
+}
+
 .item-text {
   transition: width 2s, height 2s, transform 2s;
   width: 1rem;
@@ -152,26 +175,110 @@ export default {
   font-size: 0.865rem;
   margin: 2px 0px 2px 0px;
   padding: 0 3px 0 7px;
-  white-space: normal;
-  overflow-wrap: break-word;
-  word-break: break-word;
 }
-.item-text.compact-view { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; height: 1.2rem; }
-.item-time { transition: width 2s, height 2s, transform 2s; height: 1.2rem; line-height: 1.3rem; font-size: 0.865rem; margin: 2px 0px 2px 0px; padding: 0 2px 0 0px; opacity: 0.6; }
-.item-time.checked-todo { opacity: unset; color: #16a34a; .dark-theme & { color: #4ade80; } }
-.time-details { opacity: 0.6; display: inline; margin-left: 5px; }
-/* 完成态：不再置灰、不再加删除线，改为绿色字体 */
+
+.item-text.compact-view {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  height: 1.2rem;
+}
+
+.item-time {
+  transition: width 2s, height 2s, transform 2s;
+  height: 1.2rem;
+  line-height: 1.3rem;
+  font-size: 0.865rem;
+  margin: 2px 0px 2px 0px;
+  padding: 0 2px 0 0px;
+  opacity: 0.6;
+}
+
+.item-time.checked-todo {
+  opacity: unset;
+}
+
+.time-details {
+  opacity: 0.6;
+  display: inline;
+  margin-left: 5px;
+}
+
 .checked-todo {
   color: #16a34a;
+
   .dark-theme & {
     color: #4ade80;
   }
 }
-.checked-sub-task { color: #c4c4c4; text-decoration: line-through; .dark-theme & { color: #3a3a40; } input { opacity: 0.5; } }
-.drag-hover { color: rgba(157, 157, 157, 0.43); box-shadow: rgb(244, 243, 243) 0px 0px 4px 1px inset; background-color: rgb(250, 249, 249); }
-.dark-theme .drag-hover { color: rgb(69, 69, 69); box-shadow: #0b0d12 0px 0px 4px 1px inset; background-color: #0c0d14; }
-.sub-tasks { list-style: none; padding: 0px; font-size: 0.865rem; li { margin: 0px 10px 0px 10px; } li:last-child { margin: 0px 10px 10px 10px; } input { min-width: 14px; width: 14px; min-height: 14px; height: 14px; margin-right: 8px; } label { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } }
-.cicle-icon { font-size: 10px; margin-right: 5px; cursor: pointer; }
-.bi-check-circle-fill, .bi-check-circle { opacity: 0.7; }
-.todo-item-container.compact-view { height: 26px; }
+
+.checked-sub-task {
+  color: #c4c4c4;
+  text-decoration: line-through;
+
+  .dark-theme & {
+    color: #3a3a40;
+  }
+
+  input {
+    opacity: 0.5;
+  }
+}
+
+.drag-hover {
+  color: rgba(157, 157, 157, 0.43);
+  box-shadow: rgb(244, 243, 243) 0px 0px 4px 1px inset;
+  background-color: rgb(250, 249, 249);
+}
+
+.dark-theme .drag-hover {
+  color: rgb(69, 69, 69);
+  box-shadow: #0b0d12 0px 0px 4px 1px inset;
+  background-color: #0c0d14;
+}
+
+.sub-tasks {
+  list-style: none;
+  padding: 0px;
+  font-size: 0.865rem;
+
+  li {
+    margin: 0px 10px 0px 10px;
+  }
+
+  li:last-child {
+    margin: 0px 10px 10px 10px;
+  }
+
+  input {
+    min-width: 14px;
+    width: 14px;
+    min-height: 14px;
+    height: 14px;
+    margin-right: 8px;
+  }
+
+  label {
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+}
+
+.cicle-icon {
+  font-size: 10px;
+  margin-right: 5px;
+}
+
+.bi-check-circle-fill,
+.bi-check-circle {
+  opacity: 0.7;
+}
+
+.todo-item-container.compact-view {
+  height: 26px;
+}
 </style>

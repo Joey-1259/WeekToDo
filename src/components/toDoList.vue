@@ -8,7 +8,8 @@
       </div>
     </div>
 
-    <list-header :id="id" :customTodoList="customTodoList" :cTodoListIndex="cTodoListIndex" :toDoList="toDoListState">
+    <list-header :id="id" :customTodoList="customTodoList" :cTodoListIndex="cTodoListIndex" :toDoList="toDoListState"
+      :pickedDate="pickedDate">
     </list-header>
     <ul class="to-do-list">
       <li v-for="(toDo, index) in toDoListState" :key="index">
@@ -48,6 +49,7 @@ export default {
     customTodoList: { required: false, default: false, type: Boolean },
     cTodoListIndex: { required: false, type: Number },
     showCustomList: { required: false, type: Boolean },
+    pickedDate: { required: false, default: null, type: String },
   },
   data() {
     return {
@@ -178,7 +180,7 @@ export default {
     columns: function () {
       if (this.customTodoList)
         return this.$store.getters.config.customColumns;
-        
+
       return this.$store.getters.config.columns;
     },
   },

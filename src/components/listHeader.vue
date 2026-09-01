@@ -3,8 +3,8 @@
     <i v-show="!editing" class="bi-info header-menu-icons align-self-center dropdown-toggle-split "
       style="visibility: hidden"></i>
     <div style="flex-grow: 1" class="noselect">
-      <div v-if="!customTodoList">
-        <h4 :class="{ 'today-date': is_today }">
+      <div v-if="!customTodoList" :class="{ 'today-date': is_today, 'picked-date': is_picked && !is_today }">
+        <h4>
           {{ moments(id).locale(language).format("dddd") }}
         </h4>
         <span class="weekly-to-do-subheader">
@@ -79,6 +79,7 @@ export default {
     customTodoList: { required: false, default: false, type: Boolean },
     cTodoListIndex: { required: false, type: Number },
     toDoList: { required: false, type: Array },
+    pickedDate: { required: false, default: null, type: String },
   },
   data() {
     return {
@@ -192,6 +193,10 @@ export default {
     is_today: function () {
       return moment().format("YYYYMMDD") == this.id;
     },
+    // 是否是用户通过日历“主动选中”的那一天（不含今天，今天优先用 today-date 样式）
+    is_picked: function () {
+      return !!this.pickedDate && this.pickedDate == this.id;
+    },
     todo_list_name: function () {
       return this.$store.getters.cTodoListIds[this.cTodoListIndex].listName;
     },
@@ -214,8 +219,30 @@ export default {
   justify-content: center;
 }
 
-.today-date {
-  text-decoration: underline;
+/* “今天”所在列的表头：蓝色高亮 */
+.today-date h4,
+.today-date .weekly-to-do-subheader {
+  color: #2563eb;
+}
+.today-date h4 {
+  font-weight: 700;
+}
+.dark-theme .today-date h4,
+.dark-theme .today-date .weekly-to-do-subheader {
+  color: #60a5fa;
+}
+
+/* 用户通过日历主动选中的那一天（非今天）：橙色高亮，与“今天”区分 */
+.picked-date h4,
+.picked-date .weekly-to-do-subheader {
+  color: #f59e0b;
+}
+.picked-date h4 {
+  font-weight: 700;
+}
+.dark-theme .picked-date h4,
+.dark-theme .picked-date .weekly-to-do-subheader {
+  color: #fbbf24;
 }
 
 .weekly-to-do-header h4 {

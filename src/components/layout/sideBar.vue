@@ -29,8 +29,6 @@
       :weekStartsOn="weekStartOnMonday"
     />
     <i v-if="showCalendar" class="bi-calendar-event" @click="changeDate" :title="$t('ui.calendar')"> </i>
-    <!-- <i class="bi-search" :title="$t('donate.supportUs')"></i>
-    <i class="bi-filter" :title="$t('donate.supportUs')" ></i> -->
     <i
       v-if="showCalendar"
       class="bi-arrow-repeat"
@@ -72,7 +70,6 @@
       </ul>
     </div>
 
-    <!-- <i class="bi-person-circle" :title="$t('donate.supportUs')" @click="openDonateModal"></i> -->
     <i class="bi-info-square" data-bs-toggle="modal" data-bs-target="#tipsModal" :title="$t('tips.tips')"></i>
     <i
       class="bi-gear"
@@ -128,8 +125,9 @@ export default {
         };
       });
     },
+    // “回到今天”：picked 标记为 false，App.vue 会因此清空 pickedDate 高亮
     setTodayDate: function () {
-      this.$emit("changeDate", moment().format("YYYYMMDD"));
+      this.$emit("changeDate", { date: moment().format("YYYYMMDD"), picked: false });
     },
     newCustomTodoList: function () {
       const customTodoListId = { listId: moment().format("YYYYMMDDTHHmmssS"), listName: "" };
@@ -153,11 +151,12 @@ export default {
     },
   },
   watch: {
+    // 日历挑选某一天：picked 标记为 true，App.vue 会用这个日期高亮表头
     pickedDate: function (val) {
       if (this.datepickerEnabled) {
         document.getElementById("side-bar-date-picker-input").removeEventListener("focusout", this.resetDatePicker);
         this.datepickerEnabled = false;
-        this.$emit("changeDate", moment(val).format("YYYYMMDD"));
+        this.$emit("changeDate", { date: moment(val).format("YYYYMMDD"), picked: true });
         this.pickedDate = new Date();
       }
     },

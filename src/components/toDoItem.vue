@@ -61,40 +61,32 @@ export default {
     };
   },
   methods: {
-    // e 是触发编辑的原生点击事件（从 activeToDo.vue 的 editTodoClickHandler 传进来）
-    // 如果没有事件传入（比如非点击方式触发编辑），则按老逻辑把光标放在末尾
     editToDo: function (e) {
       this.text = this.toDo.text;
       this.editing = true;
       const clickX = e ? e.clientX : null;
       const clickY = e ? e.clientY : null;
-      this.$nextTick(function () {
+      this.$nextTick(() => {
         this.$refs.toDoEditInput.focus();
         this.autoGrow({ target: this.$refs.toDoEditInput });
-
         if (clickX !== null && clickY !== null && document.caretRangeFromPoint) {
-          // 用点击时的屏幕坐标反查对应的字符位置
           const range = document.caretRangeFromPoint(clickX, clickY);
           if (range) {
             const offset = range.startOffset;
             this.$refs.toDoEditInput.setSelectionRange(offset, offset);
           }
         } else {
-          // 没有点击坐标信息时，保留在文本末尾，不做全选，避免打字时误删全部内容
           const len = this.text ? this.text.length : 0;
           this.$refs.toDoEditInput.setSelectionRange(len, len);
         }
       });
       document.getElementById("todo-item-active").style.display = 'none';
     },
-    // textarea 内容变化时，让高度跟随内容自动伸展，避免出现内部滚动条
     autoGrow: function (e) {
       const el = e.target;
       el.style.height = "auto";
       el.style.height = el.scrollHeight + "px";
     },
-    // Shift+Enter 时什么都不做，只是配合 keydown.enter.exact.prevent 让
-    // 单独 Enter 触发保存、Shift+Enter 触发 textarea 原生换行
     onShiftEnter: function () {},
     doneEdit: function () {
       this.editing = false;
@@ -109,12 +101,8 @@ export default {
       this.text = this.toDo.text;
       this.editing = false;
     },
-    onDragenter: function () {
-      this.todoDragHover = true;
-    },
-    onDragleave: function () {
-      this.todoDragHover = false;
-    },
+    onDragenter: function () { this.todoDragHover = true; },
+    onDragleave: function () { this.todoDragHover = false; },
     timeFormat: function (date) {
       if (date) {
         return moment(date, "HH:mm").format("hh:mm a");
@@ -129,9 +117,8 @@ export default {
         container: this.$refs.itemContainer
       };
       this.$store.commit('setActiveTodo', activeTodo);
-
       const activeTodoItem = document.getElementById("todo-item-active");
-      this.$nextTick(function () {
+      this.$nextTick(() => {
         const bounding = this.$refs.itemContainer.getBoundingClientRect();
         activeTodoItem.style.width = `${bounding.width}px`;
         activeTodoItem.style.top = `${bounding.y}px`;
@@ -145,48 +132,18 @@ export default {
   },
   computed: {
     todoText: function () {
-      return linkifyStr(this.toDo.text, this.options);
+      return linkifyStr(this.toDo.text, this.options).replace(/\n/g, "<br>");
     },
-    compactView: function () {
-      return this.$store.getters.config.compactView;
-    },
-    notificationIndicator: function () {
-      return this.$store.getters.config.notificationIndicator;
-    }
+    compactView: function () { return this.$store.getters.config.compactView; },
+    notificationIndicator: function () { return this.$store.getters.config.notificationIndicator; }
   }
 };
 </script>
 
 <style scoped lang="scss">
-.todo-item-container {
-  border-bottom: 1px solid #eaecef;
-  min-height: 26px;
-  z-index: 1;
-
-  .dark-theme & {
-    border-bottom: 1px solid #30363d;
-  }
-}
-
-.dragging-item .item-drop-zone * {
-  pointer-events: none;
-}
-
-.todo-input {
-  line-height: 1.3rem;
-  width: 100%;
-  border: none;
-  font-size: 0.865rem;
-  resize: none;
-  overflow: hidden;
-  font-family: inherit;
-  padding: 0 3px 0 7px;
-
-  &:focus {
-    outline: none;
-  }
-}
-
+.todo-item-container { border-bottom: 1px solid #eaecef; min-height: 26px; z-index: 1; .dark-theme & { border-bottom: 1px solid #30363d; } }
+.dragging-item .item-drop-zone * { pointer-events: none; }
+.todo-input { line-height: 1.3rem; width: 100%; border: none; font-size: 0.865rem; resize: none; overflow: hidden; font-family: inherit; padding: 0 3px 0 7px; &:focus { outline: none; } }
 .item-text {
   transition: width 2s, height 2s, transform 2s;
   width: 1rem;
@@ -195,111 +152,26 @@ export default {
   font-size: 0.865rem;
   margin: 2px 0px 2px 0px;
   padding: 0 3px 0 7px;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
-
-.item-text.compact-view {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  height: 1.2rem;
-}
-
-.item-time {
-  transition: width 2s, height 2s, transform 2s;
-  height: 1.2rem;
-  line-height: 1.3rem;
-  font-size: 0.865rem;
-  margin: 2px 0px 2px 0px;
-  padding: 0 2px 0 0px;
-  opacity: 0.6;
-}
-
-.item-time.checked-todo {
-  opacity: unset;
-}
-
-.time-details {
-  opacity: 0.6;
-  display: inline;
-  margin-left: 5px;
-}
-
+.item-text.compact-view { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; height: 1.2rem; }
+.item-time { transition: width 2s, height 2s, transform 2s; height: 1.2rem; line-height: 1.3rem; font-size: 0.865rem; margin: 2px 0px 2px 0px; padding: 0 2px 0 0px; opacity: 0.6; }
+.item-time.checked-todo { opacity: unset; color: #16a34a; .dark-theme & { color: #4ade80; } }
+.time-details { opacity: 0.6; display: inline; margin-left: 5px; }
+/* 完成态：不再置灰、不再加删除线，改为绿色字体 */
 .checked-todo {
-  color: #acacac;
-  text-decoration: line-through;
-
+  color: #16a34a;
   .dark-theme & {
-    color: #636363;
+    color: #4ade80;
   }
 }
-
-.checked-sub-task {
-  color: #c4c4c4;
-  text-decoration: line-through;
-
-  .dark-theme & {
-    color: #3a3a40;
-  }
-
-  input {
-    opacity: 0.5;
-  }
-}
-
-.drag-hover {
-  color: rgba(157, 157, 157, 0.43);
-  box-shadow: rgb(244, 243, 243) 0px 0px 4px 1px inset;
-  background-color: rgb(250, 249, 249);
-}
-
-.dark-theme .drag-hover {
-  color: rgb(69, 69, 69);
-  box-shadow: #0b0d12 0px 0px 4px 1px inset;
-  background-color: #0c0d14;
-}
-
-.sub-tasks {
-  list-style: none;
-  padding: 0px;
-  font-size: 0.865rem;
-
-  li {
-    margin: 0px 10px 0px 10px;
-  }
-
-  li:last-child {
-    margin: 0px 10px 10px 10px;
-  }
-
-  input {
-    min-width: 14px;
-    width: 14px;
-    min-height: 14px;
-    height: 14px;
-    margin-right: 8px;
-  }
-
-  label {
-    margin-top: 2px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-  }
-}
-
-.cicle-icon {
-  font-size: 10px;
-  margin-right: 5px;
-}
-
-.bi-check-circle-fill,
-.bi-check-circle {
-  opacity: 0.7;
-}
-
-.todo-item-container.compact-view {
-  height: 26px;
-}
+.checked-sub-task { color: #c4c4c4; text-decoration: line-through; .dark-theme & { color: #3a3a40; } input { opacity: 0.5; } }
+.drag-hover { color: rgba(157, 157, 157, 0.43); box-shadow: rgb(244, 243, 243) 0px 0px 4px 1px inset; background-color: rgb(250, 249, 249); }
+.dark-theme .drag-hover { color: rgb(69, 69, 69); box-shadow: #0b0d12 0px 0px 4px 1px inset; background-color: #0c0d14; }
+.sub-tasks { list-style: none; padding: 0px; font-size: 0.865rem; li { margin: 0px 10px 0px 10px; } li:last-child { margin: 0px 10px 10px 10px; } input { min-width: 14px; width: 14px; min-height: 14px; height: 14px; margin-right: 8px; } label { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } }
+.cicle-icon { font-size: 10px; margin-right: 5px; cursor: pointer; }
+.bi-check-circle-fill, .bi-check-circle { opacity: 0.7; }
+.todo-item-container.compact-view { height: 26px; }
 </style>

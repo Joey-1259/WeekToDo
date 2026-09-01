@@ -24,6 +24,7 @@
               :key="date"
               :id="date"
               :showCustomList="showCustomList"
+              :pickedDate="pickedDate"
               @todo-list-mounted="todoListMounted"
             >
             </to-do-list>
@@ -206,6 +207,9 @@ export default {
   data() {
     return {
       selected_date: null,
+      // 记录用户通过日历“主动挑选”的那一天，用来在表头上和“今天”区分着色；
+      // 仅在点击日历选日期时赋值，点击“回到今天”会清空
+      pickedDate: null,
       cTodoList: this.$store.getters.cTodoListIds,
       calendarHeight: "calc(50% - 50px)",
       ipcRenderer: null,
@@ -233,7 +237,8 @@ export default {
         let totalCustomListCount = this.$store.getters.cTodoListIds.length;
         this.initialListToLoad = totalDaysCount + totalCustomListCount;
         this.deleteOldRepeatingEvents();
-        this.selected_date = moment().format("YYYYMMDD");
+        // 默认锚点改为“当前所在周的周一”，而不是“今天”
+        this.selected_date = moment().startOf("isoWeek").format("YYYYMMDD");
         this.$nextTick(() => {
           this.weekResetScroll();
         });
@@ -245,25 +250,11 @@ export default {
     this.$refs.weekListContainer.scrollLeft = this.todoListWidth();
     this.calendarHeight = this.$store.getters.config.calendarHeight;
     window.addEventListener("resize", this.weekResetScroll);
-
-    // 修复：原来只依赖 onreadystatechange 事件，如果 mounted() 执行时
-    // document.readyState 已经是 "complete"（Electron 加载本地打包资源时
-    // 经常会出现这种情况），这个事件就不会再触发一次，导致 hideSplash
-    // 永远不会被调用，启动页会一直卡住。这里改成先立刻检查一次当前状态，
-    // 如果已经是 complete 就直接安排隐藏逻辑；否则再继续监听后续的状态变化。
-    const scheduleHideSplash = () => {
-      setTimeout(this.hideSplash, 4500);
+    document.onreadystatechange = () => {
+      if (document.readyState == "complete") {
+        setTimeout(this.hideSplash, 4500);
+      }
     };
-
-    if (document.readyState === "complete") {
-      scheduleHideSplash();
-    } else {
-      document.onreadystatechange = () => {
-        if (document.readyState == "complete") {
-          scheduleHideSplash();
-        }
-      };
-    }
 
     if (isElectron()) {
       const { ipcRenderer } = require("electron");
@@ -330,13 +321,22 @@ export default {
     customTodoListWidth: function () {
       return this.$refs.customListContainer.clientWidth / this.customColumns;
     },
-    setSelectedDate: function (date) {
-      this.selected_date = date;
+    // 统一处理“回到今天”和“日历选日期”两种入口；
+    // 无论选中哪一天，实际展示锚点都落到那一天所在自然周的周一，
+    // 但会用 pickedDate 记录用户真正点的那一天，用于表头高亮区分
+    setSelectedDate: function (payload) {
+      let date = typeof payload === "string" ? payload : payload.date;
+      let picked = typeof payload === "object" && !!payload.picked;
+
+      this.pickedDate = picked ? date : null;
+      this.selected_date = moment(date).startOf("isoWeek").format("YYYYMMDD");
+
       this.$nextTick(function () {
-        document
-          .getElementById("list" + date)
-          .getElementsByClassName("new-todo-input")[0]
-          .focus();
+        let list = document.getElementById("list" + date);
+        if (list) {
+          let input = list.getElementsByClassName("new-todo-input")[0];
+          if (input) input.focus();
+        }
       });
     },
     isElectron: function () {
@@ -658,7 +658,6 @@ body {
   transition: height 0.15s ease-out 0s;
   margin-top: 20px;
   margin-bottom: 25px;
-  // margin-bottom: 5px;
 }
 
 .slider-btn {
@@ -773,7 +772,6 @@ body {
   width: 100%;
   height: 100%;
   z-index: 999;
-  /*position: absolute;*/
 }
 
 .hidden-input-for-focus {

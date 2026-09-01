@@ -1,6 +1,6 @@
 "use strict";
 
-import { app, protocol, BrowserWindow, Menu, Tray, ipcMain, nativeImage } from "electron";
+import { app, protocol, BrowserWindow, ipcMain } from "electron";
 import { createProtocol } from "vue-cli-plugin-electron-builder/lib";
 import installExtension, { VUEJS_DEVTOOLS } from "electron-devtools-installer";
 
@@ -14,9 +14,6 @@ const isServeMode = () => {
 };
 
 let mainWindow = null;
-var tray = null;
-var trayContextMenu = null;
-var trayMenuTemplate = null;
 var SplashScreenIsHidden = true;
 const path = require("path");
 
@@ -33,9 +30,6 @@ function wasOpenedAtLogin() {
       return false;
     }
   }
-  // Windows/Linux 平台上 auto-launch 库是通过命令行参数拉起的，
-  // 这里做一个简单兜底判断：如果命令行参数里带有 --hidden 之类的自启动标记就当作登录启动
-  // 目前项目里 auto-launch 没有专门传这个参数，所以先默认返回 false，保持手动打开必显示的行为
   return false;
 }
 
@@ -45,8 +39,6 @@ async function createWindow() {
   let opts = {
     minWidth: 1000,
     minHeight: 600,
-    // 原来是 !config.get("runInBackground")，导致每次冷启动（包括手动打开）都可能隐藏窗口
-    // 现在只有确认是登录时自启动才遵循 runInBackground，其余场景一律直接显示
     show: openedAtLogin ? !config.get("runInBackground") : true,
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
@@ -70,8 +62,6 @@ async function createWindow() {
   ipcMain.on("match-open-on-startup", matchOpenOnStartup);
   ipcMain.on("set-open-on-startup", setOpenOnStartup);
   ipcMain.on("set-run-in-background", setRunInBackground);
-  ipcMain.on("set-tray-context-menu-label", setTrayContextMenuLabel);
-  ipcMain.on("set-dark-tray-icon", setDarkTrayIcon);
   ipcMain.on("clear-config", clearConfig);
 
   if (typeof config.get("runInBackground") == "undefined") {
@@ -129,16 +119,16 @@ if (!gotTheLock) {
     }
   });
 
+  // Dock 图标始终可见，这里改成用窗口自身的可见性来判断要不要重新显示
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
-    } else if (!app.dock.isVisible()) {
+    } else if (!mainWindow.isVisible()) {
       showWindow(mainWindow);
     }
   });
 
   app.on("ready", async () => {
-    createTray();
     createWindow();
 
     if (isDevelopment && !process.env.IS_TEST) {
@@ -205,20 +195,6 @@ function setRunInBackground(event, runInBackground) {
   config.set("runInBackground", runInBackground);
 }
 
-function setDarkTrayIcon(event, darkTrayIcon) {
-  config.set("darkTrayIcon", darkTrayIcon);
-  tray.setImage(creatTrayIconPath());
-}
-
-function setTrayContextMenuLabel(event, labels) {
-  config.set("openLabel", labels.open);
-  config.set("quitLabel", labels.quit);
-  trayMenuTemplate[0].label = labels.open;
-  trayMenuTemplate[1].label = labels.quit;
-  const menu = Menu.buildFromTemplate(trayMenuTemplate);
-  tray.setContextMenu(menu);
-}
-
 function matchOpenOnStartup(event, openOnStartup) {
   let AutoLaunch = require("auto-launch");
   let autoLauncher = new AutoLaunch({
@@ -242,8 +218,8 @@ function matchOpenOnStartup(event, openOnStartup) {
     });
 }
 
+// Dock 图标常驻，这里不再需要显式调用 app.dock.show()
 function showWindow(window) {
-  if (process.platform === "darwin") app.dock.show();
   window.show();
   if (SplashScreenIsHidden) {
     SplashScreenIsHidden = false;
@@ -253,9 +229,10 @@ function showWindow(window) {
   }
 }
 
+// 关闭窗口时只隐藏窗口本身，不再隐藏 Dock 图标，
+// 这样点击 X 之后 Dock 图标依旧常驻，点击 Dock 图标即可重新唤出主界面
 function hideWindow(window) {
   window.hide();
-  if (process.platform === "darwin") app.dock.hide();
 }
 
 function closeApp() {
@@ -263,63 +240,4 @@ function closeApp() {
   config.set("winBounds", mainWindow.getBounds());
   config.set("isMaximized", mainWindow.isMaximized());
   app.quit();
-}
-
-function createTray() {
-  if (!config.get("darkTrayIcon")) {
-    config.set("darkTrayIcon", false);
-  }
-
-  var iconPath = creatTrayIconPath();
-  tray = new Tray(iconPath);
-
-  if (!config.get("openLabel")) {
-    config.set("openLabel", "Open");
-    config.set("quitLabel", "Quit");
-  }
-
-  trayMenuTemplate = [
-    {
-      label: config.get("openLabel"),
-      click() {
-        if (config.get("isMaximized")) mainWindow.maximize();
-        showWindow(mainWindow);
-        setTimeout(hideSplashScreen, 5000);
-      },
-    },
-    {
-      label: config.get("quitLabel"),
-      click() {
-        app.isQuiting = true;
-        config.set("winBounds", mainWindow.getBounds());
-        config.set("isMaximized", mainWindow.isMaximized());
-        app.quit();
-      },
-    },
-  ];
-
-  trayContextMenu = Menu.buildFromTemplate(trayMenuTemplate);
-  tray.setToolTip("WeekToDo Planner");
-  tray.setContextMenu(trayContextMenu);
-  tray.on("click", () => {
-    tray.popUpContextMenu();
-  });
-}
-
-function creatTrayIconPath() {
-  const path = require("path");
-  const darkPrefix = config.get("darkTrayIcon") ? "Dark" : "";
-
-  var iconPath;
-  if (process.platform === "win32") {
-    app.setAppUserModelId("WeekToDo");
-    iconPath = path.join(__dirname, `/trayIcon${darkPrefix}.ico`);
-  } else if (process.platform === "darwin") {
-    iconPath = nativeImage.createFromPath(path.join(__dirname, `/trayIcon${darkPrefix}.png`));
-  } else {
-    iconPath = isServeMode()
-      ? path.join(__dirname, `/bundled/trayIcon${darkPrefix}@3x.png`)
-      : path.join(__dirname, `/trayIcon${darkPrefix}@3x.png`);
-  }
-  return iconPath;
 }

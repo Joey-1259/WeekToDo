@@ -22,11 +22,32 @@ const path = require("path");
 
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { secure: true, standard: true, stream: true } }]);
 
+// 判断这次启动是不是系统登录时自动触发的（例如"登录时打开"这个开机自启动功能）
+// 只有在这种场景下才会遵循 runInBackground 配置去隐藏窗口；
+// 用户手动通过 Spotlight / Dock / Finder 打开时，永远直接显示窗口
+function wasOpenedAtLogin() {
+  if (process.platform === "darwin") {
+    try {
+      return app.getLoginItemSettings().wasOpenedAtLogin;
+    } catch (e) {
+      return false;
+    }
+  }
+  // Windows/Linux 平台上 auto-launch 库是通过命令行参数拉起的，
+  // 这里做一个简单兜底判断：如果命令行参数里带有 --hidden 之类的自启动标记就当作登录启动
+  // 目前项目里 auto-launch 没有专门传这个参数，所以先默认返回 false，保持手动打开必显示的行为
+  return false;
+}
+
 async function createWindow() {
+  let openedAtLogin = wasOpenedAtLogin();
+
   let opts = {
     minWidth: 1000,
     minHeight: 600,
-    show: !config.get("runInBackground"),
+    // 原来是 !config.get("runInBackground")，导致每次冷启动（包括手动打开）都可能隐藏窗口
+    // 现在只有确认是登录时自启动才遵循 runInBackground，其余场景一律直接显示
+    show: openedAtLogin ? !config.get("runInBackground") : true,
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
       nodeIntegration: process.env.ELECTRON_NODE_INTEGRATION,
@@ -111,19 +132,13 @@ if (!gotTheLock) {
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
-    } else if (!mainWindow.isVisible()) {
+    } else if (!app.dock.isVisible()) {
       showWindow(mainWindow);
     }
   });
 
-  app.on("before-quit", () => {
-    app.isQuiting = true;
-  });
-
   app.on("ready", async () => {
-    if (process.platform !== "darwin") {
-      createTray();
-    }
+    createTray();
     createWindow();
 
     if (isDevelopment && !process.env.IS_TEST) {
@@ -192,18 +207,16 @@ function setRunInBackground(event, runInBackground) {
 
 function setDarkTrayIcon(event, darkTrayIcon) {
   config.set("darkTrayIcon", darkTrayIcon);
-  if (tray) tray.setImage(creatTrayIconPath());
+  tray.setImage(creatTrayIconPath());
 }
 
 function setTrayContextMenuLabel(event, labels) {
   config.set("openLabel", labels.open);
   config.set("quitLabel", labels.quit);
-  if (tray && trayMenuTemplate) {
-    trayMenuTemplate[0].label = labels.open;
-    trayMenuTemplate[1].label = labels.quit;
-    const menu = Menu.buildFromTemplate(trayMenuTemplate);
-    tray.setContextMenu(menu);
-  }
+  trayMenuTemplate[0].label = labels.open;
+  trayMenuTemplate[1].label = labels.quit;
+  const menu = Menu.buildFromTemplate(trayMenuTemplate);
+  tray.setContextMenu(menu);
 }
 
 function matchOpenOnStartup(event, openOnStartup) {
@@ -242,8 +255,7 @@ function showWindow(window) {
 
 function hideWindow(window) {
   window.hide();
-  // 不再隐藏 Dock 图标，让它保持常驻，这样才能通过点击 Dock 图标重新唤起窗口
-  // if (process.platform === "darwin") app.dock.hide();
+  if (process.platform === "darwin") app.dock.hide();
 }
 
 function closeApp() {

@@ -45,20 +45,20 @@ export default {
   name: "splashScreen",
   data() {
     return {
-      show: true,
+      // 原来是 true，会在启动时全屏遮罩展示 1-2 秒的 Logo 品牌页
+      // 改成 false 后该遮罩永远不会渲染出来，主界面会直接展示，不再有任何等待感
+      show: false,
       sponsor: null,
       darkTheme: this.$store.getters.config.darkTheme,
     };
   },
   mounted() {
-    const axios = require("axios").default;
-    axios
-      .get("https://weektodo.me/api/sponsors")
-      .then((response) => this.renderSponsor(response))
-      .catch((error) => console.log(error.message));
+    // 不再请求赞助商信息，因为遮罩已经不展示，这个请求没有意义
+    // 保留方法体为空，避免其他地方（如果有）调用出错
   },
   methods: {
     hideSplash: function () {
+      // show 已经默认是 false，这里保持方法存在只是为了兼容 App.vue / background.js 里对它的调用
       this.show = false;
     },
     renderSponsor: function (response) {
@@ -115,7 +115,6 @@ export default {
   position: relative;
   background-color: #fefefe;
   box-shadow: 0 2px 20px 0 rgb(0 0 0 / 7%);
-  /*border: 1px solid #dbdbdb;*/
   text-decoration: unset;
   color: unset;
   transition: transform 0.4s;
@@ -133,10 +132,6 @@ export default {
   width: 32px;
   border-radius: 25px;
 }
-
-/*.sponsor-text{*/
-/*  text-decoration: unset;*/
-/*}*/
 
 .splash-screen {
   width: 100%;

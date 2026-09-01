@@ -128,6 +128,13 @@ if (!gotTheLock) {
     }
   });
 
+  // 关键修复：不管退出动作从哪里触发（Dock 右键退出、Cmd+Q、代码里调用 app.quit()），
+  // before-quit 都会先被触发，统一在这里把 isQuiting 置为 true，
+  // 这样 close 事件里的拦截逻辑才会放行，应用才能真正退出，而不是只隐藏窗口。
+  app.on("before-quit", () => {
+    app.isQuiting = true;
+  });
+
   app.on("ready", async () => {
     createWindow();
 

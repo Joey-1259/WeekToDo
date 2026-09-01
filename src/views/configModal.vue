@@ -283,6 +283,26 @@
                       </button>
                     </div>
 
+                    <!-- 新增:Excel 导出 -->
+                    <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
+                      <label class="form-check-label" for="export-excel-btn">{{ $t("settings.exportExcel") }}</label>
+                      <button id="export-excel-btn" type="button" class="btn py-1 px-2 border" style="width: 140px;"
+                        @click="exportExcel">
+                        <i class="icons bi-file-earmark-spreadsheet mx-2"></i>
+                        {{ $t("settings.export") }}
+                      </button>
+                    </div>
+
+                    <!-- 新增:Excel 导入 -->
+                    <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
+                      <label class="form-check-label" for="import-excel-btn">{{ $t("settings.importExcel") }}</label>
+                      <button id="import-excel-btn" type="button" class="btn py-1 px-2 border" style="width: 140px;"
+                        @click="$refs.loadExcel.click">
+                        <i class="icons bi-file-earmark-arrow-up mx-2"></i>
+                        {{ $t("settings.import") }}
+                      </button>
+                    </div>
+
                     <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
                       <label class="form-check-label" for="clear-data-btn">{{ $t("settings.clearData") }}</label>
                       <button id="clear-data-btn" type="button" class="btn py-1 px-2 border" style="width: 140px;"
@@ -294,6 +314,9 @@
                   </div>
                   <input type="file" id="file-selector" class="d-none" accept=".wtdb" ref="loadData"
                     @change="importData($event)" />
+                  <!-- 新增:Excel 文件选择框 -->
+                  <input type="file" id="excel-file-selector" class="d-none" accept=".xlsx" ref="loadExcel"
+                    @change="importExcel($event)" />
                 </div>
               </div>
             </div>
@@ -303,23 +326,23 @@
                 <select id="language" class="col-sm-9 form-select" aria-label="Default select example"
                   v-model="configData.language" @change="setLanguage">
                   <option value="en">English</option>
-                  <option value="es">Español</option>
-                  <option value="fr">Français</option>
+                  <option value="es">Espaol</option>
+                  <option value="fr">Franais</option>
                   <option value="de">Deutsch</option>
                   <option value="it">Italiano</option>
-                  <option value="pt">Português</option>
-                  <option value="ru">русский</option>
-                  <option value="hi">हिंदी</option>
-                  <option value="ja">日本</option>
+                  <option value="pt">Portugus</option>
+                  <option value="ru"></option>
+                  <option value="hi"></option>
+                  <option value="ja"></option>
                   <option value="pl">Polski</option>
-                  <option value="ar">عرب</option>
-                  <option value="ko">한국어</option>
-                  <option value="zh_cn">简体中文</option>
-                  <option value="zh_tw">繁體中文</option>
-                  <option value="uk">український</option>
-                  <option value="tr">Türk</option>
-                  <option value="vi">Tiếng Việt</option>
-                  <option value="he">עִברִית</option>
+                  <option value="ar"></option>
+                  <option value="ko"></option>
+                  <option value="zh_cn"></option>
+                  <option value="zh_tw"></option>
+                  <option value="uk"></option>
+                  <option value="tr">Trk</option>
+                  <option value="vi">Ting Vit</option>
+                  <option value="he"></option>
                 </select>
               </div>
             </div>
@@ -337,6 +360,7 @@
 import configRepository from "../repositories/configRepository";
 import toastMessage from "../components/toastMessage";
 import exportTool from "../helpers/exportTool";
+import excelTool from "../helpers/excelTool";
 import linkList from "../components/linkList";
 import configList from "./configList";
 import notifications from "../helpers/notifications";
@@ -382,6 +406,22 @@ export default {
       let importingModal = new Modal(document.getElementById("importingModal"), { backdrop: "static" });
       importingModal.show();
       exportTool.import(event);
+    },
+    // 新增:Excel 导出转发方法
+    exportExcel: function () {
+      let configModal = Modal.getInstance(document.getElementById("configModal"));
+      configModal.hide();
+      let exportingModal = new Modal(document.getElementById("exportingModal"), { backdrop: "static" });
+      exportingModal.show();
+      excelTool.exportExcel();
+    },
+    // 新增:Excel 导入转发方法
+    importExcel: function (event) {
+      let configModal = Modal.getInstance(document.getElementById("configModal"));
+      configModal.hide();
+      let importingModal = new Modal(document.getElementById("importingModal"), { backdrop: "static" });
+      importingModal.show();
+      excelTool.excelImport(event);
     },
     isElectron: function () {
       let isElectron = require("is-electron");

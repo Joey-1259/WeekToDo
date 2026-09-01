@@ -1,5 +1,5 @@
 import moment from "moment";
-import { Modal } from "bootstrap";
+import { Modal, Toast } from "bootstrap";
 import dbRepository from "../repositories/dbRepository";
 import customToDoListIdsRepository from "../repositories/customToDoListIdsRepository";
 
@@ -10,34 +10,52 @@ export default {
   exportExcel() {
     import("xlsx")
       .then((XLSX) => {
-        let customListMap = {};
-        customToDoListIdsRepository.load().forEach((c) => {
-          customListMap[c.listId] = c.listName;
-        });
+        try {
+          let customListMap = {};
+          customToDoListIdsRepository.load().forEach((c) => {
+            customListMap[c.listId] = c.listName;
+          });
 
-        let rows = [];
-        let db_req = dbRepository.open();
-        db_req.onsuccess = function (event) {
-          let db = event.target.result;
-          let request = dbRepository.selectAll(db, "todo_lists");
-          request.onsuccess = function () {
-            let cursor = request.result;
-            if (cursor) {
-              appendRowsForList(rows, cursor.key, cursor.value, customListMap);
-              cursor.continue();
-            } else {
-              writeWorkbook(XLSX, rows);
+          let rows = [];
+          let db_req = dbRepository.open();
+
+          db_req.onsuccess = function (event) {
+            try {
+              let db = event.target.result;
+              let request = dbRepository.selectAll(db, "todo_lists");
+
+              request.onsuccess = function () {
+                try {
+                  let cursor = request.result;
+                  if (cursor) {
+                    appendRowsForList(rows, cursor.key, cursor.value, customListMap);
+                    cursor.continue();
+                  } else {
+                    writeWorkbook(XLSX, rows);
+                  }
+                } catch (innerErr) {
+                  console.error("导出 Excel 失败(整理数据阶段):", innerErr);
+                  hideExportingModal();
+                }
+              };
+              request.onerror = function () {
+                hideExportingModal();
+              };
+            } catch (dbErr) {
+              console.error("导出 Excel 失败(数据库读取阶段):", dbErr);
+              hideExportingModal();
             }
           };
-          request.onerror = function () {
+          db_req.onerror = function () {
             hideExportingModal();
           };
-        };
-        db_req.onerror = function () {
+        } catch (e) {
+          console.error("导出 Excel 失败(初始化阶段):", e);
           hideExportingModal();
-        };
+        }
       })
-      .catch(function () {
+      .catch(function (e) {
+        console.error("导出 Excel 失败(加载 xlsx 库失败):", e);
         showInvalidFileToast();
         hideExportingModal();
       });
@@ -67,6 +85,7 @@ export default {
             }
             processImportRows(rows);
           } catch (err) {
+            console.error("导入 Excel 失败(解析文件阶段):", err);
             showInvalidFileToast();
             hideImportingModal();
           }
@@ -77,7 +96,8 @@ export default {
         };
         reader.readAsArrayBuffer(file);
       })
-      .catch(function () {
+      .catch(function (e) {
+        console.error("导入 Excel 失败(加载 xlsx 库失败):", e);
         showInvalidFileToast();
         hideImportingModal();
       });
@@ -108,24 +128,55 @@ function appendRowsForList(rows, listId, tasks, customListMap) {
 }
 
 function writeWorkbook(XLSX, rows) {
-  rows.sort((a, b) => {
-    if (a.清单类型 !== b.清单类型) return a.清单类型 === "日历" ? -1 : 1;
-    return a.日期 > b.日期 ? 1 : a.日期 < b.日期 ? -1 : 0;
-  });
+  try {
+    rows.sort((a, b) => {
+      if (a.清单类型 !== b.清单类型) return a.清单类型 === "日历" ? -1 : 1;
+      return a.日期 > b.日期 ? 1 : a.日期 < b.日期 ? -1 : 0;
+    });
 
-  let ws = XLSX.utils.json_to_sheet(rows, { header: COLUMNS });
-  let wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "WeekToDo导出");
-  XLSX.writeFile(wb, `WeekToDo导出_${moment().format("YYYYMMDD_HHmm")}.xlsx`);
+    let ws = XLSX.utils.json_to_sheet(rows, { header: COLUMNS });
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "WeekToDo导出");
 
-  hideExportingModal();
+    // 关键修复:不用 XLSX.writeFile(),因为在 nodeIntegration 开启的 Electron 渲染进程里,
+    // 这个方法会误判环境、走 Node 的 fs.writeFileSync 直接写盘,容易写到只读目录导致报错、
+    // 且这个报错发生在 IndexedDB 回调里,外层 catch 抓不到,会让弹窗卡死。
+    // 改成手动生成 Blob + 模拟点击下载,和现有 exportTool.js 里 .wtdb 导出的方式保持一致,更可靠。
+    let wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    let blob = new Blob([wbout], { type: "application/octet-stream" });
+    let filename = `WeekToDo导出_${moment().format("YYYYMMDD_HHmm")}.xlsx`;
+    downloadBlob(blob, filename);
+  } catch (e) {
+    console.error("导出 Excel 失败(生成文件阶段):", e);
+  } finally {
+    // 不管成功还是失败,弹窗都必须关掉,绝不允许卡死
+    hideExportingModal();
+  }
+}
+
+function downloadBlob(blob, filename) {
+  let url = URL.createObjectURL(blob);
+  let element = document.createElement("a");
+  element.setAttribute("href", url);
+  element.setAttribute("download", filename);
+  element.style.display = "none";
+  document.body.appendChild(element);
+  element.click();
+  document.body.removeChild(element);
+  setTimeout(function () {
+    URL.revokeObjectURL(url);
+  }, 1000);
 }
 
 function hideExportingModal() {
   setTimeout(function () {
     let modalEl = document.getElementById("exportingModal");
     let modal = Modal.getInstance(modalEl);
-    if (modal) modal.hide();
+    if (modal) {
+      modal.hide();
+    } else {
+      console.warn("未找到 exportingModal 的实例,弹窗可能无法自动关闭。");
+    }
   }, 300);
 }
 
@@ -161,80 +212,96 @@ function rowToTask(row, listId) {
 }
 
 function processImportRows(rows) {
-  let customListIds = customToDoListIdsRepository.load();
-  let nameToId = {};
-  customListIds.forEach((c) => (nameToId[c.listName] = c.listId));
+  try {
+    let customListIds = customToDoListIdsRepository.load();
+    let nameToId = {};
+    customListIds.forEach((c) => (nameToId[c.listName] = c.listId));
 
-  let grouped = {}; // listId -> [task, ...]
-  let newCustomLists = [];
+    let grouped = {}; // listId -> [task, ...]
+    let newCustomLists = [];
 
-  rows.forEach((row) => {
-    let listId;
-    if (row["清单类型"] === "日历") {
-      let m = moment(row["日期"], ["YYYY-MM-DD", "YYYY/MM/DD", "YYYYMMDD"], true);
-      if (!m.isValid()) return; // 日期格式无法识别,跳过这一行
-      listId = m.format("YYYYMMDD");
-    } else {
-      let name = row["清单名称"];
-      if (!name) return; // 自定义清单必须有名称,否则跳过
-      if (!nameToId[name]) {
-        let newId = moment().format("YYYYMMDDTHHmmssSSS") + Math.floor(Math.random() * 1000);
-        nameToId[name] = newId;
-        newCustomLists.push({ listId: newId, listName: name });
+    rows.forEach((row) => {
+      let listId;
+      if (row["清单类型"] === "日历") {
+        let m = moment(row["日期"], ["YYYY-MM-DD", "YYYY/MM/DD", "YYYYMMDD"], true);
+        if (!m.isValid()) return; // 日期格式无法识别,跳过这一行
+        listId = m.format("YYYYMMDD");
+      } else {
+        let name = row["清单名称"];
+        if (!name) return; // 自定义清单必须有名称,否则跳过
+        if (!nameToId[name]) {
+          let newId = moment().format("YYYYMMDDTHHmmssSSS") + Math.floor(Math.random() * 1000);
+          nameToId[name] = newId;
+          newCustomLists.push({ listId: newId, listName: name });
+        }
+        listId = nameToId[name];
       }
-      listId = nameToId[name];
+      if (!grouped[listId]) grouped[listId] = [];
+      grouped[listId].push(rowToTask(row, listId));
+    });
+
+    if (newCustomLists.length > 0) {
+      customToDoListIdsRepository.update(customListIds.concat(newCustomLists));
     }
-    if (!grouped[listId]) grouped[listId] = [];
-    grouped[listId].push(rowToTask(row, listId));
-  });
 
-  if (newCustomLists.length > 0) {
-    customToDoListIdsRepository.update(customListIds.concat(newCustomLists));
-  }
+    let listIds = Object.keys(grouped);
+    if (listIds.length === 0) {
+      showInvalidFileToast();
+      hideImportingModal();
+      return;
+    }
 
-  let listIds = Object.keys(grouped);
-  if (listIds.length === 0) {
+    mergeIntoDb(listIds, grouped);
+  } catch (e) {
+    console.error("导入 Excel 失败(整理数据阶段):", e);
     showInvalidFileToast();
     hideImportingModal();
-    return;
   }
-
-  mergeIntoDb(listIds, grouped);
 }
 
 function mergeIntoDb(listIds, grouped) {
   let db_req = dbRepository.open();
   db_req.onsuccess = function (event) {
-    let db = event.target.result;
-    let i = 0;
+    try {
+      let db = event.target.result;
+      let i = 0;
 
-    function next() {
-      if (i >= listIds.length) {
-        finishImport();
-        return;
+      function next() {
+        if (i >= listIds.length) {
+          finishImport();
+          return;
+        }
+        let listId = listIds[i];
+        let get_req = dbRepository.get(db, "todo_lists", listId);
+        get_req.onsuccess = function () {
+          try {
+            let existing = get_req.result || [];
+            let merged = existing.concat(grouped[listId]);
+            // 注意:必须用 update(put),不能用 add,否则遇到已存在的 listId 会报错中断
+            let put_req = dbRepository.update(db, "todo_lists", listId, merged);
+            put_req.onsuccess = function () {
+              i++;
+              next();
+            };
+            put_req.onerror = function () {
+              i++;
+              next();
+            };
+          } catch (innerErr) {
+            console.error("导入 Excel 失败(合并数据阶段):", innerErr);
+            hideImportingModal();
+          }
+        };
+        get_req.onerror = function () {
+          i++;
+          next();
+        };
       }
-      let listId = listIds[i];
-      let get_req = dbRepository.get(db, "todo_lists", listId);
-      get_req.onsuccess = function () {
-        let existing = get_req.result || [];
-        let merged = existing.concat(grouped[listId]);
-        // 注意:必须用 update(put),不能用 add,否则遇到已存在的 listId 会报错中断
-        let put_req = dbRepository.update(db, "todo_lists", listId, merged);
-        put_req.onsuccess = function () {
-          i++;
-          next();
-        };
-        put_req.onerror = function () {
-          i++;
-          next();
-        };
-      };
-      get_req.onerror = function () {
-        i++;
-        next();
-      };
+      next();
+    } catch (dbErr) {
+      console.error("导入 Excel 失败(数据库写入阶段):", dbErr);
+      hideImportingModal();
     }
-    next();
   };
   db_req.onerror = function () {
     hideImportingModal();
@@ -252,7 +319,6 @@ function finishImport() {
 function showInvalidFileToast() {
   let toastEl = document.getElementById("invalidFile");
   if (toastEl) {
-    let { Toast } = require("bootstrap");
     let toast = Toast.getOrCreateInstance(toastEl);
     toast.show();
   }

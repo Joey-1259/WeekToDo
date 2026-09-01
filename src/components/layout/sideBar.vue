@@ -29,6 +29,14 @@
       :weekStartsOn="weekStartOnMonday"
     />
     <i v-if="showCalendar" class="bi-calendar-event" @click="changeDate" :title="$t('ui.calendar')"> </i>
+    <!--
+      以下三个入口已按需求隐藏：
+      1. 重复任务管理（bi-arrow-repeat，原打开 #RecurrentEventsModal）
+      2. 新建自定义列表（bi-clipboard-plus，原调用 newCustomTodoList）——已迁移为主界面自定义列表区域末尾的“+”色块
+      3. 重新排序自定义列表（bi-arrow-left-right，原打开 #ReorderCustomListsModal）——已迁移为直接在自定义列表表头拖动排序
+      对应弹窗组件本身未删除，只是暂时没有入口触发；如需恢复，把注释还原即可。
+    -->
+    <!--
     <i
       v-if="showCalendar"
       class="bi-arrow-repeat"
@@ -45,6 +53,7 @@
       data-bs-toggle="modal"
       :title="$t('ui.reorderCustomLists')"
     ></i>
+    -->
     <span style="flex-grow: 1"></span>
     <div class="dropend d-flex justify-content-center sidebar-extra-menu">
       <i class="bi-three-dots sidebar-icon align-self-center" type="button" data-bs-toggle="dropdown"></i>
@@ -83,8 +92,6 @@
 
 <script>
 import moment from "moment";
-import customToDoListIdsRepository from "../../repositories/customToDoListIdsRepository";
-import toDoListRepository from "../../repositories/toDoListRepository";
 import Datepicker from "vue3-datepicker";
 import languageHelper from "../../helpers/languageHelper.js";
 
@@ -125,16 +132,8 @@ export default {
         };
       });
     },
-    // “回到今天”：picked 标记为 false，App.vue 会因此清空 pickedDate 高亮
     setTodayDate: function () {
       this.$emit("changeDate", { date: moment().format("YYYYMMDD"), picked: false });
-    },
-    newCustomTodoList: function () {
-      const customTodoListId = { listId: moment().format("YYYYMMDDTHHmmssS"), listName: "" };
-      this.$store.commit("actionsCListCreatedUpdate", true);
-      this.$store.commit("newCustomTodoList", customTodoListId);
-      customToDoListIdsRepository.update(this.$store.getters.cTodoListIds);
-      toDoListRepository.update(customTodoListId.listId, this.$store.getters.todoLists[customTodoListId.listId]);
     },
     resetDatePicker: function () {
       document.getElementById("side-bar-date-picker-input").removeEventListener("focusout", this.resetDatePicker);
@@ -151,7 +150,6 @@ export default {
     },
   },
   watch: {
-    // 日历挑选某一天：picked 标记为 true，App.vue 会用这个日期高亮表头
     pickedDate: function (val) {
       if (this.datepickerEnabled) {
         document.getElementById("side-bar-date-picker-input").removeEventListener("focusout", this.resetDatePicker);

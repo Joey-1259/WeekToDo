@@ -1,7 +1,12 @@
 <template>
-  <div class="weekly-to-do-header d-flex">
-    <i v-show="!editing" class="bi-info header-menu-icons align-self-center dropdown-toggle-split "
-      style="visibility: hidden"></i>
+  <div class="weekly-to-do-header d-flex" :class="{ 'drag-hover-header': dragHover }"
+    :draggable="customTodoList" @dragstart="startCListDrag" @dragover.prevent
+    @dragenter.self="onCListDragEnter" @dragleave.self="onCListDragLeave" @drop="onCListDrop">
+    <i v-show="!editing" class="header-menu-icons align-self-center dropdown-toggle-split"
+      :class="customTodoList ? 'bi-grip-vertical drag-grip-icon' : 'bi-info'"
+      :style="customTodoList ? {} : { visibility: 'hidden' }"
+      :title="customTodoList ? $t('ui.reorderCustomLists') : ''"
+    ></i>
     <div style="flex-grow: 1" class="noselect">
       <div v-if="!customTodoList" :class="{ 'today-date': is_today, 'picked-date': is_picked && !is_today }">
         <h4>
@@ -81,10 +86,12 @@ export default {
     toDoList: { required: false, type: Array },
     pickedDate: { required: false, default: null, type: String },
   },
+  emits: ["reorderCustomList"],
   data() {
     return {
       editing: false,
       name: "",
+      dragHover: false,
     };
   },
   mounted() {
@@ -187,13 +194,39 @@ export default {
           .getElementsByClassName("new-todo-input")[0]
           .focus();
       });
-    }
+    },
+    // 以下四个方法只在自定义列表表头生效，用来支持“直接拖动表头调整列表顺序”
+    startCListDrag: function (event) {
+      if (!this.customTodoList) return;
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("customListIndex", String(this.cTodoListIndex));
+    },
+    onCListDragEnter: function () {
+      if (!this.customTodoList) return;
+      this.dragHover = true;
+    },
+    onCListDragLeave: function () {
+      if (!this.customTodoList) return;
+      this.dragHover = false;
+    },
+    onCListDrop: function (event) {
+      if (!this.customTodoList) return;
+      this.dragHover = false;
+      const fromIndex = parseInt(event.dataTransfer.getData("customListIndex"));
+      const toIndex = this.cTodoListIndex;
+      if (isNaN(fromIndex) || fromIndex === toIndex) return;
+
+      const customLists = this.$store.getters.cTodoListIds;
+      const moved = customLists.splice(fromIndex, 1)[0];
+      customLists.splice(toIndex, 0, moved);
+      customToDoListIdsRepository.update(customLists);
+      this.$emit("reorderCustomList");
+    },
   },
   computed: {
     is_today: function () {
       return moment().format("YYYYMMDD") == this.id;
     },
-    // 是否是用户通过日历“主动选中”的那一天（不含今天，今天优先用 today-date 样式）
     is_picked: function () {
       return !!this.pickedDate && this.pickedDate == this.id;
     },
@@ -219,7 +252,31 @@ export default {
   justify-content: center;
 }
 
-/* “今天”所在列的表头：蓝色高亮 */
+.weekly-to-do-header.drag-hover-header {
+  border-radius: 8px;
+  box-shadow: rgb(244, 243, 243) 0px 0px 0px 2px inset;
+  background-color: rgb(250, 249, 249);
+}
+
+.dark-theme .weekly-to-do-header.drag-hover-header {
+  box-shadow: #0b0d12 0px 0px 0px 2px inset;
+  background-color: #0c0d14;
+}
+
+.drag-grip-icon {
+  visibility: visible !important;
+  opacity: 0.35;
+  cursor: grab;
+}
+
+.drag-grip-icon:hover {
+  opacity: 1;
+}
+
+.drag-grip-icon:active {
+  cursor: grabbing;
+}
+
 .today-date h4,
 .today-date .weekly-to-do-subheader {
   color: #2563eb;
@@ -232,7 +289,6 @@ export default {
   color: #60a5fa;
 }
 
-/* 用户通过日历主动选中的那一天（非今天）：橙色高亮，与“今天”区分 */
 .picked-date h4,
 .picked-date .weekly-to-do-subheader {
   color: #f59e0b;

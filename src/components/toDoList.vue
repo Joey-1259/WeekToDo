@@ -9,7 +9,7 @@
     </div>
 
     <list-header :id="id" :customTodoList="customTodoList" :cTodoListIndex="cTodoListIndex" :toDoList="toDoListState"
-      :pickedDate="pickedDate">
+      :pickedDate="pickedDate" @reorderCustomList="$emit('reorderCustomList')">
     </list-header>
     <ul class="to-do-list">
       <li v-for="(toDo, index) in toDoListState" :key="index">
@@ -51,6 +51,7 @@ export default {
     showCustomList: { required: false, type: Boolean },
     pickedDate: { required: false, default: null, type: String },
   },
+  emits: ["todoListMounted", "reorderCustomList"],
   data() {
     return {
       newToDo: { text: "", checked: false },

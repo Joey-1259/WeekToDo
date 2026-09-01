@@ -90,7 +90,16 @@
               :cTodoListIndex="index"
               :showCustomList="showCustomList"
               @todo-list-mounted="todoListMounted"
+              @reorderCustomList="resetCustomList"
             ></to-do-list>
+            <div
+              class="to-do-list-container add-list-tile d-flex flex-column align-items-center justify-content-center"
+              :style="`flex: 0 0 ${100 / customColumns}%;`"
+              @click="newCustomTodoList"
+              :title="$t('ui.newCustomList')"
+            >
+              <i class="bi-plus-lg add-list-icon"></i>
+            </div>
           </div>
           <i
             class="bi-chevron-right slider-btn"
@@ -120,8 +129,6 @@
       <recurrent-events-modal></recurrent-events-modal>
       <importing-modal :id="'importingModal'" :text="$t('settings.importing')"></importing-modal>
       <importing-modal :id="'exportingModal'" :text="$t('settings.exporting')"></importing-modal>
-
-      <reorder-custom-lists-modal @reset-custom-list="resetCustomList"></reorder-custom-lists-modal>
     </div>
     <div class="mobile d-flex flex-column justify-content-center align-items-center">
       <i class="bi-exclamation-diamond mb-4" style="font-size: 100px"></i>
@@ -178,7 +185,6 @@ import importingModal from "./views/importingModal.vue";
 import RecurrentEventsModal from "./views/RecurrentEventsModal.vue";
 import repeatingEventRepository from "./repositories/repeatingEventRepository";
 import toDoListRepository from "./repositories/toDoListRepository";
-import ReorderCustomListsModal from "./views/ReorderCustomListsModal.vue";
 import toastMessage from "./components/toastMessage";
 import activeToDo from "./components/activeToDo.vue";
 import tasksHelper from "./helpers/tasksHelper";
@@ -199,7 +205,6 @@ export default {
     clearDataModal,
     RecurrentEventsModal,
     importingModal,
-    ReorderCustomListsModal,
     clearListModal,
     toastMessage,
     activeToDo,
@@ -207,8 +212,6 @@ export default {
   data() {
     return {
       selected_date: null,
-      // 记录用户通过日历“主动挑选”的那一天，用来在表头上和“今天”区分着色；
-      // 仅在点击日历选日期时赋值，点击“回到今天”会清空
       pickedDate: null,
       cTodoList: this.$store.getters.cTodoListIds,
       calendarHeight: "calc(50% - 50px)",
@@ -237,7 +240,6 @@ export default {
         let totalCustomListCount = this.$store.getters.cTodoListIds.length;
         this.initialListToLoad = totalDaysCount + totalCustomListCount;
         this.deleteOldRepeatingEvents();
-        // 默认锚点改为“当前所在周的周一”，而不是“今天”
         this.selected_date = moment().startOf("isoWeek").format("YYYYMMDD");
         this.$nextTick(() => {
           this.weekResetScroll();
@@ -321,9 +323,6 @@ export default {
     customTodoListWidth: function () {
       return this.$refs.customListContainer.clientWidth / this.customColumns;
     },
-    // 统一处理“回到今天”和“日历选日期”两种入口；
-    // 无论选中哪一天，实际展示锚点都落到那一天所在自然周的周一，
-    // 但会用 pickedDate 记录用户真正点的那一天，用于表头高亮区分
     setSelectedDate: function (payload) {
       let date = typeof payload === "string" ? payload : payload.date;
       let picked = typeof payload === "object" && !!payload.picked;
@@ -337,6 +336,19 @@ export default {
           let input = list.getElementsByClassName("new-todo-input")[0];
           if (input) input.focus();
         }
+      });
+    },
+    // 主界面自定义列表区域末尾“+”色块的点击回调：新建一个空自定义列表，
+    // 并自动把横向滚动条拉到最右，让新列表进入可视区域；
+    // 新建后 listHeader.vue 会依据 actions.cListCreated 自动聚焦列表名输入框
+    newCustomTodoList: function () {
+      const customTodoListId = { listId: moment().format("YYYYMMDDTHHmmssS"), listName: "" };
+      this.$store.commit("actionsCListCreatedUpdate", true);
+      this.$store.commit("newCustomTodoList", customTodoListId);
+      customToDoListIdsRepository.update(this.$store.getters.cTodoListIds);
+      toDoListRepository.update(customTodoListId.listId, this.$store.getters.todoLists[customTodoListId.listId]);
+      this.$nextTick(() => {
+        this.$refs.customListContainer.scrollLeft = this.$refs.customListContainer.scrollWidth;
       });
     },
     isElectron: function () {
@@ -708,6 +720,39 @@ body {
 .slides {
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
+}
+
+/* “+”新建自定义列表色块 */
+.add-list-tile {
+  cursor: pointer;
+  border: 1.5px dashed #c7cbd1;
+  border-radius: 8px;
+  margin-bottom: 5px;
+  min-height: 80px;
+  transition: 0.2s ease-out;
+}
+
+.add-list-tile:hover {
+  border-color: #8a8f98;
+  background-color: #f7f8fa;
+}
+
+.add-list-icon {
+  font-size: 1.6rem;
+  color: #8a8f98;
+}
+
+.dark-theme .add-list-tile {
+  border-color: #3a3f47;
+}
+
+.dark-theme .add-list-tile:hover {
+  border-color: #5a606a;
+  background-color: #1a1e24;
+}
+
+.dark-theme .add-list-icon {
+  color: #8a8f98;
 }
 
 .dark-theme *::-webkit-scrollbar-thumb {

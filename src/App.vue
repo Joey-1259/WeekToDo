@@ -722,18 +722,14 @@ body {
   scroll-behavior: smooth;
 }
 
-/* “+”新建自定义列表色块 */
+/* “+”新建自定义列表色块：不再画边框，只保留鼠标可点提示 */
 .add-list-tile {
   cursor: pointer;
-  border: 1.5px dashed #c7cbd1;
-  border-radius: 8px;
   margin-bottom: 5px;
   min-height: 80px;
-  transition: 0.2s ease-out;
 }
 
 .add-list-tile:hover {
-  border-color: #8a8f98;
   background-color: #f7f8fa;
 }
 
@@ -742,12 +738,7 @@ body {
   color: #8a8f98;
 }
 
-.dark-theme .add-list-tile {
-  border-color: #3a3f47;
-}
-
 .dark-theme .add-list-tile:hover {
-  border-color: #5a606a;
   background-color: #1a1e24;
 }
 

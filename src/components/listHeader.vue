@@ -25,7 +25,6 @@
         @drop="onListDrop($event)"
         :class="{ 'list-drag-hover': listDragHover }"
       >
-        <i class="bi-grip-vertical drag-handle-icon" :title="$t('ui.reorder')"></i>
         <h4 v-show="!editing" @dblclick="editToDoListName"> {{ todo_list_name }} </h4>
         <input class="custom-todo-input" v-show="editing" type="text" v-model="name" ref="cTodoInput" @blur="doneEdit()"
           @keyup.enter="doneEdit()" @keyup.esc="cancelEdit()" />
@@ -45,7 +44,7 @@
         </button>
       </li>
       <li>
-        <button class="dropdown-item" type="button" @click="sortItems">
+        <button class="dropdown-item" type="button" @click="customTodoList ? openReorderListsModal() : sortItems()">
           <i class="bi-sort-down"></i> <span>{{ $t('ui.reorder') }}</span>
         </button>
       </li>
@@ -85,7 +84,7 @@ import customToDoListIdsRepository from "../repositories/customToDoListIdsReposi
 import notifications from "../helpers/notifications";
 import tasksHelper from "../helpers/tasksHelper";
 import holidayHelper from "../helpers/holidayHelper";
-import { Toast } from 'bootstrap';
+import { Toast, Modal } from 'bootstrap';
 
 export default {
   components: {},
@@ -181,6 +180,11 @@ export default {
     },
     sortItems: function () {
       toDoListRepository.update(this.id, tasksHelper.reorderTasksList(this.toDoList));
+    },
+    openReorderListsModal: function () {
+      let modalEl = document.getElementById("ReorderCustomListsModal");
+      let modal = Modal.getOrCreateInstance(modalEl);
+      modal.show();
     },
     clearList: function () {
       this.$store.commit("setListToClear", this.id);
@@ -358,17 +362,6 @@ export default {
 .dark-theme .list-drag-hover {
   box-shadow: #0b0d12 0px 0px 4px 1px inset;
   background-color: #0c0d14;
-}
-
-.drag-handle-icon {
-  font-size: 14px;
-  color: #b0b3b8;
-  margin-right: 4px;
-  cursor: grab;
-}
-
-.dark-theme .drag-handle-icon {
-  color: #565b62;
 }
 
 .custom-todo-input {

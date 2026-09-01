@@ -111,8 +111,9 @@
           <img v-else src="img/WeekToDoLightLogo.webp" />
         </div>
       </div>
-
+      
       <remove-custom-list></remove-custom-list>
+      <reorder-custom-lists-modal @resetCustomList="resetCustomList"></reorder-custom-lists-modal>
       <config-modal @change-columns="weekResetScroll" :configProp="$store.getters.config"></config-modal>
       <clear-data-modal></clear-data-modal>
       <clear-list-modal></clear-list-modal>
@@ -181,6 +182,7 @@ import repeatingEventRepository from "./repositories/repeatingEventRepository";
 import toDoListRepository from "./repositories/toDoListRepository";
 import toastMessage from "./components/toastMessage";
 import activeToDo from "./components/activeToDo.vue";
+import reorderCustomListsModal from "./views/ReorderCustomListsModal.vue";
 import tasksHelper from "./helpers/tasksHelper";
 import holidayHelper from "./helpers/holidayHelper";
 
@@ -202,6 +204,7 @@ export default {
     clearListModal,
     toastMessage,
     activeToDo,
+    reorderCustomListsModal,
   },
   data() {
     return {

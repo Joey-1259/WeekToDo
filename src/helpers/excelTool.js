@@ -138,10 +138,6 @@ function writeWorkbook(XLSX, rows) {
     let wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "WeekToDo导出");
 
-    // 关键修复:不用 XLSX.writeFile(),因为在 nodeIntegration 开启的 Electron 渲染进程里,
-    // 这个方法会误判环境、走 Node 的 fs.writeFileSync 直接写盘,容易写到只读目录导致报错、
-    // 且这个报错发生在 IndexedDB 回调里,外层 catch 抓不到,会让弹窗卡死。
-    // 改成手动生成 Blob + 模拟点击下载,和现有 exportTool.js 里 .wtdb 导出的方式保持一致,更可靠。
     let wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     let blob = new Blob([wbout], { type: "application/octet-stream" });
     let filename = `WeekToDo导出_${moment().format("YYYYMMDD_HHmm")}.xlsx`;
@@ -149,7 +145,6 @@ function writeWorkbook(XLSX, rows) {
   } catch (e) {
     console.error("导出 Excel 失败(生成文件阶段):", e);
   } finally {
-    // 不管成功还是失败,弹窗都必须关掉,绝不允许卡死
     hideExportingModal();
   }
 }
@@ -168,16 +163,47 @@ function downloadBlob(blob, filename) {
   }, 1000);
 }
 
+// ---------- 弹窗关闭:关键修复,延迟改回已验证可靠的 1000ms,并加保底强制清理 ----------
+
 function hideExportingModal() {
+  closeModalSafely("exportingModal");
+}
+
+function hideImportingModal() {
+  closeModalSafely("importingModal");
+}
+
+function closeModalSafely(id) {
+  // 第一步:延迟 1000ms 后走 Bootstrap 官方的 hide() 方法,
+  // 这个延迟数值和项目里已有的 .wtdb 导出功能保持一致(那边已验证过不会卡住)。
+  // 之前用的 300ms 太短,容易和弹窗自身的显示动画撞在一起,导致 hide() 被静默忽略。
   setTimeout(function () {
-    let modalEl = document.getElementById("exportingModal");
+    let modalEl = document.getElementById(id);
+    if (!modalEl) return;
     let modal = Modal.getInstance(modalEl);
     if (modal) {
       modal.hide();
-    } else {
-      console.warn("未找到 exportingModal 的实例,弹窗可能无法自动关闭。");
     }
-  }, 300);
+
+    // 第二步:保底检查。不管上面 Bootstrap 的 hide() 有没有真正生效,
+    // 再等 300ms 后如果弹窗的 DOM 依然处于"显示中"状态,
+    // 就不再依赖 Bootstrap 内部逻辑,直接手动清掉相关的类和属性,
+    // 保证弹窗一定会消失,不会再出现"永远卡住转圈"的情况。
+    setTimeout(function () {
+      if (modalEl.classList.contains("show")) {
+        modalEl.classList.remove("show");
+        modalEl.style.display = "none";
+        modalEl.removeAttribute("aria-modal");
+        modalEl.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("modal-open");
+        document.body.style.removeProperty("overflow");
+        document.body.style.removeProperty("padding-right");
+        document.querySelectorAll(".modal-backdrop").forEach(function (bd) {
+          if (bd.parentNode) bd.parentNode.removeChild(bd);
+        });
+      }
+    }, 300);
+  }, 1000);
 }
 
 // ---------- 导入的内部函数 ----------
@@ -217,18 +243,18 @@ function processImportRows(rows) {
     let nameToId = {};
     customListIds.forEach((c) => (nameToId[c.listName] = c.listId));
 
-    let grouped = {}; // listId -> [task, ...]
+    let grouped = {};
     let newCustomLists = [];
 
     rows.forEach((row) => {
       let listId;
       if (row["清单类型"] === "日历") {
         let m = moment(row["日期"], ["YYYY-MM-DD", "YYYY/MM/DD", "YYYYMMDD"], true);
-        if (!m.isValid()) return; // 日期格式无法识别,跳过这一行
+        if (!m.isValid()) return;
         listId = m.format("YYYYMMDD");
       } else {
         let name = row["清单名称"];
-        if (!name) return; // 自定义清单必须有名称,否则跳过
+        if (!name) return;
         if (!nameToId[name]) {
           let newId = moment().format("YYYYMMDDTHHmmssSSS") + Math.floor(Math.random() * 1000);
           nameToId[name] = newId;
@@ -277,7 +303,6 @@ function mergeIntoDb(listIds, grouped) {
           try {
             let existing = get_req.result || [];
             let merged = existing.concat(grouped[listId]);
-            // 注意:必须用 update(put),不能用 add,否则遇到已存在的 listId 会报错中断
             let put_req = dbRepository.update(db, "todo_lists", listId, merged);
             put_req.onsuccess = function () {
               i++;
@@ -312,8 +337,8 @@ function finishImport() {
   setTimeout(function () {
     let modal = Modal.getInstance(document.getElementById("importingModal"));
     if (modal) modal.hide();
-    location.reload(); // 与现有 exportTool.js 的做法一致,刷新页面重新加载数据
-  }, 300);
+    location.reload();
+  }, 1000);
 }
 
 function showInvalidFileToast() {
@@ -322,11 +347,4 @@ function showInvalidFileToast() {
     let toast = Toast.getOrCreateInstance(toastEl);
     toast.show();
   }
-}
-
-function hideImportingModal() {
-  setTimeout(function () {
-    let modal = Modal.getInstance(document.getElementById("importingModal"));
-    if (modal) modal.hide();
-  }, 300);
 }

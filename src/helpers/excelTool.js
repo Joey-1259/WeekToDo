@@ -1,4 +1,3 @@
-import * as XLSX from "xlsx";
 import moment from "moment";
 import { Modal } from "bootstrap";
 import dbRepository from "../repositories/dbRepository";
@@ -9,32 +8,39 @@ const COLUMNS = ["清单类型", "清单名称", "日期", "事件", "是否完�
 export default {
   // ---------- 导出 ----------
   exportExcel() {
-    let customListMap = {};
-    customToDoListIdsRepository.load().forEach((c) => {
-      customListMap[c.listId] = c.listName;
-    });
+    import("xlsx")
+      .then((XLSX) => {
+        let customListMap = {};
+        customToDoListIdsRepository.load().forEach((c) => {
+          customListMap[c.listId] = c.listName;
+        });
 
-    let rows = [];
-    let db_req = dbRepository.open();
-    db_req.onsuccess = function (event) {
-      let db = event.target.result;
-      let request = dbRepository.selectAll(db, "todo_lists");
-      request.onsuccess = function () {
-        let cursor = request.result;
-        if (cursor) {
-          appendRowsForList(rows, cursor.key, cursor.value, customListMap);
-          cursor.continue();
-        } else {
-          writeWorkbook(rows);
-        }
-      };
-      request.onerror = function () {
+        let rows = [];
+        let db_req = dbRepository.open();
+        db_req.onsuccess = function (event) {
+          let db = event.target.result;
+          let request = dbRepository.selectAll(db, "todo_lists");
+          request.onsuccess = function () {
+            let cursor = request.result;
+            if (cursor) {
+              appendRowsForList(rows, cursor.key, cursor.value, customListMap);
+              cursor.continue();
+            } else {
+              writeWorkbook(XLSX, rows);
+            }
+          };
+          request.onerror = function () {
+            hideExportingModal();
+          };
+        };
+        db_req.onerror = function () {
+          hideExportingModal();
+        };
+      })
+      .catch(function () {
+        showInvalidFileToast();
         hideExportingModal();
-      };
-    };
-    db_req.onerror = function () {
-      hideExportingModal();
-    };
+      });
   },
 
   // ---------- 导入 ----------
@@ -45,29 +51,36 @@ export default {
       return;
     }
 
-    let reader = new FileReader();
-    reader.onload = function (e) {
-      try {
-        let data = new Uint8Array(e.target.result);
-        let workbook = XLSX.read(data, { type: "array" });
-        let sheet = workbook.Sheets[workbook.SheetNames[0]];
-        let rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-        if (rows.length === 0) {
+    import("xlsx")
+      .then((XLSX) => {
+        let reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            let data = new Uint8Array(e.target.result);
+            let workbook = XLSX.read(data, { type: "array" });
+            let sheet = workbook.Sheets[workbook.SheetNames[0]];
+            let rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+            if (rows.length === 0) {
+              showInvalidFileToast();
+              hideImportingModal();
+              return;
+            }
+            processImportRows(rows);
+          } catch (err) {
+            showInvalidFileToast();
+            hideImportingModal();
+          }
+        };
+        reader.onerror = function () {
           showInvalidFileToast();
           hideImportingModal();
-          return;
-        }
-        processImportRows(rows);
-      } catch (err) {
+        };
+        reader.readAsArrayBuffer(file);
+      })
+      .catch(function () {
         showInvalidFileToast();
         hideImportingModal();
-      }
-    };
-    reader.onerror = function () {
-      showInvalidFileToast();
-      hideImportingModal();
-    };
-    reader.readAsArrayBuffer(file);
+      });
   },
 };
 
@@ -94,7 +107,7 @@ function appendRowsForList(rows, listId, tasks, customListMap) {
   });
 }
 
-function writeWorkbook(rows) {
+function writeWorkbook(XLSX, rows) {
   rows.sort((a, b) => {
     if (a.清单类型 !== b.清单类型) return a.清单类型 === "日历" ? -1 : 1;
     return a.日期 > b.日期 ? 1 : a.日期 < b.日期 ? -1 : 0;

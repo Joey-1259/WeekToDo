@@ -7,12 +7,13 @@
       </button>
     </div>
 
-    <div class="filter-tabs d-flex">
+    <div class="filter-tabs d-flex flex-wrap">
       <span
-        v-for="tab in tabs"
+        v-for="tab in visibleTabs"
         :key="tab.key"
         class="filter-tab"
         :class="{ active: activeTab === tab.key }"
+        :style="activeTab === tab.key && tab.color ? { color: tab.color, borderBottomColor: tab.color } : {}"
         @click="activeTab = tab.key"
       >{{ tab.label }}</span>
     </div>
@@ -40,6 +41,7 @@
 
 <script>
 import anniversaryHelper from "../../helpers/anniversaryHelper";
+import anniversaryTagRepository from "../../repositories/anniversaryTagRepository";
 import moment from "moment";
 
 export default {
@@ -51,7 +53,11 @@ export default {
   data() {
     return {
       activeTab: "all",
+      tags: anniversaryTagRepository.load(),
     };
+  },
+  mounted() {
+    this.tags = anniversaryTagRepository.load();
   },
   methods: {
     buildEntry: function (item) {
@@ -77,22 +83,29 @@ export default {
         }
       }
 
-      return { item, result, subText, daysText, repeat: normalized.repeat };
+      return { item, result, subText, daysText, tagId: item.tagId || "tag_other" };
     },
   },
   computed: {
-    tabs: function () {
-      return [
-        { key: "all", label: this.$t("calendarHub.tabAll") },
-        { key: "none", label: this.$t("calendarHub.repeatNone") },
-        { key: "yearly", label: this.$t("calendarHub.repeatYearlyOpt") },
-        { key: "monthly", label: this.$t("calendarHub.repeatMonthlyOpt") },
-      ];
+    allEntries: function () {
+      return this.list.map(this.buildEntry);
+    },
+    // 标签栏只显示：全部 + 当前纪念日列表里实际用到的那些自定义标签，
+    // 用户建了但暂时没有任何事项挂在下面的标签不会出现在这里，避免一堆空标签占地方
+    visibleTabs: function () {
+      let usedTagIds = new Set(this.allEntries.map((e) => e.tagId));
+      let tabs = [{ key: "all", label: this.$t("calendarHub.tabAll"), color: null }];
+      this.tags.forEach((tag) => {
+        if (usedTagIds.has(tag.id)) {
+          tabs.push({ key: tag.id, label: tag.name, color: tag.color });
+        }
+      });
+      return tabs;
     },
     filteredItems: function () {
-      let entries = this.list.map(this.buildEntry);
+      let entries = this.allEntries;
       if (this.activeTab !== "all") {
-        entries = entries.filter((e) => e.repeat === this.activeTab);
+        entries = entries.filter((e) => e.tagId === this.activeTab);
       }
       entries.sort((a, b) => {
         let aPast = a.result ? a.result.isPast : false;
@@ -105,6 +118,17 @@ export default {
         return aLeft - bLeft;
       });
       return entries;
+    },
+  },
+  watch: {
+    list: function () {
+      // 列表变化后（比如刚新建了一个新标签的纪念日），标签数量可能变化，
+      // 如果当前选中的标签因为最后一条数据被删除而不再存在于可见标签中，自动回退到“全部”
+      this.$nextTick(() => {
+        if (this.activeTab !== "all" && !this.visibleTabs.find((t) => t.key === this.activeTab)) {
+          this.activeTab = "all";
+        }
+      });
     },
   },
 };

@@ -10,62 +10,57 @@
         <div class="modal-body px-0" style="display: flex">
           <ul class="nav nav-tabs" id="confTab" role="tablist" style="display: none">
             <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="config-home-tab" data-bs-toggle="tab" data-bs-target="#config-home"
-                role="tab">
-                {{ $t("settings.home") }}
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
               <button class="nav-link" id="config-general-tab" data-bs-toggle="tab" data-bs-target="#config-general"
-                role="tab">
-                {{ $t("settings.general") }}
+                role="tab" @click="activeTab = 'config-general-tab'">
+                General
               </button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="config-display-tab" data-bs-toggle="tab" data-bs-target="#config-display"
-                role="tab">
-                {{ $t("settings.display") }}
+                role="tab" @click="activeTab = 'config-display-tab'">
+                Display
               </button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="config-notifications-tab" data-bs-toggle="tab"
-                data-bs-target="#config-notifications" role="tab">
-                {{ $t("settings.notifications") }}
+                data-bs-target="#config-notifications" role="tab" @click="activeTab = 'config-notifications-tab'">
+                Notifications
               </button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="config-data-tab" data-bs-toggle="tab" data-bs-target="#config-data" role="tab">
-                {{ $t("settings.data") }}
+              <button class="nav-link" id="config-data-tab" data-bs-toggle="tab" data-bs-target="#config-data" role="tab"
+                @click="activeTab = 'config-data-tab'">
+                Data
               </button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="config-language-tab" data-bs-toggle="tab" data-bs-target="#config-language"
-                role="tab">
-                {{ $t("settings.language") }}
+                role="tab" @click="activeTab = 'config-language-tab'">
+                Language
               </button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="config-behavior-tab" data-bs-toggle="tab" data-bs-target="#config-behavior"
-                role="tab">
-                {{ $t("settings.behavior") }}
+                role="tab" @click="activeTab = 'config-behavior-tab'">
+                Behavior
               </button>
             </li>
           </ul>
 
           <div id="config-links-menu" class="tab-pane fade show" style="width: 340px;">
-            <link-list :linkList="configLinks"></link-list>
+            <link-list :linkList="configLinks" :activeLink="activeTab" @linkSelected="activeTab = $event"></link-list>
           </div>
 
           <div class="tab-content px-4" id="confTab-content" style="width: 100%; height: 400px; overflow-y: auto;">
             <div class="tab-pane fade active show" id="config-general">
               <div class="d-flex flex-column mt-2 h-100">
-                <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
+                <div v-if="FEATURE_FLAGS.showCalendarCustomListSwitches" class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
                   <label class="form-check-label flex-fill" for="calendarSetting">{{ $t("settings.calendar") }}</label>
                   <input class="form-check-input" type="checkbox" id="calendarSetting" v-model="configData.calendar"
                     @change="changeConfig('calendar', configData.calendar)" />
                 </div>
 
-                <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
+                <div v-if="FEATURE_FLAGS.showCalendarCustomListSwitches" class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
                   <label class="form-check-label flex-fill" for="customListsSetting">{{ $t("settings.customLists")
                   }}</label>
                   <input class="form-check-input" type="checkbox" id="customListsSetting" v-model="configData.customList"
@@ -110,7 +105,7 @@
             </div>
             <div class="tab-pane fade" id="config-behavior">
               <div class="d-flex flex-column mt-2 h-100">
-                <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
+                <div v-if="FEATURE_FLAGS.showMoveOldTasks" class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
                   <label class="form-check-label flex-fill" for="moveOldTasks">{{ $t("settings.moveOldTasks")
                   }}</label>
                   <input class="form-check-input" type="checkbox" id="moveOldTasks" v-model="configData.moveOldTasks"
@@ -122,10 +117,10 @@
                   <input class="form-check-input" type="checkbox" id="weekStartOnMonday" v-model="configData.weekStartOnMonday"
                     @change="changeConfig('weekStartOnMonday', configData.weekStartOnMonday)" />
                 </div>
-                <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
-                  <label class="form-check-label flex-fill" for="moveOldTasks">{{ $t("settings.startCalendarYesterday")
+                <div v-if="FEATURE_FLAGS.showStartCalendarYesterday" class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
+                  <label class="form-check-label flex-fill" for="startCalendarYesterday">{{ $t("settings.startCalendarYesterday")
                   }}</label>
-                  <input class="form-check-input" type="checkbox" id="moveOldTasks"
+                  <input class="form-check-input" type="checkbox" id="startCalendarYesterday"
                     v-model="configData.startCalendarYesterday"
                     @change="changeConfig('startCalendarYesterday', configData.startCalendarYesterday)" />
                 </div>
@@ -157,7 +152,6 @@
             <div class="tab-pane fade" id="config-display">
               <div class="d-flex flex-column mt-2 h-100">
 
-
                 <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
                   <label class="form-check-label" for="darkThemeSetting">{{
                     $t("settings.darkTheme")
@@ -173,8 +167,9 @@
                   <input class="form-check-input" type="checkbox" id="darkTrayIcon" v-model="configData.darkTrayIcon"
                     @change="setDarkTrayIcon" />
                 </div>
-                <div class="horizontal-divider mb-3"></div>
-                <div class="px-1 mb-3">
+
+                <div v-if="FEATURE_FLAGS.showColumnsAndZoomSliders" class="horizontal-divider mb-3"></div>
+                <div v-if="FEATURE_FLAGS.showColumnsAndZoomSliders" class="px-1 mb-3">
                   <label for="columnsConfig" class="form-check-label">{{ $t("settings.columns") }}: {{
                     configData.columns
                   }}</label>
@@ -182,16 +177,16 @@
                     v-model="configData.columns" @change="changeConfig('columns', configData.columns)" />
                 </div>
 
-                <div class="px-1 mb-3">
-                  <label for="columnsConfig" class="form-check-label">{{ $t("settings.lists_columns") }}: {{
+                <div v-if="FEATURE_FLAGS.showColumnsAndZoomSliders" class="px-1 mb-3">
+                  <label for="customColumnsConfig" class="form-check-label">{{ $t("settings.lists_columns") }}: {{
                     configData.customColumns
                   }}</label>
-                  <input type="range" class="form-range mt-2 px-2" min="1" max="12" id="columnsConfig"
+                  <input type="range" class="form-range mt-2 px-2" min="1" max="12" id="customColumnsConfig"
                     v-model="configData.customColumns"
                     @change="changeConfig('customColumns', configData.customColumns)" />
                 </div>
 
-                <div class="px-1 mb-3 zoom-config">
+                <div v-if="FEATURE_FLAGS.showColumnsAndZoomSliders" class="px-1 mb-3 zoom-config">
                   <label for="zoomConfig" class="form-check-label">{{ $t("settings.zoom") }}: {{ configData.zoom
                   }}%</label>
                   <input type="range" class="form-range mt-2 px-2" min="50" max="200" id="zoomConfig" step="5"
@@ -283,7 +278,6 @@
                       </button>
                     </div>
 
-                    <!-- 导出Excel  -->
                     <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
                       <label class="form-check-label" for="export-excel-btn">{{ $t("settings.exportExcel") }}</label>
                       <button id="export-excel-btn" type="button" class="btn py-1 px-2 border" style="width: 140px;"
@@ -293,7 +287,6 @@
                       </button>
                     </div>
 
-                    <!-- 导入Excel  -->
                     <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
                       <label class="form-check-label" for="import-excel-btn">{{ $t("settings.importExcel") }}</label>
                       <button id="import-excel-btn" type="button" class="btn py-1 px-2 border" style="width: 140px;"
@@ -314,7 +307,6 @@
                   </div>
                   <input type="file" id="file-selector" class="d-none" accept=".wtdb" ref="loadData"
                     @change="importData($event)" />
-                  <!-- 导入Excel  -->
                   <input type="file" id="excel-file-selector" class="d-none" accept=".xlsx" ref="loadExcel"
                     @change="importExcel($event)" />
                 </div>
@@ -337,10 +329,10 @@
                   <option value="pl">Polski</option>
                   <option value="ar">العربية</option>
                   <option value="ko">한국어</option>
-                  <option value="zh_cn">中文（简体）</option>
-                  <option value="zh_tw">中文（繁體）</option>
+                  <option value="zh_cn">简体中文</option>
+                  <option value="zh_tw">繁體中文</option>
                   <option value="uk">Українська</option>
-                  <option value="tr">Türkçe</option>
+                  <option value="tr">Türk</option>
                   <option value="vi">Tiếng Việt</option>
                   <option value="he">עברית</option>
                 </select>
@@ -366,6 +358,15 @@ import configList from "./configList";
 import notifications from "../helpers/notifications";
 import { Modal } from "bootstrap";
 
+// 这些开关目前先隐藏起来，不代表功能被删掉了——底层配置字段、changeConfig 逻辑都原样保留，
+// 哪天想恢复只要把对应的 flag 改回 true 即可，不需要再补代码。
+const FEATURE_FLAGS = {
+  showCalendarCustomListSwitches: false, // 常规里的“日历”“自定义列表”开关
+  showMoveOldTasks: false, // 行为里的“自动移动旧任务”
+  showStartCalendarYesterday: false, // 行为里的“从昨天开始的日历”
+  showColumnsAndZoomSliders: false, // 显示里的“列 / 自定义显示列 / 缩放比例”
+};
+
 export default {
   name: "configModal",
   components: { toastMessage, linkList },
@@ -375,6 +376,8 @@ export default {
   data() {
     return {
       configData: this.$store.getters.config,
+      activeTab: "config-general-tab",
+      FEATURE_FLAGS,
     };
   },
   methods: {
@@ -383,14 +386,6 @@ export default {
         this.$store.commit("updateConfig", { val: val, key: key });
         configRepository.update(this.$store.getters.config);
         if (key === "language") this.$i18n.locale = this.configData.language;
-        if (key === "columns") {
-          setTimeout(
-            function () {
-              this.$emit("changeColumns");
-            }.bind(this),
-            50
-          );
-        }
       });
     },
     exportData: function () {
@@ -407,7 +402,6 @@ export default {
       importingModal.show();
       exportTool.import(event);
     },
-    // 导出Excel
     exportExcel: function () {
       let configModal = Modal.getInstance(document.getElementById("configModal"));
       configModal.hide();
@@ -415,7 +409,6 @@ export default {
       exportingModal.show();
       excelTool.exportExcel();
     },
-    // 导入Excel
     importExcel: function (event) {
       let configModal = Modal.getInstance(document.getElementById("configModal"));
       configModal.hide();
@@ -426,9 +419,6 @@ export default {
     isElectron: function () {
       let isElectron = require("is-electron");
       return isElectron();
-    },
-    goHome: function () {
-      document.getElementById("config-home-tab").click();
     },
     setOpenOnStart: function () {
       this.changeConfig("openOnStartup", this.configData.openOnStartup);
@@ -477,11 +467,11 @@ export default {
     configLinks: function () {
       return configList.configList(this);
     },
-    watch: {
-      configProp: function (newVal) {
-        this.configData = newVal;
-      }
-    }
+  },
+  watch: {
+    configProp: function (newVal) {
+      this.configData = newVal;
+    },
   },
 };
 </script>
@@ -497,11 +487,10 @@ export default {
 #config-links-menu {
   border-right: 1px solid rgba(0, 0, 0, 0.06);
 
-.dark-theme & {
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  .dark-theme & {
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
 }
-}
-
 
 .icons {
   font-size: 18px;
@@ -536,14 +525,6 @@ export default {
   }
 }
 
-.form-range::-webkit-slider-thumb {
-  background: $check-color;
-
-  .dark-theme & {
-    background: $dt-check-color;
-  }
-}
-
 .form-range::-ms-thumb {
   background: $check-color;
 
@@ -551,7 +532,6 @@ export default {
     background: $dt-check-color;
   }
 }
-
 
 @-moz-document url-prefix() {
   .zoom-config {

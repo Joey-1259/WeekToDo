@@ -2,11 +2,25 @@ import storageRepository from "./storageRepository";
 import version_json from "../../public/version.json";
 import moment from "moment";
 
-// 这里列出所有"新增字段"的默认值。load() 读取已有配置时，
-// 如果发现某个字段缺失，会顺手补上，避免任何遗漏路径下拿到 undefined。
+// 新增字段的默认值：老配置里如果缺这个 key，load() 时会自动补上
 const NEW_FIELD_DEFAULTS = {
   holidayCountries: ["CN"],
 };
+
+// UI 默认值调整记录：每次我们改了某个开关的“默认值”（不是新增字段，是已有字段的默认值变了），
+// 就把 UI_DEFAULTS_REVISION 加一，并在 applyUiDefaultsRevision 里写清楚要刷新哪些字段。
+// 已经把某个 revision 应用过的本地配置会打上 __uiDefaultsRev 标记，不会被重复覆盖，
+// 用户在这之后自己修改的值不会被再次强制改回去。
+const UI_DEFAULTS_REVISION = 1;
+function applyUiDefaultsRevision(config) {
+  if (!config.__uiDefaultsRev || config.__uiDefaultsRev < UI_DEFAULTS_REVISION) {
+    config.moveCompletedTaskToBottom = false;
+    config.fullscreenToDoModal = true;
+    config.__uiDefaultsRev = UI_DEFAULTS_REVISION;
+    return true;
+  }
+  return false;
+}
 
 export default {
   load() {
@@ -19,6 +33,7 @@ export default {
           patched = true;
         }
       });
+      if (applyUiDefaultsRevision(config)) patched = true;
       if (patched) {
         storageRepository.set("config", config);
       }
@@ -50,12 +65,13 @@ export default {
         startCalendarYesterday: false,
         notificationIndicator: true,
         autoReorderTasks: false,
-        moveCompletedTaskToBottom: true,
+        moveCompletedTaskToBottom: false,
         moveCompletedSubTaskToBottom: true,
-        fullscreenToDoModal: false,
+        fullscreenToDoModal: true,
         weekStartOnMonday: true,
         lastDayOpened: moment().format("YYYY-MM-DD"),
         holidayCountries: ["CN"],
+        __uiDefaultsRev: UI_DEFAULTS_REVISION,
       };
       storageRepository.set("config", default_config);
       return default_config;

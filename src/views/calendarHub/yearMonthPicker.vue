@@ -2,45 +2,24 @@
   <teleport to="body">
     <div class="ymp-mask" @click.self="$emit('close')">
       <div class="year-month-picker" :style="pickerStyle" @click.stop>
-        <div class="ymp-breadcrumb d-flex align-items-center">
+        <div class="ymp-header d-flex align-items-center justify-content-between">
+          <i class="bi-chevron-left ymp-arrow" @click="year--"></i>
+          <span class="ymp-year-label">{{ yearLabel }}</span>
+          <i class="bi-chevron-right ymp-arrow" @click="year++"></i>
+          <i class="bi-x ms-2 close-icon" @click="$emit('close')"></i>
+        </div>
+
+        <div class="ymp-month-grid">
           <span
-            class="crumb-item"
-            :class="{ clickable: step === 'month' }"
-            @click="step === 'month' && goToYearStep()"
-          >{{ yearGridStart }} - {{ yearGridStart + 11 }}</span>
-          <i class="bi-chevron-right crumb-sep" v-if="step === 'month'"></i>
-          <span class="crumb-item current" v-if="step === 'month'">{{ year }}</span>
-          <i class="bi-x ms-auto close-icon" @click="$emit('close')"></i>
+            v-for="(m, idx) in monthNames"
+            :key="idx"
+            class="ymp-month-cell"
+            :class="{ active: isActiveMonth(idx), 'is-current': isCurrentMonth(idx) }"
+            @click="pickMonth(idx)"
+          >{{ m }}</span>
         </div>
 
-        <div v-if="step === 'year'" class="ymp-year-step">
-          <div class="ymp-nav-row d-flex align-items-center justify-content-between">
-            <i class="bi-chevron-left ymp-arrow" @click="yearGridStart -= 12"></i>
-            <span class="ymp-range-label">{{ yearGridStart }} - {{ yearGridStart + 11 }}</span>
-            <i class="bi-chevron-right ymp-arrow" @click="yearGridStart += 12"></i>
-          </div>
-          <div class="ymp-year-grid">
-            <span
-              v-for="y in yearCells"
-              :key="y"
-              class="ymp-year-cell"
-              :class="{ active: y === year, 'is-current': y === currentRealYear }"
-              @click="pickYear(y)"
-            >{{ y }}</span>
-          </div>
-        </div>
-
-        <div v-else class="ymp-month-step">
-          <div class="ymp-month-grid">
-            <span
-              v-for="(m, idx) in monthNames"
-              :key="idx"
-              class="ymp-month-cell"
-              :class="{ active: isActiveMonth(idx), 'is-current': isCurrentMonth(idx) }"
-              @click="pickMonth(idx)"
-            >{{ m }}</span>
-          </div>
-        </div>
+        <button type="button" class="ymp-today-btn" @click="pickToday">{{ $t("calendarHub.today") }}</button>
       </div>
     </div>
   </teleport>
@@ -54,37 +33,14 @@ export default {
   props: {
     value: { type: String, required: true }, // "YYYY-MM"
     language: { type: String, default: "zh_cn" },
-    anchorEl: { type: Object, default: null }, // 触发按钮的 DOM 元素，用于计算弹层定位坐标
+    anchorEl: { type: Object, default: null },
   },
   emits: ["select", "close"],
   data() {
-    let y = parseInt(this.value.split("-")[0]);
     return {
-      step: "month", // 默认直接展示当前所在年份的月份层，点面包屑上的年份区间才回到年份选择层
-      year: y,
-      yearGridStart: Math.floor((y - 1) / 12) * 12 + 1,
+      year: parseInt(this.value.split("-")[0]),
       pickerStyle: {},
     };
-  },
-  computed: {
-    currentRealYear: function () {
-      return moment().year();
-    },
-    yearCells: function () {
-      let cells = [];
-      for (let i = 0; i < 12; i++) cells.push(this.yearGridStart + i);
-      return cells;
-    },
-    monthNames: function () {
-      if (this.language === "zh_cn" || this.language === "zh_tw") {
-        return ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
-      }
-      let names = [];
-      for (let i = 0; i < 12; i++) {
-        names.push(moment().locale(this.language).month(i).format("MMM"));
-      }
-      return names;
-    },
   },
   mounted() {
     this.computePosition();
@@ -98,47 +54,33 @@ export default {
   methods: {
     computePosition: function () {
       if (!this.anchorEl) {
-        // 没有传入锚点时退化为屏幕居中显示，保证组件在任何调用场景下都不会渲染错位
-        this.pickerStyle = {
-          left: "50%",
-          top: "50%",
-          transform: "translate(-50%, -50%)",
-        };
+        this.pickerStyle = { left: "50%", top: "50%", transform: "translate(-50%, -50%)" };
         return;
       }
       let rect = this.anchorEl.getBoundingClientRect();
-      let pickerWidth = 280;
-      let pickerHeight = 320;
+      let pickerWidth = 260;
+      let pickerHeight = 250;
       let left = rect.left;
       let top = rect.bottom + 8;
 
-      if (left + pickerWidth > window.innerWidth - 12) {
-        left = window.innerWidth - pickerWidth - 12;
-      }
+      if (left + pickerWidth > window.innerWidth - 12) left = window.innerWidth - pickerWidth - 12;
       if (left < 12) left = 12;
-
-      if (top + pickerHeight > window.innerHeight - 12) {
-        top = rect.top - pickerHeight - 8;
-      }
+      if (top + pickerHeight > window.innerHeight - 12) top = rect.top - pickerHeight - 8;
       if (top < 12) top = 12;
 
       this.pickerStyle = { left: `${left}px`, top: `${top}px`, transform: "none" };
     },
     onOutsideClick: function (e) {
-      if (this.$el && !this.$el.contains(e.target)) {
-        this.$emit("close");
-      }
-    },
-    goToYearStep: function () {
-      this.step = "year";
-    },
-    pickYear: function (y) {
-      this.year = y;
-      this.step = "month";
+      if (this.$el && !this.$el.contains(e.target)) this.$emit("close");
     },
     pickMonth: function (idx) {
       let mm = String(idx + 1).padStart(2, "0");
       this.$emit("select", `${this.year}-${mm}`);
+      this.$emit("close");
+    },
+    pickToday: function () {
+      this.year = moment().year();
+      this.$emit("select", moment().format("YYYY-MM"));
       this.$emit("close");
     },
     isActiveMonth: function (idx) {
@@ -147,6 +89,19 @@ export default {
     },
     isCurrentMonth: function (idx) {
       return this.year === moment().year() && idx === moment().month();
+    },
+  },
+  computed: {
+    yearLabel: function () {
+      return this.language === "zh_cn" || this.language === "zh_tw" ? `${this.year}年` : String(this.year);
+    },
+    monthNames: function () {
+      if (this.language === "zh_cn" || this.language === "zh_tw") {
+        return ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+      }
+      let names = [];
+      for (let i = 0; i < 12; i++) names.push(moment().locale(this.language).month(i).format("MMM"));
+      return names;
     },
   },
 };
@@ -162,7 +117,7 @@ export default {
 
 .year-month-picker {
   position: fixed;
-  width: 280px;
+  width: 260px;
   background: #fff;
   border-radius: 14px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
@@ -176,86 +131,51 @@ export default {
 }
 
 @keyframes ymp-pop-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.ymp-breadcrumb {
+.ymp-header {
   margin-bottom: 10px;
-  font-size: 0.86rem;
+}
 
-  .crumb-item {
-    color: #9aa0a8;
+.ymp-year-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
 
-    &.current {
-      color: #212529;
-      font-weight: 600;
+.ymp-arrow {
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 1rem;
 
-      .dark-theme & {
-        color: #fff;
-      }
-    }
+  &:hover {
+    background-color: #f4f5f7;
 
-    &.clickable {
-      cursor: pointer;
-      color: #4263eb;
-    }
-  }
-
-  .crumb-sep {
-    font-size: 0.7rem;
-    margin: 0 4px;
-    color: #c9ccd1;
-  }
-
-  .close-icon {
-    cursor: pointer;
-    font-size: 1.1rem;
-    opacity: 0.6;
-
-    &:hover {
-      opacity: 1;
+    .dark-theme & {
+      background-color: #2e353d;
     }
   }
 }
 
-.ymp-nav-row {
-  margin-bottom: 8px;
+.close-icon {
+  cursor: pointer;
+  font-size: 1.1rem;
+  opacity: 0.6;
 
-  .ymp-range-label {
-    font-size: 0.88rem;
-    font-weight: 600;
-  }
-
-  .ymp-arrow {
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 6px;
-
-    &:hover {
-      background-color: #f4f5f7;
-
-      .dark-theme & {
-        background-color: #2e353d;
-      }
-    }
+  &:hover {
+    opacity: 1;
   }
 }
 
-.ymp-year-grid,
 .ymp-month-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+  margin-bottom: 10px;
 }
 
-.ymp-year-cell,
 .ymp-month-cell {
   text-align: center;
   padding: 9px 0;
@@ -283,6 +203,29 @@ export default {
   &.active {
     background-color: #4263eb;
     color: #fff;
+  }
+}
+
+.ymp-today-btn {
+  width: 100%;
+  border: 1px solid #dcdfe4;
+  border-radius: 8px;
+  background: transparent;
+  padding: 6px 0;
+  font-size: 0.82rem;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #f4f5f7;
+  }
+
+  .dark-theme & {
+    border-color: #30363d;
+    color: #c9d1d9;
+
+    &:hover {
+      background-color: #1a1e24;
+    }
   }
 }
 </style>

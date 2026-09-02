@@ -807,11 +807,16 @@ export default {
   }
 }
 
-.sub-task .checked input,
+
 .sub-task .checked label {
-  opacity: 0.6;
-  text-decoration: line-through;
+  color: #16a34a;
+  text-decoration: none;
+
+  .dark-theme & {
+    color: #4ade80;
+  }
 }
+
 
 .title-container {
   margin-left: 14px;
@@ -866,6 +871,12 @@ export default {
 }
 
 .completed-task {
-  text-decoration: line-through;
+  color: #16a34a;
+  text-decoration: none;
+
+  .dark-theme & {
+    color: #4ade80;
+  }
 }
+
 </style>

@@ -1,8 +1,7 @@
 <template>
   <input class="hidden-input-for-focus" type="text" />
   <div v-show="compatible" id="app-container" class="app-container" :class="{ 'dark-theme': darkTheme }">
-    <div v-show="!showCalendarHub" class="hidden-mobile app-body" :style="{ zoom: `${zoom}%` }">
-      <splash-screen ref="splash"></splash-screen>
+    <div class="hidden-mobile app-shell d-flex">
       <side-bar
         :calendarHubActive="showCalendarHub"
         :upcomingBadgeCount="upcomingAnniversaryCount"
@@ -10,161 +9,77 @@
         @open-calendar-hub="openCalendarHub"
       ></side-bar>
 
-      <div class="h-100 d-flex flex-column">
-        <div class="home-top-bar d-flex align-items-center px-3">
-          <home-view-toggle v-model="homeViewMode"></home-view-toggle>
-        </div>
+      <div v-show="!showCalendarHub" class="app-body flex-grow-1" :style="{ zoom: `${zoom}%` }">
+        <splash-screen ref="splash"></splash-screen>
 
-        <div v-show="homeViewMode === 'week'" class="d-flex flex-column flex-grow-1">
-          <div
-            v-show="showCalendar"
-            class="todo-lists-container"
-            :style="resizableStyle"
-            ref="calendarContainer"
-            :class="{
-              'full-screen': !showCustomList,
-              'hidden-lists-container': hideTopListContainer,
-              'full-screen-divider': hideBottomListContainer,
-            }"
-          >
-            <i class="bi-chevron-left slider-btn" ref="weekLeft" @click="weekMoveLeft"></i>
-            <div class="todo-slider weekdays" ref="weekListContainer">
-              <to-do-list
-                v-for="date in dates_array"
-                :key="date"
-                :id="date"
-                :showCustomList="showCustomList"
-                :pickedDate="pickedDate"
-                @todo-list-mounted="todoListMounted"
-              >
-              </to-do-list>
-            </div>
-            <i class="bi-chevron-right slider-btn" ref="weekRight" @click="weekMoveRight"></i>
+        <div class="home-week-view d-flex flex-column h-100">
+          <div class="week-nav d-flex align-items-center">
+            <i class="bi-chevron-left week-nav-arrow" @click="weekMoveLeft" :title="$t('ui.previousWeek')"></i>
+            <span class="week-range-label">{{ weekRangeLabel }}</span>
+            <i class="bi-chevron-right week-nav-arrow" @click="weekMoveRight" :title="$t('ui.nextWeek')"></i>
           </div>
 
-          <div
-            v-show="showCustomList && showCalendar"
-            class="main-horizontal-divider"
-            id="resizer"
-            :class="mainDividerPositionClass"
-            @mousedown="resizerMouseDownHandler"
-            @dblclick="resizerDblClick"
-          >
-            <div class="inner-main-horizontal-divider"></div>
-            <div class="divider-icons-container">
-              <i
-                class="bi-chevron-up move-to-center-up divider-icons"
-                @click="setDividerPosition(1)"
-                :title="$t('ui.restorePanel')"
-              ></i>
-              <i
-                class="bi-chevron-up move-to-corner-up divider-icons"
-                @click="setDividerPosition(2)"
-                :title="$t('ui.maximizeListPanel')"
-              ></i>
-              <i
-                class="bi-chevron-down move-to-center-down divider-icons"
-                @click="setDividerPosition(1)"
-                :title="$t('ui.restorePanel')"
-              ></i>
-              <i
-                class="bi-chevron-down move-to-corner-down divider-icons"
-                @click="setDividerPosition(0)"
-                :title="$t('ui.maximizeCalendarPanel')"
-              ></i>
-            </div>
+          <div class="week-grid-row flex-grow-1">
+            <to-do-list
+              v-for="date in topRowDates"
+              :key="date"
+              :id="date"
+              :pickedDate="pickedDate"
+              :columnsOverride="4"
+              @todo-list-mounted="todoListMounted"
+            ></to-do-list>
           </div>
 
-          <div
-            v-show="showCustomList"
-            class="todo-lists-container"
-            :class="{
-              'full-screen': !showCalendar,
-              'flex-grow-1': showCalendar,
-              'hidden-lists-container': hideBottomListContainer,
-            }"
-          >
-            <i
-              class="bi-chevron-left slider-btn"
-              @click="customMoveLeft"
-              :style="{
-                visibility: cTodoList.length > customColumns ? 'visible' : 'hidden',
-              }"
-            ></i>
-            <div class="todo-slider slides" ref="customListContainer">
+          <div class="week-grid-row flex-grow-1">
+            <to-do-list
+              v-for="date in bottomRowDates"
+              :key="date"
+              :id="date"
+              :pickedDate="pickedDate"
+              :columnsOverride="4"
+              @todo-list-mounted="todoListMounted"
+            ></to-do-list>
+            <div v-if="homeCustomList" class="home-custom-list-slot flex-grow-1 position-relative">
+              <div v-if="customListCount > 1" class="home-custom-list-switcher">
+                <i class="bi-chevron-left" @click="cycleHomeCustomList(-1)"></i>
+                <span>{{ homeCustomListIndex + 1 }}/{{ customListCount }}</span>
+                <i class="bi-chevron-right" @click="cycleHomeCustomList(1)"></i>
+              </div>
               <to-do-list
-                v-for="(cTodoList, index) in cTodoList"
-                :key="cTodoList.listId"
-                :id="cTodoList.listId"
+                :key="homeCustomList.listId"
+                :id="homeCustomList.listId"
                 :customTodoList="true"
-                :cTodoListIndex="index"
-                :showCustomList="showCustomList"
-                :pickedDate="pickedDate"
+                :cTodoListIndex="homeCustomListIndex"
+                :columnsOverride="4"
                 @todo-list-mounted="todoListMounted"
                 @reorderCustomList="resetCustomList"
               ></to-do-list>
-              <div class="add-list-tile d-flex flex-column align-items-center justify-content-center" @click="newCustomTodoList" :title="$t('ui.newCustomList')">
-                <i class="bi-plus-lg add-list-icon"></i>
-              </div>
             </div>
-            <i
-              class="bi-chevron-right slider-btn"
-              @click="customMoveRight"
-              :style="{
-                visibility: cTodoList.length > customColumns ? 'visible' : 'hidden',
-              }"
-            ></i>
-          </div>
-
-          <div v-show="!showCustomList && !showCalendar" style="margin: auto">
-            <img v-if="darkTheme" src="img/WeekToDoDarkLogo.webp" />
-            <img v-else src="img/WeekToDoLightLogo.webp" />
-          </div>
-        </div>
-
-        <div v-show="homeViewMode === 'month'" class="home-month-view d-flex flex-column flex-grow-1">
-          <month-calendar
-            v-model:month="homeMonthCursor"
-            :countryCodes="holidayCountries"
-            :anniversaryList="homeAnniversaryList"
-            :weekStartOnMonday="weekStartOnMondayBool"
-            :pickedDate="homeMonthPickedDate"
-            :language="language"
-            @day-click="onHomeMonthDayClick"
-          ></month-calendar>
-
-          <div class="home-month-agenda flex-grow-1">
-            <to-do-list
-              :id="homeMonthPickedDate"
-              :showCustomList="false"
-              :pickedDate="homeMonthPickedDate"
-              @todo-list-mounted="onMonthAgendaMounted"
-            ></to-do-list>
           </div>
         </div>
       </div>
 
-      <remove-custom-list></remove-custom-list>
-      <reorder-custom-lists-modal @resetCustomList="resetCustomList"></reorder-custom-lists-modal>
-      <config-modal @change-columns="weekResetScroll" :configProp="$store.getters.config"></config-modal>
-      <clear-data-modal></clear-data-modal>
-      <clear-list-modal></clear-list-modal>
-      <about-modal></about-modal>
-      <donate-modal></donate-modal>
-      <welcome-modal></welcome-modal>
-      <tips-modal></tips-modal>
-      <to-do-modal :selectedTodo="selectedTodo"></to-do-modal>
-      <active-to-do :activeTodo="activeTodo"> </active-to-do>
-      <importing-modal :id="'importingModal'" :text="$t('settings.importing')"></importing-modal>
-      <importing-modal :id="'exportingModal'" :text="$t('settings.exporting')"></importing-modal>
+      <calendar-hub-view
+        v-if="showCalendarHub"
+        class="flex-grow-1"
+        @close="closeCalendarHub"
+        @jump-to-date="jumpToDateFromHub"
+      ></calendar-hub-view>
     </div>
 
-    <calendar-hub-view
-      v-if="showCalendarHub"
-      class="hidden-mobile"
-      @close="closeCalendarHub"
-      @jump-to-date="jumpToDateFromHub"
-    ></calendar-hub-view>
+    <remove-custom-list></remove-custom-list>
+    <reorder-custom-lists-modal @resetCustomList="resetCustomList"></reorder-custom-lists-modal>
+    <config-modal :configProp="$store.getters.config"></config-modal>
+    <clear-data-modal></clear-data-modal>
+    <clear-list-modal></clear-list-modal>
+    <about-modal></about-modal>
+    <donate-modal></donate-modal>
+    <welcome-modal></welcome-modal>
+    <tips-modal></tips-modal>
+    <to-do-modal :selectedTodo="selectedTodo"></to-do-modal>
+    <active-to-do :activeTodo="activeTodo"> </active-to-do>
+    <importing-modal :id="'importingModal'" :text="$t('settings.importing')"></importing-modal>
+    <importing-modal :id="'exportingModal'" :text="$t('settings.exporting')"></importing-modal>
 
     <div class="mobile d-flex flex-column justify-content-center align-items-center">
       <i class="bi-exclamation-diamond mb-4" style="font-size: 100px"></i>
@@ -226,8 +141,6 @@ import reorderCustomListsModal from "./views/ReorderCustomListsModal.vue";
 import tasksHelper from "./helpers/tasksHelper";
 import holidayHelper from "./helpers/holidayHelper";
 import calendarHubView from "./views/calendarHub/CalendarHubView.vue";
-import monthCalendar from "./views/calendarHub/monthCalendar.vue";
-import homeViewToggle from "./components/homeViewToggle.vue";
 import anniversaryRepository from "./repositories/anniversaryRepository";
 import anniversaryHelper from "./helpers/anniversaryHelper";
 
@@ -251,24 +164,18 @@ export default {
     activeToDo,
     reorderCustomListsModal,
     calendarHubView,
-    monthCalendar,
-    homeViewToggle,
   },
   data() {
     return {
       selected_date: null,
       pickedDate: null,
-      cTodoList: this.$store.getters.cTodoListIds,
-      calendarHeight: "calc(50% - 50px)",
       ipcRenderer: null,
       initialLoadCompleted: false,
       initialListToLoad: 0,
       initialListLoaded: 0,
       showCalendarHub: false,
-      homeViewMode: "week",
-      homeMonthCursor: moment().format("YYYY-MM"),
-      homeMonthPickedDate: moment().format("YYYYMMDD"),
       homeAnniversaryList: anniversaryRepository.load(),
+      homeCustomListIndex: 0,
     };
   },
   beforeCreate() {
@@ -284,24 +191,22 @@ export default {
     this.$store.commit("loadConfig", configRepository.load());
     this.$i18n.locale = this.$store.getters.config.language;
 
+    // 首页固定要展示一个自定义事件列表槽位，这里保证本地至少存在一份，
+    // 避免因为用户之前从没建过自定义列表而导致底部第四格是空的
+    this.ensureDefaultCustomList();
+
     this.$store.dispatch("loadAllRepeatingEvent").then(
       function () {
-        let totalDaysCount = parseInt(this.$store.getters.config.columns) + 2;
+        let totalDaysCount = 7; // 固定周一至周日 7 天
         let totalCustomListCount = this.$store.getters.cTodoListIds.length;
         this.initialListToLoad = totalDaysCount + totalCustomListCount;
         this.deleteOldRepeatingEvents();
         this.selected_date = moment().startOf("isoWeek").format("YYYYMMDD");
-        this.$nextTick(() => {
-          this.weekResetScroll();
-        });
         this.$store.commit("loadRepeatingEventDateCache", this.$store.getters.repeatingEventList);
       }.bind(this)
     );
   },
   mounted() {
-    this.$refs.weekListContainer.scrollLeft = this.todoListWidth();
-    this.calendarHeight = this.$store.getters.config.calendarHeight;
-    window.addEventListener("resize", this.weekResetScroll);
     document.onreadystatechange = () => {
       if (document.readyState == "complete") {
         setTimeout(this.hideSplash, 4500);
@@ -328,23 +233,27 @@ export default {
     this.resetAppOnDayChange();
   },
   methods: {
+    cycleHomeCustomList: function (step) {
+      let total = this.customListCount;
+      if (total <= 1) return;
+      this.homeCustomListIndex = (this.homeCustomListIndex + step + total) % total;
+    },
+    ensureDefaultCustomList: function () {
+      if (!this.$store.getters.cTodoListIds || this.$store.getters.cTodoListIds.length === 0) {
+        const customTodoListId = {
+          listId: moment().format("YYYYMMDDTHHmmssS"),
+          listName: this.$t("ui.defaultCustomListName"),
+        };
+        this.$store.commit("newCustomTodoList", customTodoListId);
+        customToDoListIdsRepository.update(this.$store.getters.cTodoListIds);
+        toDoListRepository.update(customTodoListId.listId, this.$store.getters.todoLists[customTodoListId.listId] || []);
+      }
+    },
     weekMoveLeft: function () {
-      this.selected_date = moment(this.selected_date).subtract(1, "d").format("YYYYMMDD");
-      this.$refs.weekListContainer.scrollLeft = this.todoListWidth() * 2;
-      this.$refs.weekListContainer.scroll({
-        left: this.$refs.weekListContainer.scrollLeft - this.todoListWidth(),
-        top: 0,
-        behavior: "smooth",
-      });
+      this.selected_date = moment(this.selected_date).subtract(7, "d").format("YYYYMMDD");
     },
     weekMoveRight: function () {
-      this.selected_date = moment(this.selected_date).add(1, "d").format("YYYYMMDD");
-      this.$refs.weekListContainer.scrollLeft = 0;
-      this.$refs.weekListContainer.scroll({
-        left: this.$refs.weekListContainer.scrollLeft + this.todoListWidth(),
-        top: 0,
-        behavior: "smooth",
-      });
+      this.selected_date = moment(this.selected_date).add(7, "d").format("YYYYMMDD");
     },
     deleteOldRepeatingEvents: function () {
       for (const event of Object.entries(this.$store.getters.repeatingEventList)) {
@@ -353,27 +262,6 @@ export default {
           this.$store.commit("removeRepeatingEvent", event[0]);
         }
       }
-    },
-    weekResetScroll: function () {
-      this.$refs.weekListContainer.scrollLeft = this.todoListWidth();
-    },
-    customMoveRight: function () {
-      this.$refs.customListContainer.scrollLeft =
-        this.$refs.customListContainer.scrollLeft + this.customTodoListWidth() - 13;
-    },
-    customMoveLeft: function () {
-      this.$refs.customListContainer.scrollLeft = this.$refs.customListContainer.scrollLeft - this.customTodoListWidth();
-    },
-    resetCustomList: function () {
-      this.$nextTick(function () {
-        this.$refs.customListContainer.scrollLeft = 0;
-      });
-    },
-    todoListWidth: function () {
-      return this.$refs.weekListContainer.clientWidth / this.columns;
-    },
-    customTodoListWidth: function () {
-      return this.$refs.customListContainer.clientWidth / this.customColumns;
     },
     setSelectedDate: function (payload) {
       let date, picked;
@@ -396,15 +284,9 @@ export default {
         }
       });
     },
-    newCustomTodoList: function () {
-      const customTodoListId = { listId: moment().format("YYYYMMDDTHHmmssS"), listName: "" };
-      this.$store.commit("actionsCListCreatedUpdate", true);
-      this.$store.commit("newCustomTodoList", customTodoListId);
-      customToDoListIdsRepository.update(this.$store.getters.cTodoListIds);
-      toDoListRepository.update(customTodoListId.listId, this.$store.getters.todoLists[customTodoListId.listId]);
-      this.$nextTick(function () {
-        this.$refs.customListContainer.scrollLeft = this.$refs.customListContainer.scrollWidth;
-      });
+    resetCustomList: function () {
+      // 首页现在只展示一个自定义事件列表，这里保留空实现只是为了兼容
+      // 拖拽排序 / 重排序弹窗触发的事件，不需要做任何滚动定位的事情。
     },
     isElectron: function () {
       let isElectron = require("is-electron");
@@ -434,44 +316,11 @@ export default {
     compatible: function () {
       return window.IndexedDB;
     },
-    resizerDblClick: function () {
-      if (this.$store.getters.config.mainDividerPosition != 1) return;
-
-      this.calendarHeight = "calc(50% - 50px)";
-      this.$store.commit("updateConfig", {
-        val: this.calendarHeight,
-        key: "calendarHeight",
-      });
-      configRepository.update(this.$store.getters.config);
-    },
-    resizerMouseDownHandler: function (e) {
-      if (this.$store.getters.config.mainDividerPosition != 1) return;
-
-      this.resizerY = e.clientY - 50;
-      document.addEventListener("mousemove", this.resizerMouseMoveHandler);
-      document.addEventListener("mouseup", this.resizerMouseUpHandler);
-    },
-    resizerMouseMoveHandler: function (e) {
-      this.calendarHeight = `${((e.clientY - 50) * 100) / this.zoom}px`;
-    },
-    resizerMouseUpHandler: function () {
-      document.removeEventListener("mousemove", this.resizerMouseMoveHandler);
-      document.removeEventListener("mouseup", this.resizerMouseUpHandler);
-      this.$store.commit("updateConfig", {
-        val: this.calendarHeight,
-        key: "calendarHeight",
-      });
-      configRepository.update(this.$store.getters.config);
-    },
     refreshTodayNotifications: function () {
       notifications.refreshDayNotifications(this, moment().format("YYYYMMDD"));
     },
     todoListMounted: function () {
       this.methodsAfterInitialLoad();
-    },
-    onMonthAgendaMounted: function () {
-      // 月视图下方的迷你日程列表复用 to-do-list 组件，它的挂载不计入首次加载计数，
-      // 避免和周视图的 initialListToLoad / initialListLoaded 计数逻辑互相干扰。
     },
     methodsAfterInitialLoad: function () {
       if (!this.initialLoadCompleted) {
@@ -574,16 +423,6 @@ export default {
       });
       return promise;
     },
-    setDividerPosition: function (position) {
-      this.$nextTick(function () {
-        document.getElementById("app-container").classList.add("scrolling");
-        setTimeout(() => {
-          document.getElementById("app-container").classList.remove("scrolling");
-        }, 400);
-        this.$store.commit("updateConfig", { val: position, key: "mainDividerPosition" });
-        configRepository.update(this.$store.getters.config);
-      });
-    },
     checkVersion: function () {
       if (version_json.version != this.$store.getters.config.version) {
         this.$store.commit("updateConfig", { val: version_json.version, key: "version" });
@@ -647,52 +486,70 @@ export default {
         this.setSelectedDate({ date: dateStr, picked: true });
       });
     },
-    onHomeMonthDayClick: function (dateStr) {
-      this.homeMonthPickedDate = dateStr;
+  },
+  watch: {
+    allVisibleDates: {
+      immediate: true,
+      handler: function (val) {
+        this.$store.commit("updateSelectedDates", val);
+      },
+    },
+    customListCount: function (val) {
+      if (val === 0) {
+        this.ensureDefaultCustomList();
+      }
     },
   },
   computed: {
-    dates_array: function () {
-      if (!this.selected_date) return [];
-      var dates_array = [moment(this.selected_date).subtract(1, "d").format("YYYYMMDD"), this.selected_date];
+    weekStartDate: function () {
+      let base = this.selected_date ? moment(this.selected_date) : moment();
+      return base.startOf("isoWeek");
+    },
+    topRowDates: function () {
+      let start = this.weekStartDate;
+      return [0, 1, 2, 3].map((i) => start.clone().add(i, "d").format("YYYYMMDD"));
+    },
+    bottomRowDates: function () {
+      let start = this.weekStartDate;
+      return [4, 5, 6].map((i) => start.clone().add(i, "d").format("YYYYMMDD"));
+    },
+    allVisibleDates: function () {
+      return this.topRowDates.concat(this.bottomRowDates);
+    },
+    weekRangeLabel: function () {
+      let lang = this.$store.getters.config.language;
+      let isZh = lang === "zh_cn" || lang === "zh_tw";
+      let start = this.weekStartDate.clone().locale(lang);
+      let end = start.clone().add(6, "d");
 
-      for (let i = 1; i < this.columns; i++) {
-        dates_array.push(moment(this.selected_date).add(i, "d").format("YYYYMMDD"));
+      if (start.year() === end.year() && start.month() === end.month()) {
+        return isZh
+          ? `${start.format("YYYY年M月")}${start.format("D")}日 - ${end.format("D")}日`
+          : `${start.format("MMM D")} - ${end.format("D, YYYY")}`;
+      } else if (start.year() === end.year()) {
+        return isZh
+          ? `${start.format("M月D日")} - ${end.format("M月D日")}, ${start.format("YYYY")}`
+          : `${start.format("MMM D")} - ${end.format("MMM D, YYYY")}`;
       }
-
-      if (this.$store.getters.config.startCalendarYesterday) {
-        dates_array.unshift(moment(this.selected_date).subtract(2, "d").format("YYYYMMDD"));
-      } else {
-        dates_array.push(moment(this.selected_date).add(this.columns, "d").format("YYYYMMDD"));
-      }
-
-      this.$store.commit("updateSelectedDates", dates_array);
-      return dates_array;
+      return isZh
+        ? `${start.format("YYYY年M月D日")} - ${end.format("YYYY年M月D日")}`
+        : `${start.format("MMM D, YYYY")} - ${end.format("MMM D, YYYY")}`;
     },
-    showCustomList: function () {
-      return this.$store.getters.config.customList;
+    homeCustomList: function () {
+      let ids = this.$store.getters.cTodoListIds;
+      if (!ids || !ids.length) return null;
+      if (this.homeCustomListIndex >= ids.length) this.homeCustomListIndex = 0;
+      return ids[this.homeCustomListIndex];
     },
-    showCalendar: function () {
-      return this.$store.getters.config.calendar;
-    },
-    columns: function () {
-      return this.$store.getters.config.columns;
-    },
-    customColumns: function () {
-      return this.$store.getters.config.customColumns;
+    customListCount: function () {
+      let ids = this.$store.getters.cTodoListIds;
+      return ids ? ids.length : 0;
     },
     zoom: function () {
       return this.$store.getters.config.zoom;
     },
     darkTheme: function () {
       return this.$store.getters.config.darkTheme;
-    },
-    resizableStyle: function () {
-      if (this.showCalendar && this.showCustomList) {
-        return { height: this.calendarHeight };
-      } else {
-        return {};
-      }
     },
     selectedTodo: function () {
       if (this.$store.getters.actions.selectedTodo) {
@@ -706,37 +563,9 @@ export default {
       }
       return null;
     },
-    mainDividerPositionClass: function () {
-      if (this.$store.getters.config.mainDividerPosition == 0) {
-        return "on-bottom";
-      } else if (this.$store.getters.config.mainDividerPosition == 1) {
-        return "on-center";
-      } else {
-        return "on-top";
-      }
-    },
-    hideTopListContainer: function () {
-      if (!this.$store.getters.config.customList || !this.$store.getters.config.calendar) return false;
-
-      return this.$store.getters.config.mainDividerPosition == 2 ? true : false;
-    },
-    hideBottomListContainer: function () {
-      if (!this.$store.getters.config.customList || !this.$store.getters.config.calendar) return false;
-
-      return this.$store.getters.config.mainDividerPosition == 0 ? true : false;
-    },
     upcomingAnniversaryCount: function () {
       let list = anniversaryHelper.getUpcomingAnniversaries(this.homeAnniversaryList || [], 7);
       return list.length;
-    },
-    holidayCountries: function () {
-      return this.$store.getters.config.holidayCountries || ["CN"];
-    },
-    weekStartOnMondayBool: function () {
-      return !!this.$store.getters.config.weekStartOnMonday;
-    },
-    language: function () {
-      return this.$store.getters.config.language;
     },
   },
 };
@@ -749,86 +578,71 @@ body {
   line-height: unset !important;
 }
 
-.home-top-bar {
-  padding-top: 6px;
-  padding-bottom: 2px;
-  flex: 0 0 auto;
-}
+.app-shell {
+  height: 100%;
 
-.home-month-view {
-  padding: 0px 20px;
-  overflow: hidden;
-}
-
-.home-month-agenda {
-  margin-top: 12px;
-  overflow-y: auto;
-  border-top: 1px solid #eaecef;
-  padding-top: 8px;
-
-  .dark-theme & {
-    border-top-color: #30363d;
+  > .side-bar {
+    flex: 0 0 auto;
   }
 }
 
-.todo-lists-container {
+.app-body {
+  height: 100%;
   display: flex;
-  overflow: auto;
-  min-height: 5px;
-  height: 5px;
-  transition: height 0.15s ease-out 0s;
-  margin-top: 20px;
-  margin-bottom: 25px;
+  flex-direction: column;
 }
 
-.slider-btn {
-  padding: 3px;
-  font-size: 2rem;
-  align-self: center;
-  flex-grow: 0;
-  margin-left: 6px;
-  margin-right: 6px;
+.home-week-view {
+  padding: 0 20px 14px;
+  overflow: hidden;
+}
+
+.week-nav {
+  justify-content: center;
+  gap: 14px;
+  padding: 14px 0 8px;
+  flex: 0 0 auto;
+}
+
+.week-range-label {
+  font-size: 1rem;
+  font-weight: 600;
+  min-width: 220px;
+  text-align: center;
+}
+
+.week-nav-arrow {
+  font-size: 1.4rem;
+  padding: 5px 10px;
+  border-radius: 6px;
   cursor: pointer;
   transition: 0.4s cubic-bezier(0.2, 1, 0.1, 1);
 }
 
-.slider-btn:hover {
-  border-radius: 6px;
+.week-nav-arrow:hover {
   background-color: #eaecef;
 }
 
-.slider-btn:active {
-  background-color: #dddfe2;
+.dark-theme .week-nav-arrow:hover {
+  background-color: #21262d;
+}
+
+.week-grid-row {
+  display: flex;
+  min-height: 0;
+
+  &:first-of-type {
+    margin-bottom: 8px;
+  }
+}
+
+.week-grid-row .to-do-list-container {
+  overflow-y: auto;
+  height: 100%;
 }
 
 .v3dp__popout {
   border-radius: 7px !important;
-}
-
-.side-bar .v3dp__popout {
-  margin-left: 72px;
-  margin-top: 0px;
-}
-
-.todo-slider {
-  flex-grow: 1;
-  display: flex;
-  overflow-x: hidden;
-  min-height: -webkit-fill-available;
-  min-height: -moz-available;
-  height: fit-content;
-}
-
-@-moz-document url-prefix() {
-  .todo-slider {
-    min-height: -moz-available;
-    height: unset;
-  }
-}
-
-.slides {
-  scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
 }
 
 .dark-theme *::-webkit-scrollbar-thumb {
@@ -844,15 +658,6 @@ body {
   background: #51656f;
 }
 
-.full-screen {
-  height: 100%;
-  resize: unset;
-}
-
-.full-screen .todo-slider {
-  margin-top: 20px;
-}
-
 /*----------------Dark Theme------------------*/
 .dark-theme {
   background-color: #13171d;
@@ -866,15 +671,6 @@ body {
 
 .dark-theme input.form-range {
   background-color: unset;
-}
-
-.dark-theme .slider-btn:hover {
-  border-radius: 6px;
-  background-color: #21262d;
-}
-
-.dark-theme .slider-btn:active {
-  background-color: #2a2e36;
 }
 
 .mobile {
@@ -900,113 +696,34 @@ body {
   top: -100px;
 }
 
-.main-horizontal-divider {
-  z-index: 5;
-
-  &.on-top {
-    cursor: unset;
-
-    .inner-main-horizontal-divider {
-      display: none;
-    }
-
-    .divider-icons-container {
-      margin-top: 5px;
-      visibility: visible;
-      opacity: 0.3;
-    }
-
-    .move-to-corner-down,
-    .move-to-corner-up,
-    .move-to-center-up {
-      display: none;
-    }
-  }
-
-  &.on-bottom {
-    cursor: unset;
-
-    .inner-main-horizontal-divider {
-      display: none;
-    }
-        .divider-icons-container {
-      margin-top: -25px;
-      visibility: visible;
-      opacity: 0.3;
-    }
-
-    .move-to-corner-up,
-    .move-to-corner-down,
-    .move-to-center-down {
-      display: none;
-    }
-  }
-
-  &.on-center {
-    .move-to-center-down,
-    .move-to-center-up {
-      display: none;
-    }
-  }
-
-  &:hover {
-    .divider-icons-container {
-      visibility: visible;
-      opacity: 1;
-    }
-  }
-}
-
-.divider-icons-container {
-  visibility: hidden;
-  opacity: 0;
-  transition: 0.4s cubic-bezier(0.2, 1, 0.1, 1);
-  z-index: 6;
-  position: absolute;
-  right: 70px;
-  margin-top: -8px;
-}
-
-.divider-icons {
-  @include btn-icon;
-  padding: 6px;
-  background-color: white;
-
-  &:hover {
-    opacity: 1;
-  }
-
-  .dark-theme & {
-    background-color: #13171d;
-  }
-}
-
-.hidden-lists-container {
-  height: 0px !important;
-  margin: 0px;
-  min-height: 0px;
-}
-
-.full-screen-divider {
-  height: 100% !important;
-}
-
-/*----------------"+"---------------*/
-.add-list-tile {
-  cursor: pointer;
-  margin-bottom: 5px;
-  min-height: 80px;
-  flex: 0 0 80px;
+.home-custom-list-slot {
   display: flex;
-  align-self: stretch;
+  flex-direction: column;
 }
 
-.add-list-icon {
-  font-size: 1.4rem;
-  color: #8a8f98;
+.home-custom-list-switcher {
+  position: absolute;
+  top: 2px;
+  right: 16px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: #9aa0a8;
+
+  i {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+
+    &:hover {
+      background-color: #eaecef;
+    }
+  }
 }
 
-.dark-theme .add-list-icon {
-  color: #6b7078;
+.dark-theme .home-custom-list-switcher i:hover {
+  background-color: #21262d;
 }
 </style>

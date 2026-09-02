@@ -185,11 +185,14 @@
     "weekView": "周视图",
     "monthView": "月视图",
     "emptyDayHint": "暂无计划任务，添加您的任务",
-    "dayProgress": "{0} / {1} 已完成"
+    "dayProgress": "{0} / {1} 已完成",
+    "previousWeek": "上一周",
+    "nextWeek": "下一周",
+    "defaultCustomListName": "自定义列表"
   },
   "todoDetails": {
     "taskTitle": "任务标题",
-    "notes": "注释",
+    "notes": "任务细节",
     "markdown": "支持 Markdown 样式",
     "addSubTask": "添加子任务",
     "copiedTaskToClipboard": "文本已复制到剪贴板！！！",

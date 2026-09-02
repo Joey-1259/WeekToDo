@@ -76,6 +76,9 @@ export default {
     cTodoListIndex: { required: false, type: Number },
     showCustomList: { required: false, type: Boolean },
     pickedDate: { required: false, type: String, default: null },
+    // 首页固定两行四列布局需要强制列宽为 4 等分，不再依赖设置里的 columns/customColumns，
+    // 传入这个 prop 时会覆盖掉原来根据全局配置计算宽度的逻辑
+    columnsOverride: { required: false, type: Number, default: null },
   },
   emits: ["todoListMounted", "reorderCustomList"],
   data() {
@@ -217,9 +220,9 @@ export default {
       return this.$store.getters.todoLists[this.id];
     },
     columns: function () {
+      if (this.columnsOverride) return this.columnsOverride;
       if (this.customTodoList)
         return this.$store.getters.config.customColumns;
-
       return this.$store.getters.config.columns;
     },
     completedCount: function () {
@@ -279,28 +282,6 @@ export default {
 .to-do-fake-item {
   height: 1.2rem;
   width: 100%;
-}
-
-.weekly-to-do-header h4 {
-  margin-bottom: 4px;
-}
-
-.weekly-to-do-header span {
-  margin-top: 0px;
-}
-
-.weekly-to-do-header i {
-  color: grey;
-}
-
-.weekly-to-do-header i:hover {
-  color: black;
-}
-.weekly-to-do-header i {
-  font-size: 1.4rem;
-  flex-grow: 0;
-  align-self: start;
-  cursor: pointer;
 }
 
 .fake-item-container {
@@ -383,16 +364,16 @@ export default {
   color: #b0b3b8;
   padding-top: 30px;
   pointer-events: none;
+}
 
-  i {
-    font-size: 1.8rem;
-    opacity: 0.5;
-  }
+.day-empty-state i {
+  font-size: 1.8rem;
+  opacity: 0.5;
+}
 
-  p {
-    font-size: 0.8rem;
-    margin-top: 8px;
-  }
+.day-empty-state p {
+  font-size: 0.8rem;
+  margin-top: 8px;
 }
 
 .day-progress-footer {

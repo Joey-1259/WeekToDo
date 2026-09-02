@@ -1,9 +1,9 @@
 <template>
   <ul class="list-group">
-    <li v-for="item in linkList" :key="item" class="list-group-item">
+    <li v-for="item in linkList" :key="item.link" class="list-group-item" :class="{ active: item.link === activeLink }">
       <div class="d-flex list-item justify-content-between" @click="linkAction(item.link,item.linktype)">
         <div class="item-img">
-          <i v-if="item.ico" :style="'font-size: 20px; color: '+ item.color" :class="item.ico"></i>
+          <i v-if="item.ico" :style="'font-size: 20px; color: '+ (item.link === activeLink ? '#4263eb' : item.color)" :class="item.ico"></i>
           <img v-if="item.img" :src="item.img" height="22">
         </div>
         <div class="align-self-center w-100">{{item.name}}</div>
@@ -21,7 +21,8 @@
             }
         },
         props: {
-            linkList: {type: Array, required: true}
+            linkList: {type: Array, required: true},
+            activeLink: {type: String, default: null},
         },
         methods: {
             linkAction: function (link, linktype) {
@@ -50,6 +51,7 @@
             },
             tagIdLink: function (id) {
                 document.getElementById(id).click();
+                this.$emit('linkSelected', id);
             }
         }
     }
@@ -60,6 +62,7 @@
     background-color: unset;
     border: none;
     padding: .66rem 1rem;
+    border-radius: 8px;
     transition: 0.4s cubic-bezier(0.2, 1, 0.1, 1);
   }
 
@@ -73,6 +76,17 @@
 
   .dark-theme .list-group-item:hover {
     background-color: #171b20;
+  }
+
+  .list-group-item.active {
+    background-color: #eef1ff;
+    color: #4263eb;
+    font-weight: 500;
+  }
+
+  .dark-theme .list-group-item.active {
+    background-color: #1c2333;
+    color: #6c8fff;
   }
 
   .list-item {

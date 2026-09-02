@@ -185,11 +185,14 @@
     "weekView": "Week",
     "monthView": "Month",
     "emptyDayHint": "Nothing planned yet, add your first task",
-    "dayProgress": "{0} / {1} done"
+    "dayProgress": "{0} / {1} done",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "defaultCustomListName": "Custom List"
   },
   "todoDetails": {
     "taskTitle": "Task title",
-    "notes": "Notes",
+    "notes": "Task Details",
     "markdown": "Markdown style supported",
     "addSubTask": "Add subtask",
     "copiedTaskToClipboard": "Text copied to clipboard !!!",

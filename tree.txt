@@ -38,7 +38,7 @@
 │   │   ├── background.js
 │   │   ├── browserconfig.xml
 │   │   ├── css
-│   │   │   ├── app.5bd78251.css
+│   │   │   ├── app.d7f2cd9a.css
 │   │   │   └── chunk-vendors.4cbc1385.css
 │   │   ├── fav_icons
 │   │   │   ├── android-chrome-192x192.png
@@ -68,12 +68,12 @@
 │   │   │   └── weektodo-isologo-white.svg
 │   │   ├── index.html
 │   │   ├── js
-│   │   │   ├── app.6b10d7dd.js
-│   │   │   ├── app.6b10d7dd.js.map
+│   │   │   ├── app.84be608c.js
+│   │   │   ├── app.84be608c.js.map
 │   │   │   ├── chunk-2d0b2ed7.f550b682.js
 │   │   │   ├── chunk-2d0b2ed7.f550b682.js.map
-│   │   │   ├── chunk-vendors.9f32a09e.js
-│   │   │   └── chunk-vendors.9f32a09e.js.map
+│   │   │   ├── chunk-vendors.5414cf97.js
+│   │   │   └── chunk-vendors.5414cf97.js.map
 │   │   ├── libs
 │   │   │   └── honeybadger.min.js
 │   │   ├── manifest.json

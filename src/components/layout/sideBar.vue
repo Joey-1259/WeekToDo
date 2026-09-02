@@ -20,18 +20,7 @@
       data-bs-target="#aboutModal"
       :title="$t('about.about')"
     />
-    <i v-if="showCalendar" class="bi-house" @click="setTodayDate" :title="$t('ui.today')"></i>
-    <datepicker
-      v-if="datepickerEnabled"
-      id="side-bar-date-picker-input"
-      v-model="pickedDate"
-      :locale="language"
-      :weekStartsOn="weekStartOnMonday"
-      @opened="onCalendarOpened"
-      @monthPageChanged="onCalendarPageChanged"
-      @yearPageChanged="onCalendarPageChanged"
-    />
-    <i v-if="showCalendar" class="bi-calendar-event" @click="changeDate" :title="$t('ui.calendar')"> </i>
+    <i class="bi-house" @click="setTodayDate" :title="$t('ui.today')"></i>
     <i
       class="bi-calendar-heart nav-icon-with-badge"
       :class="{ 'active-icon': calendarHubActive }"
@@ -78,9 +67,6 @@
 
 <script>
 import moment from "moment";
-import Datepicker from "vue3-datepicker";
-import languageHelper from "../../helpers/languageHelper.js";
-import holidayHelper from "../../helpers/holidayHelper.js";
 
 export default {
   name: "sideBar",
@@ -89,16 +75,6 @@ export default {
     upcomingBadgeCount: { type: Number, default: 0 },
   },
   emits: ["changeDate", "openCalendarHub"],
-  components: {
-    Datepicker,
-  },
-  data() {
-    return {
-      pickedDate: new Date(),
-      datepickerEnabled: false,
-      calendarPageDate: new Date(),
-    };
-  },
   mounted() {
     window.addEventListener("beforeprint", () => {
       document.getElementById("app-container").classList.add("ready-to-print");
@@ -113,95 +89,14 @@ export default {
     });
   },
   methods: {
-    changeDate: function () {
-      this.datepickerEnabled = true;
-      this.$nextTick(function () {
-        document.getElementById("side-bar-date-picker-input").click();
-        document.getElementById("side-bar-date-picker-input").focus();
-        document.getElementById("side-bar-date-picker-input").addEventListener("focusout", this.resetDatePicker);
-        document.getElementById("side-bar-date-picker-input").onkeydown = function (evt) {
-          evt.keyCode == 27 && document.getElementById("side-bar-date-picker-input").blur();
-        };
-      });
-    },
     setTodayDate: function () {
       this.$emit("changeDate", { date: moment().format("YYYYMMDD"), picked: false });
-    },
-    resetDatePicker: function () {
-      document.getElementById("side-bar-date-picker-input").removeEventListener("focusout", this.resetDatePicker);
-      this.datepickerEnabled = false;
     },
     openConfigModal: function () {
       document.getElementById("config-general-tab").click();
     },
     print: function () {
       window.print();
-    },
-    onCalendarOpened: function () {
-      this.calendarPageDate = this.pickedDate || new Date();
-      this.markHolidaysInCalendar();
-    },
-    onCalendarPageChanged: function (pageDate) {
-      this.calendarPageDate = pageDate;
-      this.markHolidaysInCalendar();
-    },
-    markHolidaysInCalendar: function () {
-      this.$nextTick(() => {
-        let container = document.querySelector(".side-bar .v3dp__popout-day .v3dp__elements");
-        if (!container) return;
-        let buttons = container.querySelectorAll("button");
-        if (!buttons.length) return;
-
-        let weekStartsOnValue = this.weekStartOnMonday ? 1 : 0;
-        let monthStart = moment(this.calendarPageDate).startOf("month");
-        let startDay = monthStart.day();
-        let diff = (startDay - weekStartsOnValue + 7) % 7;
-        let cursor = monthStart.clone().subtract(diff, "days");
-
-        buttons.forEach((btn) => {
-          let dateStr = cursor.format("YYYYMMDD");
-          let info = holidayHelper.getDayInfo(dateStr);
-          let span = btn.querySelector("span");
-          if (span) {
-            let existingDot = span.querySelector(".holiday-dot");
-            if (existingDot) existingDot.remove();
-          }
-          btn.classList.remove("holiday-day", "workday-day");
-          if (info && span) {
-            btn.classList.add(info.isOffDay ? "holiday-day" : "workday-day");
-            let dot = document.createElement("i");
-            dot.className = "holiday-dot";
-            dot.title = info.name;
-            span.appendChild(dot);
-          }
-          cursor.add(1, "day");
-        });
-      });
-    },
-  },
-  watch: {
-    pickedDate: function (val) {
-      if (this.datepickerEnabled) {
-        document.getElementById("side-bar-date-picker-input").removeEventListener("focusout", this.resetDatePicker);
-        this.datepickerEnabled = false;
-        this.$emit("changeDate", { date: moment(val).format("YYYYMMDD"), picked: true });
-        this.pickedDate = new Date();
-      }
-    },
-  },
-  computed: {
-    showCustomList: function () {
-      return this.$store.getters.config.customList;
-    },
-    showCalendar: function () {
-      return this.$store.getters.config.calendar;
-    },
-    weekStartOnMonday: function () {
-      return this.$store.getters.config.weekStartOnMonday ? 1 : 0;
-    },
-    language: function () {
-      let lang = this.$store.getters.config.language;
-      return languageHelper.getLanguagePack(lang);
     },
   },
 };
@@ -213,7 +108,7 @@ export default {
   height: 100%;
   display: flex;
   flex-direction: column;
-  float: left;
+  flex: 0 0 auto;
   background-color: #fcfcfc;
 }
 

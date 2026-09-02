@@ -191,13 +191,9 @@ export default {
     this.$store.commit("loadConfig", configRepository.load());
     this.$i18n.locale = this.$store.getters.config.language;
 
-    // 首页固定要展示一个自定义事件列表槽位，这里保证本地至少存在一份，
-    // 避免因为用户之前从没建过自定义列表而导致底部第四格是空的
-    this.ensureDefaultCustomList();
-
     this.$store.dispatch("loadAllRepeatingEvent").then(
       function () {
-        let totalDaysCount = 7; // 固定周一至周日 7 天
+        let totalDaysCount = 7; //  7 
         let totalCustomListCount = this.$store.getters.cTodoListIds.length;
         this.initialListToLoad = totalDaysCount + totalCustomListCount;
         this.deleteOldRepeatingEvents();
@@ -205,6 +201,15 @@ export default {
         this.$store.commit("loadRepeatingEventDateCache", this.$store.getters.repeatingEventList);
       }.bind(this)
     );
+  },
+  created() {
+    // 注意：ensureDefaultCustomList 是组件 methods，必须放在 created()（或之后）调用。
+    // Vue2 的初始化顺序是 beforeCreate -> initState(挂载 data/computed/methods/watch) -> created，
+    // 如果在 beforeCreate 里直接调用 this.ensureDefaultCustomList()，此时 methods 还没挂到 this 上，
+    // 会抛出 "this.ensureDefaultCustomList is not a function"。
+    // beforeCreate 中触发的 dispatch("loadAllRepeatingEvent").then(...) 是异步微任务，
+    // 会在本次同步初始化（包含这里的 created）全部完成后才执行，所以调用顺序不受影响。
+    this.ensureDefaultCustomList();
   },
   mounted() {
     document.onreadystatechange = () => {
@@ -285,8 +290,8 @@ export default {
       });
     },
     resetCustomList: function () {
-      // 首页现在只展示一个自定义事件列表，这里保留空实现只是为了兼容
-      // 拖拽排序 / 重排序弹窗触发的事件，不需要做任何滚动定位的事情。
+      // 
+      //  / 
     },
     isElectron: function () {
       let isElectron = require("is-electron");
@@ -524,15 +529,15 @@ export default {
 
       if (start.year() === end.year() && start.month() === end.month()) {
         return isZh
-          ? `${start.format("YYYY年M月")}${start.format("D")}日 - ${end.format("D")}日`
+          ? `${start.format("YYYYM")}${start.format("D")} - ${end.format("D")}`
           : `${start.format("MMM D")} - ${end.format("D, YYYY")}`;
       } else if (start.year() === end.year()) {
         return isZh
-          ? `${start.format("M月D日")} - ${end.format("M月D日")}, ${start.format("YYYY")}`
+          ? `${start.format("MD")} - ${end.format("MD")}, ${start.format("YYYY")}`
           : `${start.format("MMM D")} - ${end.format("MMM D, YYYY")}`;
       }
       return isZh
-        ? `${start.format("YYYY年M月D日")} - ${end.format("YYYY年M月D日")}`
+        ? `${start.format("YYYYMD")} - ${end.format("YYYYMD")}`
         : `${start.format("MMM D, YYYY")} - ${end.format("MMM D, YYYY")}`;
     },
     homeCustomList: function () {

@@ -52,6 +52,7 @@
           </div>
 
           <div class="tab-content px-4" id="confTab-content" style="width: 100%; height: 400px; overflow-y: auto;">
+            <!-- ========== 常规 ========== -->
             <div class="tab-pane fade active show" id="config-general">
               <div class="d-flex flex-column mt-2 h-100">
                 <div v-if="FEATURE_FLAGS.showCalendarCustomListSwitches" class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
@@ -67,15 +68,10 @@
                     @change="changeConfig('customList', configData.customList)" />
                 </div>
 
-                <div v-if="isElectron()" class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
-                  <label class="form-check-label" for="updatesCheckSetting">{{
-                    $t("settings.checkUpdates")
-                  }}</label>
-                  <input class="form-check-input" type="checkbox" id="updatesCheckSetting"
-                    v-model="configData.checkUpdates" @change="changeConfig('checkUpdates', configData.checkUpdates)" />
-                </div>
+                <!-- 已删除：启动时检查更新（checkUpdates） -->
+                <!-- 已删除：发送错误报告（reportErrors） -->
 
-                <div v-if="isElectron()" class=" form-check form-switch d-flex px-1 mb-3 justify-content-between">
+                <div v-if="isElectron()" class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
                   <label class="form-check-label" for="openOnStartup">{{
                     $t("settings.openOnStartup")
                   }}</label>
@@ -94,15 +90,10 @@
                   <input class="form-check-input" type="checkbox" id="runInBackground"
                     v-model="configData.runInBackground" @change="setRunInBackground()" />
                 </div>
-
-                <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
-                  <label class="form-check-label flex-fill" for="reportErrors">{{ $t("settings.reportErrors")
-                  }}</label>
-                  <input class="form-check-input" type="checkbox" id="reportErrors" v-model="configData.reportErrors"
-                    @change="setSendErrors()" />
-                </div>
               </div>
             </div>
+
+            <!-- ========== 行为 ========== -->
             <div class="tab-pane fade" id="config-behavior">
               <div class="d-flex flex-column mt-2 h-100">
                 <div v-if="FEATURE_FLAGS.showMoveOldTasks" class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
@@ -149,9 +140,10 @@
                 </div>
               </div>
             </div>
+
+            <!-- ========== 显示 ========== -->
             <div class="tab-pane fade" id="config-display">
               <div class="d-flex flex-column mt-2 h-100">
-
                 <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between">
                   <label class="form-check-label" for="darkThemeSetting">{{
                     $t("settings.darkTheme")
@@ -210,6 +202,8 @@
                 </div>
               </div>
             </div>
+
+            <!-- ========== 通知 ========== -->
             <div class="tab-pane fade" id="config-notifications">
               <div class="d-flex flex-column mt-3 h-100">
                 <div v-if="isElectron()" class="orm-check form-switch d-flex px-0 mb-3  justify-content-between">
@@ -253,9 +247,9 @@
                   </button>
                 </div>
               </div>
-
-
             </div>
+
+            <!-- ========== 数据 ========== -->
             <div class="tab-pane fade" id="config-data">
               <div class="d-flex flex-column mt-2 h-100">
                 <div>
@@ -312,6 +306,8 @@
                 </div>
               </div>
             </div>
+
+            <!-- ========== 语言 ========== -->
             <div class="tab-pane fade" id="config-language">
               <div class="d-flex flex-column mt-2 h-100">
                 <label for="language" class="form-label">{{ $t("settings.language") }}:</label>
@@ -358,13 +354,11 @@ import configList from "./configList";
 import notifications from "../helpers/notifications";
 import { Modal } from "bootstrap";
 
-// 这些开关目前先隐藏起来，不代表功能被删掉了——底层配置字段、changeConfig 逻辑都原样保留，
-// 哪天想恢复只要把对应的 flag 改回 true 即可，不需要再补代码。
 const FEATURE_FLAGS = {
-  showCalendarCustomListSwitches: false, // 常规里的“日历”“自定义列表”开关
-  showMoveOldTasks: false, // 行为里的“自动移动旧任务”
-  showStartCalendarYesterday: false, // 行为里的“从昨天开始的日历”
-  showColumnsAndZoomSliders: false, // 显示里的“列 / 自定义显示列 / 缩放比例”
+  showCalendarCustomListSwitches: false,
+  showMoveOldTasks: false,
+  showStartCalendarYesterday: false,
+  showColumnsAndZoomSliders: false,
 };
 
 export default {
@@ -446,9 +440,6 @@ export default {
           ipcRenderer.send('set-tray-context-menu-label', { open: this.$t("ui.open"), quit: this.$t("ui.quit") });
         }
       });
-    },
-    setSendErrors: function () {
-      this.changeConfig('reportErrors', this.configData.reportErrors);
     },
     setDarkTrayIcon: function () {
       this.changeConfig('darkTrayIcon', this.configData.darkTrayIcon);

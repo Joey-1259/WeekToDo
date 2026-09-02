@@ -1,14 +1,12 @@
 <template>
   <div class="side-bar">
+    <!-- Logo：纯展示，不触发弹窗 -->
     <img
       class="logo"
       src="/img/logo-color.svg"
       width="42"
       height="42"
       alt="WeekTodo Logo"
-      data-bs-toggle="modal"
-      data-bs-target="#aboutModal"
-      :title="$t('about.about')"
     />
     <img
       class="logo logo-white"
@@ -16,10 +14,8 @@
       width="42"
       height="42"
       alt="WeekTodo Logo"
-      data-bs-toggle="modal"
-      data-bs-target="#aboutModal"
-      :title="$t('about.about')"
     />
+
     <i class="bi-house" @click="setTodayDate" :title="$t('ui.today')"></i>
     <i
       class="bi-calendar-heart nav-icon-with-badge"
@@ -29,32 +25,10 @@
     >
       <span v-if="upcomingBadgeCount > 0" class="badge-dot">{{ upcomingBadgeCount > 9 ? '9+' : upcomingBadgeCount }}</span>
     </i>
-    <span style="flex-grow: 1"></span>
-    <div class="dropend d-flex justify-content-center sidebar-extra-menu">
-      <i class="bi-three-dots sidebar-icon align-self-center" type="button" data-bs-toggle="dropdown"></i>
-      <ul class="dropdown-menu mx-3" aria-labelledby="btnTaskOptionMenu">
-        <li>
-          <button class="dropdown-item" type="button" @click="print">
-            <i class="bi-printer"></i> <span>{{ $t("ui.print") }} </span>
-          </button>
-        </li>
-        <li>
-          <hr class="dropdown-divider" />
-        </li>
-        <li>
-          <a href="https://weektodo.me/support-us" target="_blank" class="dropdown-item" type="button">
-            <i class="bi-gift"></i> <span>{{ $t("donate.supportUs") }}</span>
-          </a>
-        </li>
-        <li>
-          <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#aboutModal">
-            <i class="bi-info-circle"></i> <span>{{ $t("about.about") }}</span>
-          </button>
-        </li>
-      </ul>
-    </div>
 
-    <i class="bi-info-square" data-bs-toggle="modal" data-bs-target="#tipsModal" :title="$t('tips.tips')"></i>
+    <span style="flex-grow: 1"></span>
+
+    <!-- 底部只保留设置齿轮 -->
     <i
       class="bi-gear"
       data-bs-toggle="modal"
@@ -94,9 +68,6 @@ export default {
     },
     openConfigModal: function () {
       document.getElementById("config-general-tab").click();
-    },
-    print: function () {
-      window.print();
     },
   },
 };
@@ -154,7 +125,7 @@ sidebar-icon:active {
   margin-bottom: 6px;
   margin-top: 10px;
   align-self: center;
-  cursor: pointer;
+  /* 不再有 cursor: pointer，纯展示 */
 }
 
 .side-bar .logo-white {
@@ -193,33 +164,6 @@ sidebar-icon:active {
     color: #6c8fff;
     background-color: #1c2333;
   }
-}
-
-.dropdown-menu {
-  font-size: 0.865rem;
-  min-width: unset;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px 0 rgba(0, 0, 0, 0.2);
-  border: none;
-  color: #3c3c3c;
-
-  .dropdown-item {
-    padding: 0.4rem 1.9rem 0.4rem 0.65rem;
-  }
-
-  .dropdown-divider {
-    margin: 0.3rem;
-  }
-
-  i {
-    font-size: 0.99rem;
-    margin-right: 11px;
-    display: inline-block;
-  }
-}
-
-.dropdown-toggle-split {
-  padding: 0px;
 }
 
 .dark-theme .side-bar {

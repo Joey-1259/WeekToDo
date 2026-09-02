@@ -2,11 +2,24 @@ import moment from "moment";
 import { Modal, Toast } from "bootstrap";
 import dbRepository from "../repositories/dbRepository";
 import customToDoListIdsRepository from "../repositories/customToDoListIdsRepository";
+import anniversaryRepository from "../repositories/anniversaryRepository";
+import anniversaryTagRepository from "../repositories/anniversaryTagRepository";
+import archiveRepository from "../repositories/archiveRepository";
 
-const COLUMNS = ["清单类型", "清单名称", "日期", "事件", "是否完成", "时间", "备注", "子任务"];
+// ==================== Sheet1: 事项 ====================
+const TASK_COLUMNS = ["清单类型", "清单名称", "日期", "事件", "是否完成", "时间", "备注", "子任务"];
+
+// ==================== Sheet2: 纪念日 ====================
+const ANNIVERSARY_COLUMNS = [
+  "名称", "重复", "日期类型", "日期", "农历月", "农历日", "农历闰月",
+  "标签ID", "颜色", "提前提醒天数", "备注",
+];
+
+// ==================== Sheet3: 归档历史 ====================
+const ARCHIVE_COLUMNS = ["事件", "颜色", "时间", "来源列表", "归档日期"];
 
 export default {
-  // ---------- 导出 ----------
+  // ===================== 导出 =====================
   exportExcel() {
     import("xlsx")
       .then((XLSX) => {
@@ -16,7 +29,7 @@ export default {
             customListMap[c.listId] = c.listName;
           });
 
-          let rows = [];
+          let taskRows = [];
           let db_req = dbRepository.open();
 
           db_req.onsuccess = function (event) {
@@ -28,10 +41,13 @@ export default {
                 try {
                   let cursor = request.result;
                   if (cursor) {
-                    appendRowsForList(rows, cursor.key, cursor.value, customListMap);
+                    appendTaskRows(taskRows, cursor.key, cursor.value, customListMap);
                     cursor.continue();
                   } else {
-                    writeWorkbook(XLSX, rows);
+                    // 所有 todo_list 遍历完毕，开始组装多 Sheet
+                    let anniversaryRows = buildAnniversaryRows();
+                    let archiveRows = buildArchiveRows();
+                    writeMultiSheetWorkbook(XLSX, taskRows, anniversaryRows, archiveRows);
                   }
                 } catch (innerErr) {
                   console.error("导出 Excel 失败(整理数据阶段):", innerErr);
@@ -61,7 +77,7 @@ export default {
       });
   },
 
-  // ---------- 导入 ----------
+  // ===================== 导入 =====================
   excelImport(event) {
     let file = event.target.files[0];
     if (!file) {
@@ -76,14 +92,46 @@ export default {
           try {
             let data = new Uint8Array(e.target.result);
             let workbook = XLSX.read(data, { type: "array" });
-            let sheet = workbook.Sheets[workbook.SheetNames[0]];
-            let rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-            if (rows.length === 0) {
+            let sheetNames = workbook.SheetNames;
+
+            // Sheet1: 事项（必须存在）
+            let taskSheet = workbook.Sheets[sheetNames[0]];
+            let taskRows = XLSX.utils.sheet_to_json(taskSheet, { defval: "" });
+
+            // Sheet2: 纪念日（可选）
+            let anniversaryRows = [];
+            if (sheetNames.length >= 2) {
+              let sheet2 = workbook.Sheets[sheetNames[1]];
+              anniversaryRows = XLSX.utils.sheet_to_json(sheet2, { defval: "" });
+            }
+
+            // Sheet3: 归档历史（可选）
+            let archiveRows = [];
+            if (sheetNames.length >= 3) {
+              let sheet3 = workbook.Sheets[sheetNames[2]];
+              archiveRows = XLSX.utils.sheet_to_json(sheet3, { defval: "" });
+            }
+
+            if (taskRows.length === 0 && anniversaryRows.length === 0 && archiveRows.length === 0) {
               showInvalidFileToast();
               hideImportingModal();
               return;
             }
-            processImportRows(rows);
+
+            // 先导入纪念日和归档（同步写 localStorage）
+            if (anniversaryRows.length > 0) {
+              importAnniversaryRows(anniversaryRows);
+            }
+            if (archiveRows.length > 0) {
+              importArchiveRows(archiveRows);
+            }
+
+            // 再导入事项（异步写 IndexedDB）
+            if (taskRows.length > 0) {
+              processImportTaskRows(taskRows);
+            } else {
+              finishImport();
+            }
           } catch (err) {
             console.error("导入 Excel 失败(解析文件阶段):", err);
             showInvalidFileToast();
@@ -104,39 +152,84 @@ export default {
   },
 };
 
-// ---------- 导出的内部函数 ----------
+// ================== 导出内部函数 ==================
 
-function appendRowsForList(rows, listId, tasks, customListMap) {
+function appendTaskRows(rows, listId, tasks, customListMap) {
   let isDateList = moment(listId, "YYYYMMDD", true).isValid();
   let dateStr = isDateList ? moment(listId, "YYYYMMDD").format("YYYY-MM-DD") : "";
   let listLabel = isDateList ? dateStr : customListMap[listId] || listId;
 
   (tasks || []).forEach((task) => {
     rows.push({
-      清单类型: isDateList ? "日历" : "自定义",
-      清单名称: listLabel,
-      日期: dateStr,
-      事件: task.text || "",
-      是否完成: task.checked ? "是" : "否",
-      时间: task.time || "",
-      备注: task.desc || "",
-      子任务: (task.subTaskList || [])
+      "清单类型": isDateList ? "日历" : "自定义",
+      "清单名称": listLabel,
+      "日期": dateStr,
+      "事件": task.text || "",
+      "是否完成": task.checked ? "是" : "否",
+      "时间": task.time || "",
+      "备注": task.desc || "",
+      "子任务": (task.subTaskList || [])
         .map((st) => (st.checked ? "[x] " : "[ ] ") + st.text)
         .join("；"),
     });
   });
 }
 
-function writeWorkbook(XLSX, rows) {
+function buildAnniversaryRows() {
+  let list = anniversaryRepository.load();
+  return list.map((item) => ({
+    "名称": item.name || "",
+    "重复": item.repeat || "none",
+    "日期类型": item.dateType || "solar",
+    "日期": item.date || "",
+    "农历月": item.lunarMonth != null ? item.lunarMonth : "",
+    "农历日": item.lunarDay != null ? item.lunarDay : "",
+    "农历闰月": item.lunarLeap ? "是" : "否",
+    "标签ID": item.tagId || "",
+    "颜色": item.color || "",
+    "提前提醒天数": item.remindDaysBefore != null ? item.remindDaysBefore : 0,
+    "备注": item.note || "",
+  }));
+}
+
+function buildArchiveRows() {
+  let list = archiveRepository.load();
+  return list.map((item) => ({
+    "事件": item.text || "",
+    "颜色": item.color || "none",
+    "时间": item.time || "",
+    "来源列表": item.sourceListName || "",
+    "归档日期": item.archivedAt || "",
+  }));
+}
+
+function writeMultiSheetWorkbook(XLSX, taskRows, anniversaryRows, archiveRows) {
   try {
-    rows.sort((a, b) => {
-      if (a.清单类型 !== b.清单类型) return a.清单类型 === "日历" ? -1 : 1;
-      return a.日期 > b.日期 ? 1 : a.日期 < b.日期 ? -1 : 0;
+    // 排序事项行
+    taskRows.sort((a, b) => {
+      if (a["清单类型"] !== b["清单类型"]) return a["清单类型"] === "日历" ? -1 : 1;
+      return a["日期"] > b["日期"] ? 1 : a["日期"] < b["日期"] ? -1 : 0;
     });
 
-    let ws = XLSX.utils.json_to_sheet(rows, { header: COLUMNS });
     let wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "WeekToDo导出");
+
+    // Sheet1: 事项
+    let ws1 = XLSX.utils.json_to_sheet(taskRows, { header: TASK_COLUMNS });
+    XLSX.utils.book_append_sheet(wb, ws1, "事项");
+
+    // Sheet2: 纪念日
+    let ws2 = XLSX.utils.json_to_sheet(
+      anniversaryRows.length > 0 ? anniversaryRows : [{}],
+      { header: ANNIVERSARY_COLUMNS }
+    );
+    XLSX.utils.book_append_sheet(wb, ws2, "纪念日");
+
+    // Sheet3: 归档历史
+    let ws3 = XLSX.utils.json_to_sheet(
+      archiveRows.length > 0 ? archiveRows : [{}],
+      { header: ARCHIVE_COLUMNS }
+    );
+    XLSX.utils.book_append_sheet(wb, ws3, "归档历史");
 
     let wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     let blob = new Blob([wbout], { type: "application/octet-stream" });
@@ -163,50 +256,54 @@ function downloadBlob(blob, filename) {
   }, 1000);
 }
 
-// ---------- 弹窗关闭:关键修复,延迟改回已验证可靠的 1000ms,并加保底强制清理 ----------
+// ================== 导入内部函数 ==================
 
-function hideExportingModal() {
-  closeModalSafely("exportingModal");
+function importAnniversaryRows(rows) {
+  let existingList = anniversaryRepository.load();
+  let existingNames = new Set(existingList.map((a) => a.name));
+
+  rows.forEach((row) => {
+    let name = row["名称"];
+    if (!name || existingNames.has(name)) return; // 跳过重名，避免重复
+
+    let item = {
+      id: "anv_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      name: name,
+      repeat: row["重复"] || "none",
+      dateType: row["日期类型"] || "solar",
+      date: row["日期"] || "",
+      lunarMonth: row["农历月"] !== "" ? Number(row["农历月"]) : null,
+      lunarDay: row["农历日"] !== "" ? Number(row["农历日"]) : null,
+      lunarLeap: row["农历闰月"] === "是",
+      tagId: row["标签ID"] || "tag_anniversary",
+      color: row["颜色"] || "#748ffc",
+      remindDaysBefore: row["提前提醒天数"] !== "" ? Number(row["提前提醒天数"]) : 0,
+      note: row["备注"] || "",
+    };
+    existingList.push(item);
+    existingNames.add(name);
+  });
+
+  anniversaryRepository.update(existingList);
 }
 
-function hideImportingModal() {
-  closeModalSafely("importingModal");
+function importArchiveRows(rows) {
+  let existingList = archiveRepository.load();
+
+  rows.forEach((row) => {
+    if (!row["事件"]) return;
+    existingList.push({
+      text: row["事件"],
+      color: row["颜色"] || "none",
+      time: row["时间"] || null,
+      sourceListName: row["来源列表"] || "",
+      sourceListId: "",
+      archivedAt: row["归档日期"] || new Date().toISOString(),
+    });
+  });
+
+  archiveRepository.update(existingList);
 }
-
-function closeModalSafely(id) {
-  // 第一步:延迟 1000ms 后走 Bootstrap 官方的 hide() 方法,
-  // 这个延迟数值和项目里已有的 .wtdb 导出功能保持一致(那边已验证过不会卡住)。
-  // 之前用的 300ms 太短,容易和弹窗自身的显示动画撞在一起,导致 hide() 被静默忽略。
-  setTimeout(function () {
-    let modalEl = document.getElementById(id);
-    if (!modalEl) return;
-    let modal = Modal.getInstance(modalEl);
-    if (modal) {
-      modal.hide();
-    }
-
-    // 第二步:保底检查。不管上面 Bootstrap 的 hide() 有没有真正生效,
-    // 再等 300ms 后如果弹窗的 DOM 依然处于"显示中"状态,
-    // 就不再依赖 Bootstrap 内部逻辑,直接手动清掉相关的类和属性,
-    // 保证弹窗一定会消失,不会再出现"永远卡住转圈"的情况。
-    setTimeout(function () {
-      if (modalEl.classList.contains("show")) {
-        modalEl.classList.remove("show");
-        modalEl.style.display = "none";
-        modalEl.removeAttribute("aria-modal");
-        modalEl.setAttribute("aria-hidden", "true");
-        document.body.classList.remove("modal-open");
-        document.body.style.removeProperty("overflow");
-        document.body.style.removeProperty("padding-right");
-        document.querySelectorAll(".modal-backdrop").forEach(function (bd) {
-          if (bd.parentNode) bd.parentNode.removeChild(bd);
-        });
-      }
-    }, 300);
-  }, 1000);
-}
-
-// ---------- 导入的内部函数 ----------
 
 function parseSubTasks(text) {
   if (!text) return [];
@@ -237,7 +334,7 @@ function rowToTask(row, listId) {
   };
 }
 
-function processImportRows(rows) {
+function processImportTaskRows(rows) {
   try {
     let customListIds = customToDoListIdsRepository.load();
     let nameToId = {};
@@ -272,8 +369,7 @@ function processImportRows(rows) {
 
     let listIds = Object.keys(grouped);
     if (listIds.length === 0) {
-      showInvalidFileToast();
-      hideImportingModal();
+      finishImport();
       return;
     }
 
@@ -347,4 +443,40 @@ function showInvalidFileToast() {
     let toast = Toast.getOrCreateInstance(toastEl);
     toast.show();
   }
+}
+
+// ================== 弹窗关闭辅助 ==================
+
+function hideExportingModal() {
+  closeModalSafely("exportingModal");
+}
+
+function hideImportingModal() {
+  closeModalSafely("importingModal");
+}
+
+function closeModalSafely(id) {
+  setTimeout(function () {
+    let modalEl = document.getElementById(id);
+    if (!modalEl) return;
+    let modal = Modal.getInstance(modalEl);
+    if (modal) {
+      modal.hide();
+    }
+
+    setTimeout(function () {
+      if (modalEl.classList.contains("show")) {
+        modalEl.classList.remove("show");
+        modalEl.style.display = "none";
+        modalEl.removeAttribute("aria-modal");
+        modalEl.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("modal-open");
+        document.body.style.removeProperty("overflow");
+        document.body.style.removeProperty("padding-right");
+        document.querySelectorAll(".modal-backdrop").forEach(function (bd) {
+          if (bd.parentNode) bd.parentNode.removeChild(bd);
+        });
+      }
+    }, 300);
+  }, 1000);
 }

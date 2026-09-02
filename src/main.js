@@ -97,6 +97,22 @@ window.addEventListener("unhandledrejection", function (event) {
 
 try {
   const app = createApp(App);
+
+  // ------------------------------------------------------------------
+  // 关键补充：Vue 3 组件内部（created/mounted/渲染函数/计算属性等）抛出的异常，
+  // 默认只会被 Vue 自己 console.error 打印，并不会冒泡成浏览器原生的
+  // window.onerror / unhandledrejection 事件，因此上面那套全局兜底逻辑对这类
+  // 错误是"看不见"的——这正是本次排查中发现的一个盲区。
+  // 显式注册 errorHandler 后，任何组件级异常都会被这里接管并展示成同样的错误浮层，
+  // 以后再遇到类似问题，第一时间就能看到具体报错堆栈，而不是又一次纯白屏。
+  // ------------------------------------------------------------------
+  app.config.errorHandler = function (err, instance, info) {
+    let detail = (err && err.stack) || String(err);
+    if (info) detail += `\n\n[Vue errorInfo]: ${info}`;
+    renderFatalErrorOverlay("组件运行时错误", detail);
+    console.error(err, info);
+  };
+
   app.use(store);
   app.use(i18n);
   app.mount("#app");

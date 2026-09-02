@@ -38,7 +38,7 @@
 
 <script>
 import moment from "moment";
-import solarLunar from "solarlunar";
+import { solar2lunar } from "../../helpers/solarLunarCore";
 import holidayHelper from "../../helpers/holidayHelper";
 import anniversaryHelper from "../../helpers/anniversaryHelper";
 
@@ -99,14 +99,16 @@ export default {
         let lunarText = "";
         let isTerm = false;
         if (this.showLunar) {
-          let lunar = solarLunar.solar2lunar(cursor.year(), cursor.month() + 1, cursor.date());
-          if (lunar.isTerm) {
-            lunarText = lunar.term;
-            isTerm = true;
-          } else if (lunar.dayCn === "初一") {
-            lunarText = lunar.monthCn;
-          } else {
-            lunarText = lunar.dayCn;
+          let lunar = solar2lunar(cursor.year(), cursor.month() + 1, cursor.date());
+          if (lunar && lunar !== -1) {
+            if (lunar.isTerm) {
+              lunarText = lunar.term;
+              isTerm = true;
+            } else if (lunar.dayCn === "初一") {
+              lunarText = lunar.monthCn;
+            } else {
+              lunarText = lunar.dayCn;
+            }
           }
         }
 

@@ -1,35 +1,20 @@
 // 纪念日（倒数日 / 正计时 / 生日）计算逻辑
-// 依赖 solarlunar 做农历<->公历转换，1900-2100 年范围内可用
+// 依赖本地内置的 solarLunarCore 做农历<->公历转换，1900-2100 年范围内可用
 //
-// 说明1：solarlunar 3.x 的 dist 产物统一以 exports.default = solarLunar 的形式导出，
-// 配合 webpack 4 的 ESM/CJS 互操作转换可以正确拿到方法集合，这里仍做一层防御性归一化，
-// 避免不同打包环境下解析行为有差异时直接抛错导致整个应用挂载失败。
-// 说明2：本文件同时导出 computeNextOccurrence/calc、isOccurrenceOnDate/occursOn 等
-// 「新旧两套命名」，是因为排查发现调用方存在方法名不一致的问题，这里做兼容以避免类似疏漏再次导致白屏。
+// 说明：此前这里依赖 npm 包 solarlunar，但该包 3.x 版本用 package.json 的 exports 字段
+// 做条件导出，Webpack 4（本项目的打包器）无法正确识别，导致模块求值阶段直接报错，
+// 引发应用整体白屏且无法被任何错误兜底逻辑捕获。现改为从本地 solarLunarCore.js 引入，
+// 该文件是纯 ES 模块、无任何第三方依赖，从根源上消除这类风险。
+//
+// 本文件同时导出 computeNextOccurrence/calc、isOccurrenceOnDate/occursOn 等
+// 「新旧两套命名」，是为了兼容 monthCalendar.vue / anniversaryList.vue 里已经存在的调用名。
 import moment from "moment";
-import * as solarLunarModule from "solarlunar";
-
-function resolveSolarLunar(mod) {
-  if (mod && typeof mod.solar2lunar === "function") return mod;
-  if (mod && mod.default && typeof mod.default.solar2lunar === "function") return mod.default;
-  if (mod && mod.default && mod.default.default && typeof mod.default.default.solar2lunar === "function") {
-    return mod.default.default;
-  }
-  return null;
-}
-
-const solarLunar = resolveSolarLunar(solarLunarModule);
-
-if (!solarLunar) {
-  console.error(
-    "[anniversaryHelper] 无法解析 solarlunar 模块的导出，农历转换功能将不可用。请检查依赖版本与打包配置。"
-  );
-}
+import { solar2lunar, lunar2solar } from "./solarLunarCore";
 
 function safeSolar2Lunar(year, month, day) {
-  if (!solarLunar) return null;
   try {
-    return solarLunar.solar2lunar(year, month, day);
+    let result = solar2lunar(year, month, day);
+    return result === -1 ? null : result;
   } catch (e) {
     console.error("[anniversaryHelper] solar2lunar 调用失败：", e);
     return null;
@@ -37,9 +22,9 @@ function safeSolar2Lunar(year, month, day) {
 }
 
 function safeLunar2Solar(year, month, day, isLeap) {
-  if (!solarLunar) return null;
   try {
-    return solarLunar.lunar2solar(year, month, day, isLeap);
+    let result = lunar2solar(year, month, day, isLeap);
+    return result === -1 ? null : result;
   } catch (e) {
     console.error("[anniversaryHelper] lunar2solar 调用失败：", e);
     return null;

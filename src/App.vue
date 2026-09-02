@@ -1,16 +1,21 @@
 <template>
   <input class="hidden-input-for-focus" type="text" />
   <div v-show="compatible" id="app-container" class="app-container" :class="{ 'dark-theme': darkTheme }">
-    <div class="hidden-mobile app-body" :style="{ zoom: `${zoom}%` }">
+    <div v-show="!showCalendarHub" class="hidden-mobile app-body" :style="{ zoom: `${zoom}%` }">
       <splash-screen ref="splash"></splash-screen>
       <side-bar
         :calendarHubActive="showCalendarHub"
+        :upcomingBadgeCount="upcomingAnniversaryCount"
         @change-date="setSelectedDate"
-        @open-calendar-hub="toggleCalendarHub"
+        @open-calendar-hub="openCalendarHub"
       ></side-bar>
 
       <div class="h-100 d-flex flex-column">
-        <template v-if="!showCalendarHub">
+        <div class="home-top-bar d-flex align-items-center px-3">
+          <home-view-toggle v-model="homeViewMode"></home-view-toggle>
+        </div>
+
+        <div v-show="homeViewMode === 'week'" class="d-flex flex-column flex-grow-1">
           <div
             v-show="showCalendar"
             class="todo-lists-container"
@@ -115,13 +120,28 @@
             <img v-if="darkTheme" src="img/WeekToDoDarkLogo.webp" />
             <img v-else src="img/WeekToDoLightLogo.webp" />
           </div>
-        </template>
+        </div>
 
-        <calendar-hub-view
-          v-else
-          @close="closeCalendarHub"
-          @jump-to-date="jumpToDateFromHub"
-        ></calendar-hub-view>
+        <div v-show="homeViewMode === 'month'" class="home-month-view d-flex flex-column flex-grow-1">
+          <month-calendar
+            v-model:month="homeMonthCursor"
+            :countryCodes="holidayCountries"
+            :anniversaryList="homeAnniversaryList"
+            :weekStartOnMonday="weekStartOnMondayBool"
+            :pickedDate="homeMonthPickedDate"
+            :language="language"
+            @day-click="onHomeMonthDayClick"
+          ></month-calendar>
+
+          <div class="home-month-agenda flex-grow-1">
+            <to-do-list
+              :id="homeMonthPickedDate"
+              :showCustomList="false"
+              :pickedDate="homeMonthPickedDate"
+              @todo-list-mounted="onMonthAgendaMounted"
+            ></to-do-list>
+          </div>
+        </div>
       </div>
 
       <remove-custom-list></remove-custom-list>
@@ -138,6 +158,13 @@
       <importing-modal :id="'importingModal'" :text="$t('settings.importing')"></importing-modal>
       <importing-modal :id="'exportingModal'" :text="$t('settings.exporting')"></importing-modal>
     </div>
+
+    <calendar-hub-view
+      v-if="showCalendarHub"
+      class="hidden-mobile"
+      @close="closeCalendarHub"
+      @jump-to-date="jumpToDateFromHub"
+    ></calendar-hub-view>
 
     <div class="mobile d-flex flex-column justify-content-center align-items-center">
       <i class="bi-exclamation-diamond mb-4" style="font-size: 100px"></i>
@@ -199,6 +226,10 @@ import reorderCustomListsModal from "./views/ReorderCustomListsModal.vue";
 import tasksHelper from "./helpers/tasksHelper";
 import holidayHelper from "./helpers/holidayHelper";
 import calendarHubView from "./views/calendarHub/CalendarHubView.vue";
+import monthCalendar from "./views/calendarHub/monthCalendar.vue";
+import homeViewToggle from "./components/homeViewToggle.vue";
+import anniversaryRepository from "./repositories/anniversaryRepository";
+import anniversaryHelper from "./helpers/anniversaryHelper";
 
 export default {
   name: "App",
@@ -220,6 +251,8 @@ export default {
     activeToDo,
     reorderCustomListsModal,
     calendarHubView,
+    monthCalendar,
+    homeViewToggle,
   },
   data() {
     return {
@@ -232,6 +265,10 @@ export default {
       initialListToLoad: 0,
       initialListLoaded: 0,
       showCalendarHub: false,
+      homeViewMode: "week",
+      homeMonthCursor: moment().format("YYYY-MM"),
+      homeMonthPickedDate: moment().format("YYYYMMDD"),
+      homeAnniversaryList: anniversaryRepository.load(),
     };
   },
   beforeCreate() {
@@ -432,6 +469,10 @@ export default {
     todoListMounted: function () {
       this.methodsAfterInitialLoad();
     },
+    onMonthAgendaMounted: function () {
+      // 月视图下方的迷你日程列表复用 to-do-list 组件，它的挂载不计入首次加载计数，
+      // 避免和周视图的 initialListToLoad / initialListLoaded 计数逻辑互相干扰。
+    },
     methodsAfterInitialLoad: function () {
       if (!this.initialLoadCompleted) {
         this.initialListLoaded++;
@@ -600,14 +641,14 @@ export default {
     closeCalendarHub: function () {
       this.showCalendarHub = false;
     },
-    toggleCalendarHub: function () {
-      this.showCalendarHub = !this.showCalendarHub;
-    },
     jumpToDateFromHub: function (dateStr) {
       this.showCalendarHub = false;
       this.$nextTick(function () {
         this.setSelectedDate({ date: dateStr, picked: true });
       });
+    },
+    onHomeMonthDayClick: function (dateStr) {
+      this.homeMonthPickedDate = dateStr;
     },
   },
   computed: {
@@ -684,6 +725,19 @@ export default {
 
       return this.$store.getters.config.mainDividerPosition == 0 ? true : false;
     },
+    upcomingAnniversaryCount: function () {
+      let list = anniversaryHelper.getUpcomingAnniversaries(this.homeAnniversaryList || [], 7);
+      return list.length;
+    },
+    holidayCountries: function () {
+      return this.$store.getters.config.holidayCountries || ["CN"];
+    },
+    weekStartOnMondayBool: function () {
+      return !!this.$store.getters.config.weekStartOnMonday;
+    },
+    language: function () {
+      return this.$store.getters.config.language;
+    },
   },
 };
 </script>
@@ -693,6 +747,28 @@ export default {
 
 body {
   line-height: unset !important;
+}
+
+.home-top-bar {
+  padding-top: 6px;
+  padding-bottom: 2px;
+  flex: 0 0 auto;
+}
+
+.home-month-view {
+  padding: 0px 20px;
+  overflow: hidden;
+}
+
+.home-month-agenda {
+  margin-top: 12px;
+  overflow-y: auto;
+  border-top: 1px solid #eaecef;
+  padding-top: 8px;
+
+  .dark-theme & {
+    border-top-color: #30363d;
+  }
 }
 
 .todo-lists-container {
@@ -777,6 +853,7 @@ body {
   margin-top: 20px;
 }
 
+/*----------------Dark Theme------------------*/
 .dark-theme {
   background-color: #13171d;
   color: #c9d1d9;
@@ -852,7 +929,7 @@ body {
     .inner-main-horizontal-divider {
       display: none;
     }
-    .divider-icons-container {
+        .divider-icons-container {
       margin-top: -25px;
       visibility: visible;
       opacity: 0.3;
@@ -914,6 +991,7 @@ body {
   height: 100% !important;
 }
 
+/*----------------"+"---------------*/
 .add-list-tile {
   cursor: pointer;
   margin-bottom: 5px;

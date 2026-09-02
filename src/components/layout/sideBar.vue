@@ -33,11 +33,13 @@
     />
     <i v-if="showCalendar" class="bi-calendar-event" @click="changeDate" :title="$t('ui.calendar')"> </i>
     <i
-      class="bi-calendar-heart"
+      class="bi-calendar-heart nav-icon-with-badge"
       :class="{ 'active-icon': calendarHubActive }"
       @click="$emit('openCalendarHub')"
       :title="$t('calendarHub.title')"
-    ></i>
+    >
+      <span v-if="upcomingBadgeCount > 0" class="badge-dot">{{ upcomingBadgeCount > 9 ? '9+' : upcomingBadgeCount }}</span>
+    </i>
     <span style="flex-grow: 1"></span>
     <div class="dropend d-flex justify-content-center sidebar-extra-menu">
       <i class="bi-three-dots sidebar-icon align-self-center" type="button" data-bs-toggle="dropdown"></i>
@@ -84,6 +86,7 @@ export default {
   name: "sideBar",
   props: {
     calendarHubActive: { type: Boolean, default: false },
+    upcomingBadgeCount: { type: Number, default: 0 },
   },
   emits: ["changeDate", "openCalendarHub"],
   components: {
@@ -261,6 +264,26 @@ sidebar-icon:active {
 
 .side-bar .logo-white {
   display: none;
+}
+
+.nav-icon-with-badge {
+  position: relative;
+}
+
+.badge-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: #f5222d;
+  color: #fff;
+  font-size: 9px;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
 }
 
 .dark-theme {

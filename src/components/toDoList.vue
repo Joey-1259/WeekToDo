@@ -39,6 +39,18 @@
           @keyup.esc="cancelAdd()"
         ></textarea>
       </div>
+
+      <div v-if="!toDoListState || toDoListState.length === 0" class="day-empty-state">
+        <i class="bi-cup-hot"></i>
+        <p>{{ $t("ui.emptyDayHint") }}</p>
+      </div>
+      <div v-else class="day-progress-footer">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" :style="{ width: dayCompletionRate + '%' }"></div>
+        </div>
+        <span class="progress-text">{{ $t("ui.dayProgress", [completedCount, toDoListState.length]) }}</span>
+      </div>
+
       <div class="fake-lines" :class="{ 'custom-list': customTodoList }" @click="$refs.newToDoInput.focus()"></div>
     </div>
   </div>
@@ -109,6 +121,7 @@ export default {
           tags: [],
           time: null,
           alarm: false,
+          reminders: [],
           repeatingEvent: null,
         };
         this.$store.commit("addTodo", newTodo);
@@ -208,6 +221,14 @@ export default {
         return this.$store.getters.config.customColumns;
 
       return this.$store.getters.config.columns;
+    },
+    completedCount: function () {
+      if (!this.toDoListState) return 0;
+      return this.toDoListState.filter((t) => t.checked).length;
+    },
+    dayCompletionRate: function () {
+      if (!this.toDoListState || !this.toDoListState.length) return 0;
+      return Math.round((this.completedCount / this.toDoListState.length) * 100);
     },
   },
 };
@@ -355,5 +376,53 @@ export default {
   min-height: 26px;
   z-index: 1;
   margin-bottom: -1px;
+}
+
+.day-empty-state {
+  text-align: center;
+  color: #b0b3b8;
+  padding-top: 30px;
+  pointer-events: none;
+
+  i {
+    font-size: 1.8rem;
+    opacity: 0.5;
+  }
+
+  p {
+    font-size: 0.8rem;
+    margin-top: 8px;
+  }
+}
+
+.day-progress-footer {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 4px;
+  pointer-events: none;
+}
+
+.progress-bar-track {
+  height: 4px;
+  border-radius: 2px;
+  background: #eaecef;
+}
+
+.dark-theme .progress-bar-track {
+  background: #30363d;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #4263eb;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.7rem;
+  color: #9aa0a8;
+  margin-top: 4px;
+  display: block;
 }
 </style>

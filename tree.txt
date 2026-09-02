@@ -54320,6 +54320,7 @@
 │   │   │   ├── clearDataModal.vue
 │   │   │   ├── clearListModal.vue
 │   │   │   └── removeCustomList.vue
+│   │   ├── homeViewToggle.vue
 │   │   ├── layout
 │   │   │   └── sideBar.vue
 │   │   ├── linkList.vue
@@ -54332,6 +54333,7 @@
 │   ├── data
 │   │   ├── countryList.js
 │   │   ├── defaultAnniversaryTags.js
+│   │   ├── defaultTaskTags.js
 │   │   └── holidaysSeed.js
 │   ├── helpers
 │   │   ├── anniversaryHelper.js
@@ -54392,7 +54394,9 @@
 │       ├── toDoModal
 │       │   ├── colorPicker.vue
 │       │   ├── descriptionTextArea.vue
+│       │   ├── reminderPicker.vue
 │       │   ├── repeatingEvent.vue
+│       │   ├── tagPicker.vue
 │       │   ├── timePicker.vue
 │       │   └── toDoModal.vue
 │       ├── welcome
@@ -54406,4 +54410,4 @@
 ├── vue.config.js
 └── yarn.lock
 
-7092 directories, 47315 files
+7092 directories, 47319 files

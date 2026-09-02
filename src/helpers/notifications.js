@@ -13,9 +13,26 @@ export default {
 
     if (todoList != null)
       todoList.forEach((todo) => {
-        if (todo.alarm && !todo.checked && moment(todo.time, "HH:mm") >= moment()) {
-          notificationsList.push(this.createNotificationAlert(todo.time, todo.text, notificationSound));
+        if (!todo.time || todo.checked) return;
+
+        // 兼容策略：新数据用 reminders（分钟偏移数组，0 表示到点提醒）；
+        // 老数据没有 reminders 字段时，退回到原来的单一 alarm 布尔行为，
+        // 等效于 reminders:[0]，不需要跑批量迁移脚本改历史数据。
+        let reminderOffsets;
+        if (Array.isArray(todo.reminders) && todo.reminders.length) {
+          reminderOffsets = todo.reminders;
+        } else if (todo.alarm) {
+          reminderOffsets = [0];
+        } else {
+          reminderOffsets = [];
         }
+
+        reminderOffsets.forEach((offsetMinutes) => {
+          let fireMoment = moment(todo.time, "HH:mm").subtract(offsetMinutes, "minutes");
+          if (fireMoment >= moment()) {
+            notificationsList.push(this.createNotificationAlert(fireMoment.format("HH:mm"), todo.text, notificationSound));
+          }
+        });
       });
 
     vue.$store.commit("setNotificatios", notificationsList);

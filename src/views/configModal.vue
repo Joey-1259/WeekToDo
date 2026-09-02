@@ -12,42 +12,42 @@
             <li class="nav-item" role="presentation">
               <button class="nav-link active" id="config-home-tab" data-bs-toggle="tab" data-bs-target="#config-home"
                 role="tab">
-                Home
+                {{ $t("settings.home") }}
               </button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="config-general-tab" data-bs-toggle="tab" data-bs-target="#config-general"
                 role="tab">
-                General
+                {{ $t("settings.general") }}
               </button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="config-display-tab" data-bs-toggle="tab" data-bs-target="#config-display"
                 role="tab">
-                Display
+                {{ $t("settings.display") }}
               </button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="config-notifications-tab" data-bs-toggle="tab"
                 data-bs-target="#config-notifications" role="tab">
-                Notifications
+                {{ $t("settings.notifications") }}
               </button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="config-data-tab" data-bs-toggle="tab" data-bs-target="#config-data" role="tab">
-                Data
+                {{ $t("settings.data") }}
               </button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="config-language-tab" data-bs-toggle="tab" data-bs-target="#config-language"
                 role="tab">
-                Language
+                {{ $t("settings.language") }}
               </button>
             </li>
             <li class="nav-item" role="presentation">
               <button class="nav-link" id="config-behavior-tab" data-bs-toggle="tab" data-bs-target="#config-behavior"
                 role="tab">
-                Behavior
+                {{ $t("settings.behavior") }}
               </button>
             </li>
           </ul>
@@ -283,7 +283,7 @@
                       </button>
                     </div>
 
-                    <!-- 新增:Excel 导出 -->
+                    <!-- 导出Excel  -->
                     <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
                       <label class="form-check-label" for="export-excel-btn">{{ $t("settings.exportExcel") }}</label>
                       <button id="export-excel-btn" type="button" class="btn py-1 px-2 border" style="width: 140px;"
@@ -293,7 +293,7 @@
                       </button>
                     </div>
 
-                    <!-- 新增:Excel 导入 -->
+                    <!-- 导入Excel  -->
                     <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
                       <label class="form-check-label" for="import-excel-btn">{{ $t("settings.importExcel") }}</label>
                       <button id="import-excel-btn" type="button" class="btn py-1 px-2 border" style="width: 140px;"
@@ -314,7 +314,7 @@
                   </div>
                   <input type="file" id="file-selector" class="d-none" accept=".wtdb" ref="loadData"
                     @change="importData($event)" />
-                  <!-- 新增:Excel 文件选择框 -->
+                  <!-- 导入Excel  -->
                   <input type="file" id="excel-file-selector" class="d-none" accept=".xlsx" ref="loadExcel"
                     @change="importExcel($event)" />
                 </div>
@@ -326,23 +326,23 @@
                 <select id="language" class="col-sm-9 form-select" aria-label="Default select example"
                   v-model="configData.language" @change="setLanguage">
                   <option value="en">English</option>
-                  <option value="es">Espaol</option>
-                  <option value="fr">Franais</option>
+                  <option value="es">Español</option>
+                  <option value="fr">Français</option>
                   <option value="de">Deutsch</option>
                   <option value="it">Italiano</option>
-                  <option value="pt">Portugus</option>
-                  <option value="ru"></option>
-                  <option value="hi"></option>
-                  <option value="ja"></option>
+                  <option value="pt">Português</option>
+                  <option value="ru">Русский</option>
+                  <option value="hi">हिन्दी</option>
+                  <option value="ja">日本語</option>
                   <option value="pl">Polski</option>
-                  <option value="ar"></option>
-                  <option value="ko"></option>
-                  <option value="zh_cn"></option>
-                  <option value="zh_tw"></option>
-                  <option value="uk"></option>
-                  <option value="tr">Trk</option>
-                  <option value="vi">Ting Vit</option>
-                  <option value="he"></option>
+                  <option value="ar">العربية</option>
+                  <option value="ko">한국어</option>
+                  <option value="zh_cn">中文（简体）</option>
+                  <option value="zh_tw">中文（繁體）</option>
+                  <option value="uk">Українська</option>
+                  <option value="tr">Türkçe</option>
+                  <option value="vi">Tiếng Việt</option>
+                  <option value="he">עברית</option>
                 </select>
               </div>
             </div>
@@ -407,7 +407,7 @@ export default {
       importingModal.show();
       exportTool.import(event);
     },
-    // 新增:Excel 导出转发方法
+    // 导出Excel
     exportExcel: function () {
       let configModal = Modal.getInstance(document.getElementById("configModal"));
       configModal.hide();
@@ -415,7 +415,7 @@ export default {
       exportingModal.show();
       excelTool.exportExcel();
     },
-    // 新增:Excel 导入转发方法
+    // 导入Excel
     importExcel: function (event) {
       let configModal = Modal.getInstance(document.getElementById("configModal"));
       configModal.hide();

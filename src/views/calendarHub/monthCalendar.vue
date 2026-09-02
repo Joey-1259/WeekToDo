@@ -2,7 +2,7 @@
   <div class="month-calendar">
     <div class="month-calendar-toolbar d-flex align-items-center mb-3">
       <i class="bi-chevron-left nav-icon" @click="prevMonth"></i>
-      <span class="month-label" @click="toggleYearMonthPicker">{{ monthLabel }}</span>
+      <span class="month-label" ref="monthLabelBtn" @click="toggleYearMonthPicker">{{ monthLabel }}</span>
       <i class="bi-chevron-right nav-icon" @click="nextMonth"></i>
       <button class="btn btn-sm today-btn" type="button" @click="backToToday">{{ $t("calendarHub.today") }}</button>
 
@@ -10,6 +10,7 @@
         v-if="showYearMonthPicker"
         :value="month"
         :language="language"
+        :anchor-el="$refs.monthLabelBtn"
         @select="onSelectYearMonth"
         @close="showYearMonthPicker = false"
       ></year-month-picker>

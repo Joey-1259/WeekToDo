@@ -4,12 +4,14 @@ import { store } from "./store/store";
 import * as Sentry from "@sentry/vue";
 
 import { createI18n } from "vue-i18n";
-import { languages } from "./assets/languages/languages.js";
+import { languages, defaultLocale } from "./assets/languages/languages.js";
 const messages = Object.assign(languages);
 const i18n = createI18n({
-  locale: "en",
-  fallbackLocale: "en",
+  locale: defaultLocale,
+  fallbackLocale: "en", // 关键：任何语言包缺 key 时自动回退显示英文，杜绝界面上出现裸的 key 路径字符串
   messages,
+  missingWarn: false,
+  fallbackWarn: false,
 });
 
 import "bootstrap";

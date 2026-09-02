@@ -49,8 +49,7 @@
           </div>
           <div class="d-flex ms-auto align-items-center">
             <time-picker :time="todo.time" @time-selected="changeTime"></time-picker>
-            <i :class="{ 'bi-bell': !todo.alarm, 'bi-bell-fill': todo.alarm }" class="header-menu-icons"
-              @click="changeAlarm" :title="$t('todoDetails.alarm')"></i>
+            <reminder-picker :model-value="todo.reminders || []" @update:modelValue="changeReminders"></reminder-picker>
             <repeating-event v-if="showingCalendar" :repeatingEvent="todo.repeatingEvent" :todo="todo"
               @repeatingEventSelected="changeRepeatingEvent"></repeating-event>
             <color-picker :color="todo.color" @color-selected="changeColor"></color-picker>
@@ -106,6 +105,8 @@
                 :placeholder="$t('todoDetails.taskTitle')" @blur="doneEditTitle()" @keyup.enter="doneEditTitle()" />
               <description-text-area :todoDesc="todo.desc"
                 @updated-description="changeDescription"></description-text-area>
+              <tag-picker class="mt-2" :model-value="todo.tags || []" :all-tags="allTags"
+                @update:modelValue="changeTags"></tag-picker>
             </div>
           </div>
           <div class="mt-3"></div>
@@ -169,6 +170,9 @@ import linkifyStr from 'linkify-string';
 import ClickHandler from "@manuelernestog/click-handler";
 import tasksHelper from "../../helpers/tasksHelper";
 import descriptionTextArea from './descriptionTextArea.vue'
+import tagPicker from './tagPicker.vue'
+import reminderPicker from './reminderPicker.vue'
+import defaultTaskTags from '../../data/defaultTaskTags.js'
 
 export default {
   name: "toDoModal",
@@ -184,6 +188,8 @@ export default {
         desc: "",
         subTaskList: [],
         alarm: false,
+        reminders: [],
+        tags: [],
       },
       todoList: null,
       index: 0,
@@ -207,7 +213,9 @@ export default {
     timePicker,
     repeatingEvent,
     comfirmModal,
-    descriptionTextArea
+    descriptionTextArea,
+    tagPicker,
+    reminderPicker,
   },
   methods: {
     removeSubTask: function (index) {
@@ -409,9 +417,10 @@ export default {
         subTaskList: this.todo.subTaskList,
         color: this.todo.color,
         priority: 0,
-        tags: [],
+        tags: this.todo.tags || [],
         time: this.todo.time,
         alarm: this.todo.alarm,
+        reminders: this.todo.reminders || [],
         repeatingEvent: null,
       };
       this.$store.commit("addTodo", newTodo);
@@ -455,14 +464,18 @@ export default {
       this.todo.time = time;
       if (!time) {
         this.todo.alarm = false;
+        this.todo.reminders = [];
       }
       this.updateTodoWithReorder();
     },
-    changeAlarm() {
-      if (this.todo.time) {
-        this.todo.alarm = this.todo.alarm ? false : true;
-        this.updateTodo();
-      }
+    changeReminders(reminders) {
+      this.todo.reminders = reminders;
+      this.todo.alarm = reminders.length > 0;
+      this.updateTodo();
+    },
+    changeTags(tags) {
+      this.todo.tags = tags;
+      this.updateTodo();
     },
     changeDescription(desc) {
       this.todo.desc = desc;
@@ -503,7 +516,16 @@ export default {
         this.todo["tags"] = [];
         this.todo["time"] = null;
         this.todo["alarm"] = false;
+        this.todo["reminders"] = [];
         this.todo["repeatingEvent"] = null;
+      } else {
+        // 兼容处于"半迁移"状态的旧数据：已经有 desc/tags 等字段，
+        // 但还没有 reminders 字段（新增能力）。有 alarm:true 的旧任务
+        // 打开一次详情就会被补上 reminders:[0]，提醒不会丢。
+        if (this.todo["tags"] == undefined) this.todo["tags"] = [];
+        if (this.todo["reminders"] == undefined) {
+          this.todo["reminders"] = this.todo.alarm ? [0] : [];
+        }
       }
       this.showingCalendar = moment(this.todo.listId, "YYYYMMDD", true).isValid();
       this.getCListOptions();
@@ -561,7 +583,10 @@ export default {
     },
     weekStartOnMonday: function () {
       return this.$store.getters.config.weekStartOnMonday ? 1 : 0;
-    }
+    },
+    allTags: function () {
+      return defaultTaskTags.getDefaultTags(this);
+    },
   },
 };
 </script>

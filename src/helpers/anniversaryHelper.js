@@ -1,20 +1,17 @@
 // 纪念日（倒数日 / 正计时 / 生日）计算逻辑
 // 依赖 solarlunar 做农历<->公历转换，1900-2100 年范围内可用
 //
-// 说明：solarlunar 从 3.x 开始改用 ESM + package.json "exports" 字段做条件导出，
-// 而本项目基于 vue-cli 4 / webpack 4，webpack 4 不认识 "exports" 字段，
-// 不同环境（本地 dev server vs 打包后的生产环境）解析到的具体构建产物可能不一致，
-// 轻则拿到的默认导出不是预期的方法集合，重则运行时直接抛错导致整个 Vue 应用无法挂载（白屏）。
-// 下面这段做了防御性归一化，兼容它可能出现的几种导出形态。
+// 说明1：solarlunar 3.x 的 dist 产物统一以 exports.default = solarLunar 的形式导出，
+// 配合 webpack 4 的 ESM/CJS 互操作转换可以正确拿到方法集合，这里仍做一层防御性归一化，
+// 避免不同打包环境下解析行为有差异时直接抛错导致整个应用挂载失败。
+// 说明2：本文件同时导出 computeNextOccurrence/calc、isOccurrenceOnDate/occursOn 等
+// 「新旧两套命名」，是因为排查发现调用方存在方法名不一致的问题，这里做兼容以避免类似疏漏再次导致白屏。
 import moment from "moment";
 import * as solarLunarModule from "solarlunar";
 
 function resolveSolarLunar(mod) {
-  // ESM 具名导出直接挂在 mod 上，例如 mod.solar2lunar
   if (mod && typeof mod.solar2lunar === "function") return mod;
-  // 常见的 default 导出对象，例如 mod.default.solar2lunar
   if (mod && mod.default && typeof mod.default.solar2lunar === "function") return mod.default;
-  // UMD 打包情况下可能整个模块本身就是那个对象的引用集合
   if (mod && mod.default && mod.default.default && typeof mod.default.default.solar2lunar === "function") {
     return mod.default.default;
   }
@@ -24,8 +21,6 @@ function resolveSolarLunar(mod) {
 const solarLunar = resolveSolarLunar(solarLunarModule);
 
 if (!solarLunar) {
-  // 不让这里直接抛错炸掉整个应用；退化为一个不会抛异常的空实现，
-  // 农历相关功能会暂时不可用，但不会导致白屏。
   console.error(
     "[anniversaryHelper] 无法解析 solarlunar 模块的导出，农历转换功能将不可用。请检查依赖版本与打包配置。"
   );
@@ -62,7 +57,6 @@ function toSolarMoment(targetYear, item) {
   if (item.dateType === "lunar") {
     let result = safeLunar2Solar(targetYear, item.lunarMonth, item.lunarDay, !!item.lunarLeap);
     if (!result && item.lunarLeap) {
-      // 有些年份没有对应的闰月，退回到当年的非闰月同月同日
       result = safeLunar2Solar(targetYear, item.lunarMonth, item.lunarDay, false);
     }
     if (!result) return null;
@@ -76,29 +70,45 @@ function toSolarMoment(targetYear, item) {
   }
 }
 
+// 核心计算：返回统一结构的结果对象，同时提供 daysLeft（可能为负）和 daysElapsed（非负、仅在已过去时有意义）
+// 这样无论调用方读取的是哪一个字段名，都不会因为字段缺失而拿到 undefined 引发后续报错。
 function computeOccurrence(item, today) {
-  // 从"今年"往后最多找 3 年，找到下一次（或本次）发生的日期
-  for (let offset = 0; offset <= 3; offset++) {
-    let targetYear = today.year() + offset;
-    let m = toSolarMoment(targetYear, item);
-    if (!m) continue;
-
-    if (item.type === "birthday" || item.repeatYearly) {
+  if (item.type === "birthday" || item.repeatYearly) {
+    for (let offset = 0; offset <= 3; offset++) {
+      let targetYear = today.year() + offset;
+      let m = toSolarMoment(targetYear, item);
+      if (!m) continue;
       if (m.isSameOrAfter(today, "day")) {
-        let age = item.dateType === "lunar" ? targetYear - getLunarYearOfDate(item.date) : targetYear - moment(item.date, "YYYY-MM-DD").year();
-        return { nextDateStr: m.format("YYYYMMDD"), daysLeft: m.diff(today, "days"), age, isPast: false };
+        let age =
+          item.dateType === "lunar"
+            ? targetYear - getLunarYearOfDate(item.date)
+            : targetYear - moment(item.date, "YYYY-MM-DD").year();
+        let daysLeft = m.diff(today, "days");
+        return {
+          nextDateStr: m.format("YYYYMMDD"),
+          daysLeft,
+          daysElapsed: daysLeft < 0 ? -daysLeft : 0,
+          age,
+          isPast: false,
+        };
       }
-    } else {
-      // 一次性倒数日/正计时
-      let base = moment(item.date, "YYYY-MM-DD");
-      let daysLeft = base.diff(today, "days");
-      return { nextDateStr: base.format("YYYYMMDD"), daysLeft, age: null, isPast: daysLeft < 0 };
     }
+    return null;
+  } else {
+    // 一次性倒数日/正计时
+    let base = moment(item.date, "YYYY-MM-DD");
+    let daysLeft = base.diff(today, "days");
+    return {
+      nextDateStr: base.format("YYYYMMDD"),
+      daysLeft,
+      daysElapsed: daysLeft < 0 ? -daysLeft : 0,
+      age: null,
+      isPast: daysLeft < 0,
+    };
   }
-  return null;
 }
 
-export default {
+const helper = {
   /**
    * 把一个公历日期转换成农历信息，用于新建纪念日时给用户看"农历八月十五"这样的提示
    */
@@ -132,6 +142,10 @@ export default {
     let base = moment(item.date, "YYYY-MM-DD");
     return base.month() === target.month() && base.date() === target.date();
   },
+  // 别名：兼容 monthCalendar.vue 里使用的调用名
+  occursOn(item, dateStr) {
+    return helper.isOccurrenceOnDate(item, dateStr);
+  },
 
   /**
    * 计算一个纪念日"下一次发生"的信息：日期、剩余/已过天数、年龄等
@@ -139,6 +153,10 @@ export default {
   computeNextOccurrence(item) {
     let today = moment().startOf("day");
     return computeOccurrence(item, today);
+  },
+  // 别名：兼容 anniversaryList.vue 里使用的调用名
+  calc(item) {
+    return helper.computeNextOccurrence(item);
   },
 
   /**
@@ -170,3 +188,5 @@ export default {
     return results;
   },
 };
+
+export default helper;

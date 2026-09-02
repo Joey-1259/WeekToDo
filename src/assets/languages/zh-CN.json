@@ -96,7 +96,7 @@
     "data9": "苹果",
     "data10": "饮料",
     "data11": "单击三个点以查看有关此任务的更多详细信息",
-    "data12": "用鼠标点击快速打开任务详细信息",
+    "data12": "用鼠标点击快速打开任务详情",
     "list1": "自定义列表",
     "list2": "购物列表",
     "list3": "想法",
@@ -188,7 +188,8 @@
     "dayProgress": "{0} / {1} 已完成",
     "previousWeek": "上一周",
     "nextWeek": "下一周",
-    "defaultCustomListName": "自定义列表"
+    "defaultCustomListName": "自定义列表",
+    "weeklyEventsTitle": "每周事项"
   },
   "todoDetails": {
     "taskTitle": "任务标题",

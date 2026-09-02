@@ -188,7 +188,8 @@
     "dayProgress": "{0} / {1} done",
     "previousWeek": "Previous week",
     "nextWeek": "Next week",
-    "defaultCustomListName": "Custom List"
+    "defaultCustomListName": "Custom List",
+    "weeklyEventsTitle": "Weekly Agenda"
   },
   "todoDetails": {
     "taskTitle": "Task title",

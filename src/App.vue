@@ -13,11 +13,23 @@
         <splash-screen ref="splash"></splash-screen>
 
         <div class="home-week-view d-flex flex-column h-100">
-          <div class="week-nav d-flex align-items-center">
-            <i class="bi-chevron-left week-nav-arrow" @click="weekMoveLeft" :title="$t('ui.previousWeek')"></i>
-            <span class="week-range-label">{{ weekRangeLabel }}</span>
-            <i class="bi-chevron-right week-nav-arrow" @click="weekMoveRight" :title="$t('ui.nextWeek')"></i>
+          <!-- 标题区：参考日历中心顶部条的视觉语言，图标 + 标题，不再展示容易算错、也没有实际信息量的周日期范围文本 -->
+          <div class="home-header d-flex align-items-center">
+            <i class="bi-calendar-week home-header-icon"></i>
+            <h5 class="home-header-title mb-0 ms-2">{{ $t("ui.weeklyEventsTitle") }}</h5>
           </div>
+
+          <!-- 左右切换周箭头挪到整个日程页面的左右两侧边缘，纵向居中覆盖整页高度 -->
+          <i
+            class="bi-chevron-left week-side-arrow week-side-arrow-left"
+            @click="weekMoveLeft"
+            :title="$t('ui.previousWeek')"
+          ></i>
+          <i
+            class="bi-chevron-right week-side-arrow week-side-arrow-right"
+            @click="weekMoveRight"
+            :title="$t('ui.nextWeek')"
+          ></i>
 
           <div class="week-grid-row flex-grow-1">
             <to-do-list
@@ -203,9 +215,8 @@ export default {
     );
   },
   created() {
-    // ensureDefaultCustomList 是 methods 里的函数，必须放在 created()（或之后）调用。
-    // Vue2 初始化顺序：beforeCreate -> initState(挂载 data/computed/methods/watch) -> created，
-    // 在 beforeCreate 里直接调用会因为 methods 还未挂载而报 "is not a function"。
+    // ensureDefaultCustomList 是 methods 里的函数，必须放在 created()（或之后）调用，
+    // 否则会因为 Vue2 的初始化顺序（beforeCreate 时 methods 还未挂载到 this 上）而报错。
     this.ensureDefaultCustomList();
   },
   mounted() {
@@ -266,6 +277,13 @@ export default {
       }
     },
     setSelectedDate: function (payload) {
+      // 侧边栏"主页/今天"图标、日历中心点日期跳转、常规日期切换都会走这里。
+      // 之前只有"日历中心点具体日期"那条链路会显式关闭日历中心视图（showCalendarHub = false），
+      // 主页图标那条链路遗漏了这一步，导致在日历中心页面点击主页图标时，
+      // 日期状态其实已经更新，但因为 showCalendarHub 没变回 false，视图一直停留在日历中心，
+      // 看起来就像"点击没有生效"。这里统一收口：只要触发了日期切换，就一定回到周视图主页。
+      this.showCalendarHub = false;
+
       let date, picked;
       if (typeof payload === "string") {
         date = payload;
@@ -497,9 +515,9 @@ export default {
       },
     },
     customListCount: function (val) {
-      // 把"索引越界/清单被清空"这两类需要修改 data 的副效应统一放在这里处理，
-      // 而不要放进 computed（computed 必须是纯函数，不能修改响应式数据，
-      // 否则会触发 eslint 规则 vue/no-side-effects-in-computed-properties 报错）。
+      // 索引越界 / 清单被清空这类需要修改 data 的副效应统一放在 watch 里处理，
+      // 不能放进 computed（computed 必须是纯函数读取，否则会被 eslint 的
+      // vue/no-side-effects-in-computed-properties 规则拦截，构建失败）。
       if (val === 0) {
         this.ensureDefaultCustomList();
         this.homeCustomListIndex = 0;
@@ -524,28 +542,8 @@ export default {
     allVisibleDates: function () {
       return this.topRowDates.concat(this.bottomRowDates);
     },
-    weekRangeLabel: function () {
-      let lang = this.$store.getters.config.language;
-      let isZh = lang === "zh_cn" || lang === "zh_tw";
-      let start = this.weekStartDate.clone().locale(lang);
-      let end = start.clone().add(6, "d");
-
-      if (start.year() === end.year() && start.month() === end.month()) {
-        return isZh
-          ? `${start.format("YYYYM")}${start.format("D")} - ${end.format("D")}`
-          : `${start.format("MMM D")} - ${end.format("D, YYYY")}`;
-      } else if (start.year() === end.year()) {
-        return isZh
-          ? `${start.format("MD")} - ${end.format("MD")}, ${start.format("YYYY")}`
-          : `${start.format("MMM D")} - ${end.format("MMM D, YYYY")}`;
-      }
-      return isZh
-        ? `${start.format("YYYYMD")} - ${end.format("YYYYMD")}`
-        : `${start.format("MMM D, YYYY")} - ${end.format("MMM D, YYYY")}`;
-    },
     homeCustomList: function () {
-      // 注意：computed 必须是纯函数读取，不能修改 this.homeCustomListIndex 这类响应式数据。
-      // 越界重置的副效应已经挪到上面的 watch.customListCount 里处理，这里只做安全读取。
+      // computed 必须是纯函数读取，越界重置的副效应已经挪到上面的 watch.customListCount 里。
       let ids = this.$store.getters.cTodoListIds;
       if (!ids || !ids.length) return null;
       let safeIndex = this.homeCustomListIndex < ids.length ? this.homeCustomListIndex : 0;
@@ -603,38 +601,59 @@ body {
 }
 
 .home-week-view {
-  padding: 0 20px 14px;
+  position: relative;
+  padding: 0 46px 14px;
   overflow: hidden;
 }
 
-.week-nav {
-  justify-content: center;
-  gap: 14px;
-  padding: 14px 0 8px;
+.home-header {
   flex: 0 0 auto;
+  padding: 16px 0 10px;
 }
 
-.week-range-label {
-  font-size: 1rem;
+.home-header-icon {
+  font-size: 1.15rem;
+  color: #4263eb;
+}
+
+.dark-theme .home-header-icon {
+  color: #6c8fff;
+}
+
+.home-header-title {
   font-weight: 600;
-  min-width: 220px;
-  text-align: center;
+  font-size: 1rem;
 }
 
-.week-nav-arrow {
-  font-size: 1.4rem;
-  padding: 5px 10px;
-  border-radius: 6px;
+.week-side-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.3rem;
+  padding: 10px 8px;
+  border-radius: 8px;
   cursor: pointer;
+  z-index: 3;
+  color: #9aa0a8;
   transition: 0.4s cubic-bezier(0.2, 1, 0.1, 1);
 }
 
-.week-nav-arrow:hover {
+.week-side-arrow:hover {
   background-color: #eaecef;
+  color: #333;
 }
 
-.dark-theme .week-nav-arrow:hover {
+.dark-theme .week-side-arrow:hover {
   background-color: #21262d;
+  color: #dedede;
+}
+
+.week-side-arrow-left {
+  left: 6px;
+}
+
+.week-side-arrow-right {
+  right: 6px;
 }
 
 .week-grid-row {
@@ -709,6 +728,7 @@ body {
 .home-custom-list-slot {
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .home-custom-list-switcher {

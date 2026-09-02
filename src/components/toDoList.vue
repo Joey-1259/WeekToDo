@@ -1,7 +1,7 @@
 <template>
   <div :id="'list' + id" class="to-do-list-container d-flex flex-column" ref="listContainer" :class="{
     'old-date': !customTodoList && moments(id).isBefore(Date(), 'day'),
-  }" :style="`flex: 0 0 ${100 / columns}%;`">
+  }" :style="customTodoList ? 'flex: 1 1 auto; width: 100%; min-width: 0;' : `flex: 0 0 ${100 / columns}%;`">
     <div v-if="loading" class="loading-spinner">
       <div class="spinner-border" role="status">
         <span class="visually-hidden">Loading...</span>
@@ -38,17 +38,6 @@
           @keydown.enter.exact.prevent="addToDo()"
           @keyup.esc="cancelAdd()"
         ></textarea>
-      </div>
-
-      <div v-if="!toDoListState || toDoListState.length === 0" class="day-empty-state">
-        <i class="bi-cup-hot"></i>
-        <p>{{ $t("ui.emptyDayHint") }}</p>
-      </div>
-      <div v-else class="day-progress-footer">
-        <div class="progress-bar-track">
-          <div class="progress-bar-fill" :style="{ width: dayCompletionRate + '%' }"></div>
-        </div>
-        <span class="progress-text">{{ $t("ui.dayProgress", [completedCount, toDoListState.length]) }}</span>
       </div>
 
       <div class="fake-lines" :class="{ 'custom-list': customTodoList }" @click="$refs.newToDoInput.focus()"></div>
@@ -225,14 +214,6 @@ export default {
         return this.$store.getters.config.customColumns;
       return this.$store.getters.config.columns;
     },
-    completedCount: function () {
-      if (!this.toDoListState) return 0;
-      return this.toDoListState.filter((t) => t.checked).length;
-    },
-    dayCompletionRate: function () {
-      if (!this.toDoListState || !this.toDoListState.length) return 0;
-      return Math.round((this.completedCount / this.toDoListState.length) * 100);
-    },
   },
 };
 </script>
@@ -277,6 +258,16 @@ export default {
   padding-right: 13px;
   scroll-snap-align: start;
   margin-bottom: 5px;
+  /* 去掉这一列自身的滚动条视觉，任务多的时候依旧可以在这个区域内正常上下滑动，
+     只是不再显示丑陋的滚动条轨道和滑块 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.to-do-list-container::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .to-do-fake-item {
@@ -357,53 +348,5 @@ export default {
   min-height: 26px;
   z-index: 1;
   margin-bottom: -1px;
-}
-
-.day-empty-state {
-  text-align: center;
-  color: #b0b3b8;
-  padding-top: 30px;
-  pointer-events: none;
-}
-
-.day-empty-state i {
-  font-size: 1.8rem;
-  opacity: 0.5;
-}
-
-.day-empty-state p {
-  font-size: 0.8rem;
-  margin-top: 8px;
-}
-
-.day-progress-footer {
-  position: sticky;
-  bottom: 0;
-  padding: 8px 4px;
-  pointer-events: none;
-}
-
-.progress-bar-track {
-  height: 4px;
-  border-radius: 2px;
-  background: #eaecef;
-}
-
-.dark-theme .progress-bar-track {
-  background: #30363d;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: #4263eb;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  font-size: 0.7rem;
-  color: #9aa0a8;
-  margin-top: 4px;
-  display: block;
 }
 </style>

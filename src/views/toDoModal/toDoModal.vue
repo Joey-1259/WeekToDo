@@ -48,91 +48,99 @@
             </div>
           </div>
           <div class="d-flex ms-auto align-items-center">
-            <time-picker :time="todo.time" @time-selected="changeTime"></time-picker>
-            <reminder-picker :model-value="todo.reminders || []" @update:modelValue="changeReminders"></reminder-picker>
-            <repeating-event v-if="showingCalendar" :repeatingEvent="todo.repeatingEvent" :todo="todo"
-              @repeatingEventSelected="changeRepeatingEvent"></repeating-event>
-            <color-picker :color="todo.color" @color-selected="changeColor"></color-picker>
-            <i id="btnTaskOptionMenu" class="bi-three-dots-vertical header-menu-icons" type="button"
-              data-bs-toggle="dropdown" :title="$t('todoDetails.actions')"></i>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="btnTaskOptionMenu">
-              <li>
-                <button class="dropdown-item" type="button" @click="copyTodo">
-                  <i class="bi-clipboard"></i>
-                  <span>{{ $t("donate.copy") }}</span>
-                </button>
-              </li>
-              <li>
-                <button class="dropdown-item" type="button" @click="duplicateTodo" data-bs-dismiss="modal">
-                  <i class="bi-back"></i>
-                  <span>{{ $t("todoDetails.duplicate") }}</span>
-                </button>
-              </li>
-              <li>
-                <hr class="dropdown-divider" />
-              </li>
-              <li>
-                <button class="dropdown-item" type="button" @click="removeTodo" data-bs-dismiss="modal">
-                  <i class="bi-trash"></i> <span>{{ $t("ui.remove") }}</span>
-                </button>
-              </li>
-              <li v-if="todo.repeatingEvent">
-                <button class="dropdown-item" type="button" @click="removeAll" data-bs-dismiss="modal">
-                  <i class="bi-trash"></i> <span>{{ $t("ui.removeAll") }}</span>
-                </button>
-              </li>
-            </ul>
-            <div>
-              <i class="bi-x close-modal header-menu-icons" ref="closeModal" data-bs-dismiss="modal"
-                :title="$t('todoDetails.close')"></i>
+            <div class="header-tools d-flex align-items-center">
+              <time-picker :time="todo.time" @time-selected="changeTime"></time-picker>
+              <reminder-picker :model-value="todo.reminders || []" @update:modelValue="changeReminders"></reminder-picker>
+              <repeating-event v-if="showingCalendar" :repeatingEvent="todo.repeatingEvent" :todo="todo"
+                @repeatingEventSelected="changeRepeatingEvent"></repeating-event>
+              <color-picker :color="todo.color" @color-selected="changeColor"></color-picker>
+              <i id="btnTaskOptionMenu" class="bi-three-dots-vertical header-menu-icons" type="button"
+                data-bs-toggle="dropdown" :title="$t('todoDetails.actions')"></i>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="btnTaskOptionMenu">
+                <li>
+                  <button class="dropdown-item" type="button" @click="copyTodo">
+                    <i class="bi-clipboard"></i>
+                    <span>{{ $t("donate.copy") }}</span>
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item" type="button" @click="duplicateTodo" data-bs-dismiss="modal">
+                    <i class="bi-back"></i>
+                    <span>{{ $t("todoDetails.duplicate") }}</span>
+                  </button>
+                </li>
+                <li>
+                  <hr class="dropdown-divider" />
+                </li>
+                <li>
+                  <button class="dropdown-item" type="button" @click="removeTodo" data-bs-dismiss="modal">
+                    <i class="bi-trash"></i> <span>{{ $t("ui.remove") }}</span>
+                  </button>
+                </li>
+                <li v-if="todo.repeatingEvent">
+                  <button class="dropdown-item" type="button" @click="removeAll" data-bs-dismiss="modal">
+                    <i class="bi-trash"></i> <span>{{ $t("ui.removeAll") }}</span>
+                  </button>
+                </li>
+              </ul>
             </div>
+            <div class="header-divider"></div>
+            <i class="bi-x close-modal header-menu-icons" ref="closeModal" data-bs-dismiss="modal"
+              :title="$t('todoDetails.close')"></i>
           </div>
         </div>
         <div class="modal-body">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" value="" id="todo-header" v-model="todo.checked"
-              @change="checkTodoClickhandler(false)" />
-            <div class="title-container">
-              <label v-show="!editingTitle" class="form-check-label todo-title" for="todo-header"
-                :class="{ 'completed-task': todo.checked }" @dblclick="editTitle">
-                <span v-html="todoText"></span>
-              </label>
-              <label v-show="!editingTitle && todo.text == ''" class="form-check-label todo-title todo-title-empty-title"
-                for="todo-header" @dblclick="editTitle">
-                {{ $t("todoDetails.taskTitle") }}
-              </label>
-              <input v-show="editingTitle" class="todo-title-input" type="text" v-model="todo.text" ref="titleInput"
-                :placeholder="$t('todoDetails.taskTitle')" @blur="doneEditTitle()" @keyup.enter="doneEditTitle()" />
-              <description-text-area :todoDesc="todo.desc"
-                @updated-description="changeDescription"></description-text-area>
-              <tag-picker class="mt-2" :model-value="todo.tags || []" :all-tags="allTags"
-                @update:modelValue="changeTags"></tag-picker>
-            </div>
-          </div>
-          <div class="mt-3"></div>
-          <div class="horizontal-divider mb-0 mt-3"></div>
-          <ul class="sub-tasks">
-            <li v-for="(subTask, index) in todo.subTaskList" :key="index" class="sub-task">
-              <div v-show="!subTask.editing" draggable="true" @dragstart="startDrag($event, index)" @dragover.prevent>
-                <div class="d-flex flex-row align-items-center" :class="{ checked: subTask.checked }">
-                  <input class="form-check-input flex-grow-1 mx-3 mt-0" type="checkbox" v-model="subTask.checked"
-                    :id="'sub-task-' + index" @change="changeSubTaskClickhandler(index)" />
-                  <label class="form-check-label" :for="'sub-task-' + index" @dragenter.self="onDragenter($event)"
-                    @dragleave.self="onDragleave($event)" @drop="onDrop($event, index)" @dragover.prevent>
-                    <span v-html="linkifyText(subTask.text)"></span>
-                  </label>
-                  <i class="bi-trash mx-2" :title="$t('ui.remove')" @click="removeSubTask(index)"></i>
-                </div>
+          <div class="modal-content-inner">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="" id="todo-header" v-model="todo.checked"
+                @change="checkTodoClickhandler(false)" />
+              <div class="title-container">
+                <label v-show="!editingTitle" class="form-check-label todo-title" for="todo-header"
+                  :class="{ 'completed-task': todo.checked }" @dblclick="editTitle">
+                  <span v-html="todoText"></span>
+                </label>
+                <label v-show="!editingTitle && todo.text == ''" class="form-check-label todo-title todo-title-empty-title"
+                  for="todo-header" @dblclick="editTitle">
+                  {{ $t("todoDetails.taskTitle") }}
+                </label>
+                <input v-show="editingTitle" class="todo-title-input" type="text" v-model="todo.text" ref="titleInput"
+                  :placeholder="$t('todoDetails.taskTitle')" @blur="doneEditTitle()" @keyup.enter="doneEditTitle()" />
+                <description-text-area :todoDesc="todo.desc"
+                  @updated-description="changeDescription"></description-text-area>
+                <tag-picker class="mt-2" :model-value="todo.tags || []" :all-tags="allTags"
+                  @update:modelValue="changeTags"></tag-picker>
               </div>
-              <input v-show="subTask.editing" v-model="subTask.text" @blur="doneEditSubTask(index)"
-                @keyup.enter="doneEditSubTask(index)" :ref="'subTaskEdit' + index" class="edit-sub-task" />
-            </li>
-            <div class="new-sub-task d-flex align-items-center">
-              <label for="new-sub-task"><i class="bi-plus-square mx-3"></i></label>
-              <input type="text" id="new-sub-task" :placeholder="$t('todoDetails.addSubTask')" autocomplete="off"
-                @blur="addSubTask()" @keyup.enter="addSubTask()" v-model="newSubTask.text" ref="newSubTask" />
             </div>
-          </ul>
+
+            <div class="section-divider"></div>
+
+            <div class="section-label">
+              <i class="bi-list-check"></i>
+              <span>{{ $t("todoDetails.subtasks") }}</span>
+            </div>
+            <ul class="sub-tasks">
+              <li v-for="(subTask, index) in todo.subTaskList" :key="index" class="sub-task">
+                <div v-show="!subTask.editing" draggable="true" @dragstart="startDrag($event, index)" @dragover.prevent>
+                  <div class="d-flex flex-row align-items-center" :class="{ checked: subTask.checked }">
+                    <input class="form-check-input flex-grow-1 mx-3 mt-0" type="checkbox" v-model="subTask.checked"
+                      :id="'sub-task-' + index" @change="changeSubTaskClickhandler(index)" />
+                    <label class="form-check-label" :for="'sub-task-' + index" @dragenter.self="onDragenter($event)"
+                      @dragleave.self="onDragleave($event)" @drop="onDrop($event, index)" @dragover.prevent>
+                      <span v-html="linkifyText(subTask.text)"></span>
+                    </label>
+                    <i class="bi-trash mx-2" :title="$t('ui.remove')" @click="removeSubTask(index)"></i>
+                  </div>
+                </div>
+                <input v-show="subTask.editing" v-model="subTask.text" @blur="doneEditSubTask(index)"
+                  @keyup.enter="doneEditSubTask(index)" :ref="'subTaskEdit' + index" class="edit-sub-task" />
+              </li>
+              <div class="new-sub-task d-flex align-items-center">
+                <label for="new-sub-task"><i class="bi-plus-square mx-3"></i></label>
+                <input type="text" id="new-sub-task" :placeholder="$t('todoDetails.addSubTask')" autocomplete="off"
+                  @blur="addSubTask()" @keyup.enter="addSubTask()" v-model="newSubTask.text" ref="newSubTask" />
+              </div>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -519,9 +527,9 @@ export default {
         this.todo["reminders"] = [];
         this.todo["repeatingEvent"] = null;
       } else {
-        // 兼容处于"半迁移"状态的旧数据：已经有 desc/tags 等字段，
-        // 但还没有 reminders 字段（新增能力）。有 alarm:true 的旧任务
-        // 打开一次详情就会被补上 reminders:[0]，提醒不会丢。
+        // "" desc/tags 
+        //  reminders  alarm:true 
+        //  reminders:[0]
         if (this.todo["tags"] == undefined) this.todo["tags"] = [];
         if (this.todo["reminders"] == undefined) {
           this.todo["reminders"] = this.todo.alarm ? [0] : [];
@@ -595,18 +603,21 @@ export default {
 @import "/src/assets/style/globalVars.scss";
 
 .modal-dialog {
-  max-height: 80%;
+  max-height: 82%;
+  max-width: 680px;
 
   .modal-content {
     height: 100%;
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.16);
 
     .modal-body {
       overflow-x: hidden;
       overflow-y: auto;
-      max-height: calc(100vh - 180px);
-      ;
-      margin: 16px 0px 16px 0px;
-      padding: 0px 16px 0px 16px;
+      max-height: calc(100vh - 190px);
+      margin: 0px 0px 16px 0px;
+      padding: 0px 24px 4px 24px;
     }
   }
 }
@@ -625,6 +636,42 @@ export default {
     .sub-tasks {
       max-height: unset;
     }
+
+    .modal-content-inner {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+  }
+}
+
+.modal-header {
+  padding: 18px 20px 14px 24px;
+  border-bottom: 1px solid #eff1f4;
+
+  .dark-theme & {
+    border-bottom: 1px solid #262b33;
+  }
+}
+
+.header-tools {
+  gap: 2px;
+  background-color: #f4f5f7;
+  padding: 4px 6px;
+  border-radius: 10px;
+
+  .dark-theme & {
+    background-color: #1a1e24;
+  }
+}
+
+.header-divider {
+  width: 1px;
+  height: 20px;
+  background-color: #e2e4e8;
+  margin: 0 10px;
+
+  .dark-theme & {
+    background-color: #30363d;
   }
 }
 
@@ -649,25 +696,30 @@ export default {
   margin: 0px 4px 0px 4px;
 }
 
+.modal-content-inner {
+  padding-top: 20px;
+}
+
 .todo-title {
-  font-size: 18px;
-  font-weight: 500;
-  line-height: 22px;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 26px;
   border: 2px solid transparent;
   padding: 1px 2px 1px 2px;
 }
 
 .todo-title-input {
-  font-size: 18px;
-  line-height: 22px;
+  font-size: 19px;
+  line-height: 26px;
   width: 100%;
-  font-weight: 500;
+  font-weight: 600;
   outline: unset;
-  border: 2px solid black;
-  border-radius: 3px;
+  border: 2px solid #4263eb;
+  border-radius: 6px;
+  padding: 0 4px;
 
   .dark-theme & {
-    border: 1px solid rgba(255, 255, 255, 0.658);
+    border: 2px solid #6c8fff;
     background-color: unset;
   }
 }
@@ -677,10 +729,37 @@ export default {
   margin-left: -8px;
 }
 
-
-
 .dropdown-item {
   color: #3c3c3c;
+}
+
+.section-divider {
+  height: 1px;
+  background-color: #eff1f4;
+  margin: 22px 0 18px;
+
+  .dark-theme & {
+    background-color: #262b33;
+  }
+}
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #8a8f98;
+  margin: 0 10px 8px;
+  letter-spacing: 0.02em;
+
+  i {
+    font-size: 0.9rem;
+  }
+
+  .dark-theme & {
+    color: #6b7078;
+  }
 }
 
 .sub-tasks {
@@ -693,10 +772,12 @@ export default {
   }
 
   .sub-task {
-    border-bottom: 1px solid #eaecef;
+    border-radius: 8px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    transition: background-color 0.15s ease-out;
 
     .dark-theme & {
-      border-bottom: 1px solid #464647;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     label {
@@ -707,10 +788,11 @@ export default {
     }
 
     .form-check-input {
-      width: 16px !important;
-      height: 16px !important;
-      min-width: 16px;
-      min-height: 16px;
+      width: 17px !important;
+      height: 17px !important;
+      min-width: 17px;
+      min-height: 17px;
+      accent-color: #4263eb;
     }
 
     i {
@@ -738,6 +820,7 @@ export default {
     .drag-hover {
       color: rgba(157, 157, 157, 0.43);
       background-color: rgb(250, 249, 249);
+      border-radius: 8px;
 
       .dark-theme & {
         color: rgb(87, 87, 87);
@@ -747,6 +830,7 @@ export default {
 
     &:hover {
       background-color: $btn-hover-bg-color;
+      border-radius: 8px;
 
       .dark-theme & {
         background-color: $dt-btn-hover-bg-color;
@@ -759,11 +843,12 @@ export default {
   }
 
   .new-sub-task {
-    padding: 0px 5px 0px 0px;
+    padding: 2px 5px 2px 0px;
     width: 100%;
+    margin-top: 4px;
 
     i {
-      color: lightgrey;
+      color: #b7bac0;
     }
 
     input {
@@ -779,11 +864,11 @@ export default {
       }
 
       &:focus {
-        border: 2px solid black;
-        border-radius: 3px;
+        border: 2px solid #4263eb;
+        border-radius: 6px;
 
         .dark-theme & {
-          border: 1px solid rgba(255, 255, 255, 0.658);
+          border: 2px solid #6c8fff;
           background-color: #21262d;
         }
       }
@@ -797,16 +882,15 @@ export default {
     height: 38px;
     width: calc(100% - 48px);
     margin-left: 48px;
-    border: 2px solid black;
-    border-radius: 3px;
+    border: 2px solid #4263eb;
+    border-radius: 6px;
 
     .dark-theme & {
-      border: 2px solid white;
+      border: 2px solid #6c8fff;
       background-color: #21262d;
     }
   }
 }
-
 
 .sub-task .checked label {
   color: #16a34a;
@@ -817,15 +901,15 @@ export default {
   }
 }
 
-
 .title-container {
   margin-left: 14px;
   margin-top: 1px;
 }
 
 .form-check-input {
-  width: 1.3em !important;
-  height: 1.3em !important;
+  width: 1.35em !important;
+  height: 1.35em !important;
+  accent-color: #4263eb;
 }
 
 .dark-theme .form-select {
@@ -836,10 +920,6 @@ export default {
 
 .form-select:focus {
   box-shadow: none;
-}
-
-.modal-dialog {
-  max-width: 650px;
 }
 
 .header-menu-icons {
@@ -878,5 +958,4 @@ export default {
     color: #4ade80;
   }
 }
-
 </style>

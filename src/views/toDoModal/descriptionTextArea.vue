@@ -33,7 +33,8 @@ export default {
       let textArea = this.$refs["descriptionInput"];
       if (!textArea) return;
       textArea.style.height = "auto";
-      textArea.style.height = Math.max(textArea.scrollHeight, 90) + "px";
+      // 最小高度从 90px 提升到 170px，让"任务细节"这一块有更宽裕的书写空间
+      textArea.style.height = Math.max(textArea.scrollHeight, 170) + "px";
     },
     doneEditDescription: function () {
       this.$emit("updatedDescription", this.desc);
@@ -57,33 +58,33 @@ export default {
 <style scoped>
 .todo-description-textarea {
   font-size: 14px;
-  line-height: 19px;
-  min-height: 90px;
+  line-height: 20px;
+  min-height: 170px;
   overflow: hidden;
   width: 100%;
   resize: none;
   background: unset;
   cursor: text;
   outline: unset;
-  border: 2px solid rgba(0, 0, 0, 0.12);
-  border-radius: 6px;
-  padding: 8px 10px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
   white-space: pre-wrap;
   word-break: break-word;
   transition: border-color 0.15s ease-out;
 }
 
 .todo-description-textarea:focus {
-  border-color: black;
+  border-color: #4263eb;
 }
 
 .dark-theme .todo-description-textarea {
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   color: #c9d1d9;
 }
 
 .dark-theme .todo-description-textarea:focus {
-  border-color: rgba(255, 255, 255, 0.658);
+  border-color: #6c8fff;
 }
 
 .bi-markdown-fill {

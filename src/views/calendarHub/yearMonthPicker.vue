@@ -44,11 +44,18 @@ export default {
   },
   mounted() {
     this.computePosition();
-    document.addEventListener("click", this.onOutsideClick, true);
     window.addEventListener("resize", this.computePosition);
+    // 注意：这里不再通过 document.addEventListener('click', ..., true) 手写"点击外部关闭"逻辑。
+    // 原实现依赖 this.$el.contains(e.target) 判断点击是否发生在组件外部，但本组件模板根节点是
+    // <teleport>，在 Vue3 中，根节点为 teleport 的组件，this.$el 拿到的其实是原位置留下的占位
+    // 节点（而不是被搬运到 body 下的真实内容），导致 contains() 永远返回 false——
+    // 也就是说无论点击面板内部的年份箭头、月份格子还是"今天"按钮，都会被误判为"点击了外部"，
+    // 从而立刻触发关闭，这就是"点击任何内容都无法生效"的真正原因。
+    // 实际上下面模板里的蒙层 @click.self="$emit('close')" 配合面板的 @click.stop，
+    // 已经是一套更稳健、不依赖 $el 的"点击外部关闭/点击内部不关闭"方案，删掉这段冗余且有 bug
+    // 的逻辑即可让交互恢复正常。
   },
   beforeUnmount() {
-    document.removeEventListener("click", this.onOutsideClick, true);
     window.removeEventListener("resize", this.computePosition);
   },
   methods: {
@@ -69,9 +76,6 @@ export default {
       if (top < 12) top = 12;
 
       this.pickerStyle = { left: `${left}px`, top: `${top}px`, transform: "none" };
-    },
-    onOutsideClick: function (e) {
-      if (this.$el && !this.$el.contains(e.target)) this.$emit("close");
     },
     pickMonth: function (idx) {
       let mm = String(idx + 1).padStart(2, "0");

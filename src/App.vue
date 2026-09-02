@@ -13,13 +13,11 @@
         <splash-screen ref="splash"></splash-screen>
 
         <div class="home-week-view d-flex flex-column h-100">
-          <!-- 标题区：参考日历中心顶部条的视觉语言，图标 + 标题，不再展示容易算错、也没有实际信息量的周日期范围文本 -->
           <div class="home-header d-flex align-items-center">
             <i class="bi-calendar-week home-header-icon"></i>
             <h5 class="home-header-title mb-0 ms-2">{{ $t("ui.weeklyEventsTitle") }}</h5>
           </div>
 
-          <!-- 左右切换周箭头挪到整个日程页面的左右两侧边缘，纵向居中覆盖整页高度 -->
           <i
             class="bi-chevron-left week-side-arrow week-side-arrow-left"
             @click="weekMoveLeft"
@@ -66,6 +64,16 @@
                 @todo-list-mounted="todoListMounted"
                 @reorderCustomList="resetCustomList"
               ></to-do-list>
+              <!-- 归档操作栏 -->
+              <div class="archive-action-bar">
+                <span class="archive-link" @click="archiveCompletedTasks">
+                  <i class="bi-archive"></i> {{ $t("ui.archive") }}
+                </span>
+                <span class="archive-separator">·</span>
+                <span class="archive-link" @click="archiveHistoryVisible = true">
+                  <i class="bi-clock-history"></i> {{ $t("ui.viewHistory") }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -92,6 +100,10 @@
     <active-to-do :activeTodo="activeTodo"> </active-to-do>
     <importing-modal :id="'importingModal'" :text="$t('settings.importing')"></importing-modal>
     <importing-modal :id="'exportingModal'" :text="$t('settings.exporting')"></importing-modal>
+    <archive-history-modal
+      :visible="archiveHistoryVisible"
+      @close="archiveHistoryVisible = false"
+    ></archive-history-modal>
 
     <div class="mobile d-flex flex-column justify-content-center align-items-center">
       <i class="bi-exclamation-diamond mb-4" style="font-size: 100px"></i>
@@ -114,6 +126,9 @@
       ></toast-message>
 
       <toast-message id="copiedAddress" :text="$t('donate.copiedAddres')"></toast-message>
+
+      <toast-message id="archivedToast" :text="$t('ui.archiveSuccess')"></toast-message>
+      <toast-message id="archiveNothingToast" :text="$t('ui.archiveNothingToArchive')"></toast-message>
     </div>
   </div>
   <div v-if="!compatible" class="compatible d-flex flex-column justify-content-center align-items-center p-5">
@@ -155,6 +170,8 @@ import holidayHelper from "./helpers/holidayHelper";
 import calendarHubView from "./views/calendarHub/CalendarHubView.vue";
 import anniversaryRepository from "./repositories/anniversaryRepository";
 import anniversaryHelper from "./helpers/anniversaryHelper";
+import archiveRepository from "./repositories/archiveRepository";
+import archiveHistoryModal from "./views/ArchiveHistoryModal.vue";
 
 export default {
   name: "App",
@@ -176,6 +193,7 @@ export default {
     activeToDo,
     reorderCustomListsModal,
     calendarHubView,
+    archiveHistoryModal,
   },
   data() {
     return {
@@ -188,6 +206,7 @@ export default {
       showCalendarHub: false,
       homeAnniversaryList: anniversaryRepository.load(),
       homeCustomListIndex: 0,
+      archiveHistoryVisible: false,
     };
   },
   beforeCreate() {
@@ -205,7 +224,7 @@ export default {
 
     this.$store.dispatch("loadAllRepeatingEvent").then(
       function () {
-        let totalDaysCount = 7; //  7 
+        let totalDaysCount = 7;
         let totalCustomListCount = this.$store.getters.cTodoListIds.length;
         this.initialListToLoad = totalDaysCount + totalCustomListCount;
         this.deleteOldRepeatingEvents();
@@ -215,8 +234,6 @@ export default {
     );
   },
   created() {
-    // ensureDefaultCustomList 是 methods 里的函数，必须放在 created()（或之后）调用，
-    // 否则会因为 Vue2 的初始化顺序（beforeCreate 时 methods 还未挂载到 this 上）而报错。
     this.ensureDefaultCustomList();
   },
   mounted() {
@@ -277,11 +294,6 @@ export default {
       }
     },
     setSelectedDate: function (payload) {
-      // 侧边栏"主页/今天"图标、日历中心点日期跳转、常规日期切换都会走这里。
-      // 之前只有"日历中心点具体日期"那条链路会显式关闭日历中心视图（showCalendarHub = false），
-      // 主页图标那条链路遗漏了这一步，导致在日历中心页面点击主页图标时，
-      // 日期状态其实已经更新，但因为 showCalendarHub 没变回 false，视图一直停留在日历中心，
-      // 看起来就像"点击没有生效"。这里统一收口：只要触发了日期切换，就一定回到周视图主页。
       this.showCalendarHub = false;
 
       let date, picked;
@@ -305,8 +317,7 @@ export default {
       });
     },
     resetCustomList: function () {
-      // 
-      //  / 
+      // 占位
     },
     isElectron: function () {
       let isElectron = require("is-electron");
@@ -506,6 +517,32 @@ export default {
         this.setSelectedDate({ date: dateStr, picked: true });
       });
     },
+    // ============ 归档功能 ============
+    archiveCompletedTasks: function () {
+      if (!this.homeCustomList) return;
+      let listId = this.homeCustomList.listId;
+      let listName = this.homeCustomList.listName;
+      let todoList = this.$store.getters.todoLists[listId];
+      if (!todoList) return;
+
+      let completedTasks = todoList.filter((t) => t.checked);
+      if (!completedTasks.length) {
+        let toast = new Toast(document.getElementById("archiveNothingToast"));
+        toast.show();
+        return;
+      }
+
+      // 存入归档
+      archiveRepository.archive(listId, listName, completedTasks);
+
+      // 从当前列表中移除已完成的事项
+      let remaining = todoList.filter((t) => !t.checked);
+      this.$store.commit("loadTodoLists", { todoListId: listId, todoList: remaining });
+      toDoListRepository.update(listId, remaining);
+
+      let toast = new Toast(document.getElementById("archivedToast"));
+      toast.show();
+    },
   },
   watch: {
     allVisibleDates: {
@@ -515,9 +552,6 @@ export default {
       },
     },
     customListCount: function (val) {
-      // 索引越界 / 清单被清空这类需要修改 data 的副效应统一放在 watch 里处理，
-      // 不能放进 computed（computed 必须是纯函数读取，否则会被 eslint 的
-      // vue/no-side-effects-in-computed-properties 规则拦截，构建失败）。
       if (val === 0) {
         this.ensureDefaultCustomList();
         this.homeCustomListIndex = 0;
@@ -543,7 +577,6 @@ export default {
       return this.topRowDates.concat(this.bottomRowDates);
     },
     homeCustomList: function () {
-      // computed 必须是纯函数读取，越界重置的副效应已经挪到上面的 watch.customListCount 里。
       let ids = this.$store.getters.cTodoListIds;
       if (!ids || !ids.length) return null;
       let safeIndex = this.homeCustomListIndex < ids.length ? this.homeCustomListIndex : 0;
@@ -755,5 +788,42 @@ body {
 
 .dark-theme .home-custom-list-switcher i:hover {
   background-color: #21262d;
+}
+
+/* 归档操作栏 */
+.archive-action-bar {
+  flex: 0 0 auto;
+  text-align: center;
+  padding: 5px 0 2px;
+  font-size: 12px;
+  color: #9aa0a8;
+  user-select: none;
+}
+
+.archive-action-bar .archive-link {
+  cursor: pointer;
+  transition: color 0.2s;
+
+  i {
+    font-size: 11px;
+    margin-right: 2px;
+  }
+
+  &:hover {
+    color: #4263eb;
+  }
+}
+
+.dark-theme .archive-action-bar .archive-link:hover {
+  color: #6c8fff;
+}
+
+.archive-separator {
+  margin: 0 8px;
+  color: #ccc;
+}
+
+.dark-theme .archive-separator {
+  color: #444;
 }
 </style>

@@ -189,7 +189,16 @@
     "previousWeek": "Previous week",
     "nextWeek": "Next week",
     "defaultCustomListName": "Custom List",
-    "weeklyEventsTitle": "Weekly Agenda"
+    "weeklyEventsTitle": "Weekly Agenda",
+    "archive": "Archive",
+    "viewHistory": "View History",
+    "archiveSuccess": "Completed tasks archived!",
+    "archiveNothingToArchive": "No completed tasks to archive",
+    "archiveHistoryTitle": "Archive History",
+    "archiveEmpty": "No archived tasks yet",
+    "archiveItemUnit": "items",
+    "archiveClearAll": "Clear All History",
+    "archiveClearConfirm": "Are you sure you want to clear all archived history? This cannot be undone."
   },
   "todoDetails": {
     "taskTitle": "Task title",
@@ -270,7 +279,10 @@
     "recentItems": "Recent Items",
     "noUpcomingEvents": "No holidays or anniversaries recently",
     "moreItemsHint": "{0} more",
-    "workdayBadge": "Work"
+    "workdayBadge": "Work",
+    "lunarDateDirect": "Lunar Date",
+    "lunarSolarPreview": "Corresponding Solar Date",
+    "lunarInvalidDate": "Invalid lunar date"
   },
   "taskTags": {
     "work": "Work",

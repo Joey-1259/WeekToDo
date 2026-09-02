@@ -43,7 +43,7 @@
     "moveCompletedTaskToBottom": "将已完成的任务移到底部",
     "weekStartOnMonday": "从星期一开始",
     "clear": "清除",
-    "fullscreenToDoModal": "全屏显示“待办事项详情”",
+    "fullscreenToDoModal": "全屏显示\"待办事项详情\"",
     "moveCompletedSubTaskToBottom": "将已完成的子任务移到底部"
   },
   "donate": {
@@ -67,7 +67,7 @@
     "translate": "翻译",
     "shareMessage": "我正在使用 WeekToDo 来安排我的一周，这是一个免费的、注重隐私的、极简主义的每周计划，我想你也会喜欢它的。",
     "supportUs": "支持我们",
-    "splashMessage": "喜欢 WeekToDo 吗？\n您可以在这里支持该项目！"
+    "splashMessage": "喜欢 WeekToDo 吗？\n您可以在这里支持该项目!"
   },
   "about": {
     "about": "关于",
@@ -115,8 +115,8 @@
     "tip5": "如果您不打算使用自定义列表，您可以将它们隐藏在配置菜单中。",
     "tip6": "侧边栏中的日历可让您快速滚动到某个日期。",
     "tip7": "通过将光标放在列表名称上，将出现标记全部图标，这允许您标记列表包含的所有任务。",
-    "tip8": "您可以使用位于侧面板上的“添加新列表”按钮创建新的自定义列表。",
-    "tip9": "“开始”按钮将您置于当天。",
+    "tip8": "您可以使用位于侧面板上的\"添加新列表\"按钮创建新的自定义列表。",
+    "tip9": "\"开始\"按钮将您置于当天。",
     "tip13": "WeekToDo 将信息存储在您的计算机上。 如果要更改计算机或浏览器，请记住创建备份。 您可以在设置菜单中执行此操作。",
     "tip14": "单击并拖动中央分区以调整日历和自定义列表的高度。 双击它以恢复大小。",
     "tip15": "您可以在配置面板中修改应用程序的列数和缩放比例。",
@@ -156,7 +156,7 @@
     "softwareUpdated": "软件更新",
     "seeChanges": "（查看更改）",
     "changeLog": "更改日志",
-    "compatible": "抱歉，WeekToDo 与您的网络浏览器不兼容。 尝试更新它或使用另一个。",
+    "compatible": "抱歉,WeekToDo 与您的网络浏览器不兼容。 尝试更新它或使用另一个。",
     "removeList": "删除列表",
     "completeAll": "完成所有",
     "newTask": "新任务",
@@ -189,7 +189,16 @@
     "previousWeek": "上一周",
     "nextWeek": "下一周",
     "defaultCustomListName": "自定义列表",
-    "weeklyEventsTitle": "每周事项"
+    "weeklyEventsTitle": "每周事项",
+    "archive": "归档",
+    "viewHistory": "查看历史",
+    "archiveSuccess": "已完成事项已归档！",
+    "archiveNothingToArchive": "没有已完成的事项可归档",
+    "archiveHistoryTitle": "归档历史",
+    "archiveEmpty": "暂无归档记录",
+    "archiveItemUnit": "条",
+    "archiveClearAll": "清空所有历史",
+    "archiveClearConfirm": "确定要清空所有归档历史吗？此操作不可恢复。"
   },
   "todoDetails": {
     "taskTitle": "任务标题",
@@ -270,7 +279,10 @@
     "recentItems": "近期事项",
     "noUpcomingEvents": "近期暂无节假日或纪念日",
     "moreItemsHint": "另有 {0} 项",
-    "workdayBadge": "班"
+    "workdayBadge": "班",
+    "lunarDateDirect": "农历日期",
+    "lunarSolarPreview": "对应公历日期",
+    "lunarInvalidDate": "无效的农历日期"
   },
   "taskTags": {
     "work": "工作",

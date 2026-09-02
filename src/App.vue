@@ -13,11 +13,13 @@
         <splash-screen ref="splash"></splash-screen>
 
         <div class="home-week-view d-flex flex-column h-100">
+          <!-- 标题区：与日历中心 hub-topbar 统一视觉规格 -->
           <div class="home-header d-flex align-items-center">
             <i class="bi-calendar-week home-header-icon"></i>
             <h5 class="home-header-title mb-0 ms-2">{{ $t("ui.weeklyEventsTitle") }}</h5>
           </div>
 
+          <!-- 左右切换周箭头 -->
           <i
             class="bi-chevron-left week-side-arrow week-side-arrow-left"
             @click="weekMoveLeft"
@@ -29,7 +31,8 @@
             :title="$t('ui.nextWeek')"
           ></i>
 
-          <div class="week-grid-row flex-grow-1">
+          <!-- 第一排：周一 ~ 周四，固定占 50% 高度 -->
+          <div class="week-grid-row">
             <to-do-list
               v-for="date in topRowDates"
               :key="date"
@@ -40,7 +43,8 @@
             ></to-do-list>
           </div>
 
-          <div class="week-grid-row flex-grow-1">
+          <!-- 第二排：周五 ~ 周日 + 自定义列表，固定占 50% 高度 -->
+          <div class="week-grid-row">
             <to-do-list
               v-for="date in bottomRowDates"
               :key="date"
@@ -639,9 +643,18 @@ body {
   overflow: hidden;
 }
 
+/* =============================================
+   修复点2：首页标题与日历中心标题统一视觉规格
+   CalendarHubView 的 .hub-topbar 使用:
+     - padding: 16px 24px (页面整体 padding) → 对应到 margin-bottom: 14px
+     - h5: font-weight: 600, 无显式 font-size (走 Bootstrap 默认 1.25rem)
+     - icon: font-size: 1.15rem, color: #4263eb
+   这里完全对齐这些数值。
+   ============================================= */
 .home-header {
   flex: 0 0 auto;
-  padding: 16px 0 10px;
+  padding: 16px 0;
+  margin-bottom: 14px;
 }
 
 .home-header-icon {
@@ -654,8 +667,9 @@ body {
 }
 
 .home-header-title {
+  /* 不再覆盖 font-size，让 h5 走 Bootstrap 默认的 1.25rem，
+     与 CalendarHubView .hub-topbar h5 完全一致 */
   font-weight: 600;
-  font-size: 1rem;
 }
 
 .week-side-arrow {
@@ -689,9 +703,21 @@ body {
   right: 6px;
 }
 
+/* =============================================
+   修复点1：两排等高且固定
+   去掉原来的 flex-grow-1，改为强制各占 50%。
+   用 calc() 减去 header 高度后平分。
+   header 高度 = padding-top 16px + h5 line ~30px + margin-bottom 14px ≈ 60px
+   但更可靠的做法是让 .home-week-view 使用 flex column 布局，
+   header 是 flex: 0 0 auto，两排各 flex: 1 1 0，
+   关键是 flex-basis: 0 (而不是 auto) 确保均分。
+   ============================================= */
 .week-grid-row {
   display: flex;
-  min-height: 0;
+  /* flex: 1 1 0 确保两排严格等高，不受内容撑开影响 */
+  flex: 1 1 0;
+  min-height: 0;    /* 允许 flex 子元素收缩到小于内容高度 */
+  overflow: hidden;  /* 防止内容溢出破坏等高 */
 
   &:first-of-type {
     margin-bottom: 8px;

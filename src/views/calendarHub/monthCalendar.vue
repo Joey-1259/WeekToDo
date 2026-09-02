@@ -1,0 +1,293 @@
+<template>
+  <div class="month-calendar">
+    <div class="month-calendar-toolbar d-flex align-items-center mb-3">
+      <i class="bi-chevron-left nav-icon" @click="prevMonth"></i>
+      <span class="month-label" @click="backToToday">{{ monthLabel }}</span>
+      <i class="bi-chevron-right nav-icon" @click="nextMonth"></i>
+      <button class="btn btn-sm today-btn" type="button" @click="backToToday">{{ $t("calendarHub.today") }}</button>
+    </div>
+
+    <div class="weekday-row">
+      <span v-for="(w, idx) in weekdayLabels" :key="idx" class="weekday-cell">{{ w }}</span>
+    </div>
+
+    <div class="days-grid">
+      <div
+        v-for="cell in cells"
+        :key="cell.dateStr"
+        class="day-cell"
+        :class="{
+          'out-month': !cell.inMonth,
+          'is-today': cell.isToday,
+          'is-picked': cell.isPicked,
+          'has-off-holiday': cell.hasOffHoliday,
+          'has-workday': cell.hasWorkday && !cell.hasOffHoliday,
+        }"
+        @click="$emit('day-click', cell.dateStr)"
+      >
+        <span class="day-num">{{ cell.dayNum }}</span>
+        <span v-if="cell.lunarText" class="lunar-text" :class="{ 'is-term': cell.isTerm }">{{ cell.lunarText }}</span>
+        <span v-if="cell.holidayName" class="holiday-name" :title="cell.holidayNamesFull">{{ cell.holidayName }}</span>
+        <span class="anniversary-dots">
+          <i v-for="a in cell.anniversaries.slice(0, 4)" :key="a.id" class="dot" :style="{ backgroundColor: a.color || '#748ffc' }" :title="a.name"></i>
+        </span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import moment from "moment";
+import solarLunar from "solarlunar";
+import holidayHelper from "../../helpers/holidayHelper";
+import anniversaryHelper from "../../helpers/anniversaryHelper";
+
+export default {
+  name: "monthCalendar",
+  props: {
+    month: { type: String, required: true }, // "YYYY-MM"
+    countryCodes: { type: Array, default: () => ["CN"] },
+    anniversaryList: { type: Array, default: () => [] },
+    weekStartOnMonday: { type: Boolean, default: true },
+    pickedDate: { type: String, default: null }, // "YYYYMMDD"
+    language: { type: String, default: "zh_cn" },
+    showLunar: { type: Boolean, default: true },
+  },
+  emits: ["update:month", "day-click"],
+  methods: {
+    prevMonth: function () {
+      this.$emit("update:month", moment(this.month + "-01", "YYYY-MM-DD").subtract(1, "month").format("YYYY-MM"));
+    },
+    nextMonth: function () {
+      this.$emit("update:month", moment(this.month + "-01", "YYYY-MM-DD").add(1, "month").format("YYYY-MM"));
+    },
+    backToToday: function () {
+      this.$emit("update:month", moment().format("YYYY-MM"));
+      this.$emit("day-click", moment().format("YYYYMMDD"));
+    },
+  },
+  computed: {
+    monthLabel: function () {
+      return moment(this.month + "-01", "YYYY-MM-DD").locale(this.language).format("YYYY年M月");
+    },
+    weekdayLabels: function () {
+      let names = moment.weekdaysMin();
+      let start = this.weekStartOnMonday ? 1 : 0;
+      let rotated = [];
+      for (let i = 0; i < 7; i++) rotated.push(names[(start + i) % 7]);
+      return rotated;
+    },
+    cells: function () {
+      let monthStart = moment(this.month + "-01", "YYYY-MM-DD");
+      let startDow = monthStart.day();
+      let weekStartsOnValue = this.weekStartOnMonday ? 1 : 0;
+      let diff = (startDow - weekStartsOnValue + 7) % 7;
+      let cursor = monthStart.clone().subtract(diff, "days");
+      let todayStr = moment().format("YYYYMMDD");
+      let result = [];
+
+      for (let i = 0; i < 42; i++) {
+        let dateStr = cursor.format("YYYYMMDD");
+        let holidayInfos = holidayHelper.getDayInfoMulti(dateStr, this.countryCodes);
+        let hasOffHoliday = holidayInfos.some((h) => h.isOffDay);
+        let hasWorkday = holidayInfos.some((h) => !h.isOffDay);
+        let firstHolidayName = holidayInfos.length ? holidayInfos[0].name : "";
+        let allNames = holidayInfos.map((h) => h.name).join(" / ");
+
+        let matchedAnniversaries = this.anniversaryList.filter((item) => anniversaryHelper.occursOn(item, dateStr));
+
+        let lunarText = "";
+        let isTerm = false;
+        if (this.showLunar) {
+          let lunar = solarLunar.solar2lunar(cursor.year(), cursor.month() + 1, cursor.date());
+          if (lunar.isTerm) {
+            lunarText = lunar.term;
+            isTerm = true;
+          } else if (lunar.dayCn === "初一") {
+            lunarText = lunar.monthCn;
+          } else {
+            lunarText = lunar.dayCn;
+          }
+        }
+
+        result.push({
+          dateStr,
+          dayNum: cursor.date(),
+          inMonth: cursor.month() === monthStart.month(),
+          isToday: dateStr === todayStr,
+          isPicked: !!this.pickedDate && dateStr === this.pickedDate,
+          hasOffHoliday,
+          hasWorkday,
+          holidayName: firstHolidayName,
+          holidayNamesFull: allNames,
+          anniversaries: matchedAnniversaries,
+          lunarText,
+          isTerm,
+        });
+
+        cursor.add(1, "day");
+      }
+      return result;
+    },
+  },
+};
+</script>
+
+<style scoped lang="scss">
+.month-calendar-toolbar {
+  .nav-icon {
+    font-size: 1.1rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+
+    &:hover {
+      background-color: #eaecef;
+
+      .dark-theme & {
+        background-color: #21262d;
+      }
+    }
+  }
+
+  .month-label {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 8px;
+    cursor: pointer;
+    min-width: 120px;
+    text-align: center;
+  }
+
+  .today-btn {
+    margin-left: auto;
+    border: 1px solid #dcdfe4;
+    border-radius: 6px;
+    font-size: 0.8rem;
+
+    .dark-theme & {
+      border-color: #30363d;
+      color: #c9d1d9;
+    }
+  }
+}
+
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.78rem;
+  color: #8a8f98;
+  margin-bottom: 4px;
+
+  .dark-theme & {
+    color: #6b7078;
+  }
+}
+
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 68px;
+  gap: 2px;
+}
+
+.day-cell {
+  position: relative;
+  border-radius: 6px;
+  padding: 6px 4px 4px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: background-color 0.15s ease-out;
+
+  &:hover {
+    background-color: #f4f5f7;
+
+    .dark-theme & {
+      background-color: #1a1e24;
+    }
+  }
+
+  &.out-month {
+    opacity: 0.32;
+  }
+
+  &.is-today .day-num {
+    background-color: #4263eb;
+    color: white;
+    border-radius: 50%;
+  }
+
+  &.is-picked {
+    box-shadow: inset 0 0 0 1.5px #4263eb;
+    border-radius: 6px;
+  }
+
+  &.has-off-holiday .day-num {
+    color: #d9363e;
+
+    .dark-theme & {
+      color: #ff7875;
+    }
+  }
+
+  &.has-workday .day-num {
+    color: #b8860b;
+
+    .dark-theme & {
+      color: #e0a95c;
+    }
+  }
+}
+
+.day-num {
+  font-size: 0.9rem;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lunar-text {
+  font-size: 0.62rem;
+  color: #9a9fa6;
+  margin-top: 1px;
+
+  &.is-term {
+    color: #d9363e;
+
+    .dark-theme & {
+      color: #ff7875;
+    }
+  }
+}
+
+.holiday-name {
+  font-size: 0.6rem;
+  color: #d9363e;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  .dark-theme & {
+    color: #ff7875;
+  }
+}
+
+.anniversary-dots {
+  display: flex;
+  gap: 2px;
+  margin-top: 2px;
+
+  .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+}
+</style>

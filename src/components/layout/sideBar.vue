@@ -32,6 +32,7 @@
       @yearPageChanged="onCalendarPageChanged"
     />
     <i v-if="showCalendar" class="bi-calendar-event" @click="changeDate" :title="$t('ui.calendar')"> </i>
+    <i class="bi-calendar-heart" @click="$emit('openCalendarHub')" :title="$t('calendarHub.title')"></i>
     <!--
       以下三个入口按需求隐藏：
       - 重复任务（bi-arrow-repeat）
@@ -82,7 +83,7 @@ import holidayHelper from "../../helpers/holidayHelper.js";
 
 export default {
   name: "sideBar",
-  emits: ["changeDate"],
+  emits: ["changeDate", "openCalendarHub"],
   components: {
     Datepicker,
   },

@@ -38,7 +38,8 @@ export default {
         moveCompletedSubTaskToBottom: true,
         fullscreenToDoModal: false,
         weekStartOnMonday: true,
-        lastDayOpened: moment().format("YYYY-MM-DD")
+        lastDayOpened: moment().format("YYYY-MM-DD"),
+        holidayCountries: ["CN"],
       };
       storageRepository.set("config", default_config);
       return default_config;

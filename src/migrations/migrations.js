@@ -12,6 +12,7 @@ export default {
     telemetric();
     v2_1_0();
     v2_2_0();
+    v2_3_0();
   },
 };
 
@@ -100,6 +101,14 @@ function v2_2_0() {
   let config = configRepository.load();
   if (!("lastDayOpened" in config)) {
     config["lastDayOpened"] = moment().format("YYYY-MM-DD");
+    configRepository.update(config);
+  }
+}
+
+function v2_3_0() {
+  let config = configRepository.load();
+  if (!("holidayCountries" in config)) {
+    config["holidayCountries"] = ["CN"];
     configRepository.update(config);
   }
 }

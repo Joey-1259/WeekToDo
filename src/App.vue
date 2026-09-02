@@ -1,9 +1,9 @@
 <template>
   <input class="hidden-input-for-focus" type="text" />
   <div v-show="compatible" id="app-container" class="app-container" :class="{ 'dark-theme': darkTheme }">
-    <div class="hidden-mobile app-body" :style="{ zoom: `${zoom}%` }">
+    <div v-show="!showCalendarHub" class="hidden-mobile app-body" :style="{ zoom: `${zoom}%` }">
       <splash-screen ref="splash"></splash-screen>
-      <side-bar @change-date="setSelectedDate"></side-bar>
+      <side-bar @change-date="setSelectedDate" @open-calendar-hub="openCalendarHub"></side-bar>
 
       <div class="h-100 d-flex flex-column">
         <div
@@ -126,6 +126,14 @@
       <importing-modal :id="'importingModal'" :text="$t('settings.importing')"></importing-modal>
       <importing-modal :id="'exportingModal'" :text="$t('settings.exporting')"></importing-modal>
     </div>
+
+    <calendar-hub-view
+      v-if="showCalendarHub"
+      class="hidden-mobile"
+      @close="closeCalendarHub"
+      @jump-to-date="jumpToDateFromHub"
+    ></calendar-hub-view>
+
     <div class="mobile d-flex flex-column justify-content-center align-items-center">
       <i class="bi-exclamation-diamond mb-4" style="font-size: 100px"></i>
       <h3 style="text-align: center">{{ $t("ui.mobileWarning") }}</h3>
@@ -185,6 +193,7 @@ import activeToDo from "./components/activeToDo.vue";
 import reorderCustomListsModal from "./views/ReorderCustomListsModal.vue";
 import tasksHelper from "./helpers/tasksHelper";
 import holidayHelper from "./helpers/holidayHelper";
+import calendarHubView from "./views/calendarHub/CalendarHubView.vue";
 
 export default {
   name: "App",
@@ -205,6 +214,7 @@ export default {
     toastMessage,
     activeToDo,
     reorderCustomListsModal,
+    calendarHubView,
   },
   data() {
     return {
@@ -216,6 +226,7 @@ export default {
       initialLoadCompleted: false,
       initialListToLoad: 0,
       initialListLoaded: 0,
+      showCalendarHub: false,
     };
   },
   beforeCreate() {
@@ -237,7 +248,7 @@ export default {
         let totalCustomListCount = this.$store.getters.cTodoListIds.length;
         this.initialListToLoad = totalDaysCount + totalCustomListCount;
         this.deleteOldRepeatingEvents();
-        // 默认锚定到本周周一，而不是"今天"，保证一打开就是完整的一周视图
+        // ""
         this.selected_date = moment().startOf("isoWeek").format("YYYYMMDD");
         this.$nextTick(() => {
           this.weekResetScroll();
@@ -271,8 +282,8 @@ export default {
       }
     }
 
-    // 每次打开应用检查一次节假日数据是否需要更新，同一天内只会真正发起一次网络请求
-    holidayHelper.checkForUpdate();
+    // 
+    holidayHelper.checkForUpdate(this.$store.getters.config.holidayCountries || ["CN"]);
 
     this.resetAppOnDayChange();
   },
@@ -325,7 +336,7 @@ export default {
       return this.$refs.customListContainer.clientWidth / this.customColumns;
     },
     setSelectedDate: function (payload) {
-      // 兼容旧的字符串调用方式，同时支持 {date, picked} 的新格式
+      //  {date, picked} 
       let date, picked;
       if (typeof payload === "string") {
         date = payload;
@@ -335,7 +346,7 @@ export default {
         picked = payload.picked;
       }
 
-      // 无论点选哪一天，主视图始终锚定到该日期所在周的周一
+      // 
       this.selected_date = moment(date).startOf("isoWeek").format("YYYYMMDD");
       this.pickedDate = picked ? date : null;
 
@@ -581,6 +592,18 @@ export default {
       ipcRenderer.send("set-open-on-startup", this.$store.getters.config.openOnStartup);
       ipcRenderer.send("set-run-in-background", this.$store.getters.config.runInBackground);
       ipcRenderer.send("set-dark-tray-icon", this.$store.getters.config.darkTrayIcon);
+    },
+    openCalendarHub: function () {
+      this.showCalendarHub = true;
+    },
+    closeCalendarHub: function () {
+      this.showCalendarHub = false;
+    },
+    jumpToDateFromHub: function (dateStr) {
+      this.showCalendarHub = false;
+      this.$nextTick(function () {
+        this.setSelectedDate({ date: dateStr, picked: true });
+      });
     },
   },
   computed: {
@@ -888,7 +911,7 @@ body {
   height: 100% !important;
 }
 
-/*----------------自定义列表末尾的"+"新建图块---------------*/
+/*----------------"+"---------------*/
 .add-list-tile {
   cursor: pointer;
   margin-bottom: 5px;

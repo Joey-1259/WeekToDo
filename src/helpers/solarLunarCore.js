@@ -7,7 +7,8 @@
 // 在这种老工具链下解析该包极易得到与预期不符的模块结构（这正是本次白屏问题的根因）。
 // 直接内置算法后，本文件完全通过项目自身的 babel 配置转译，不再有任何"第三方模块格式"层面的不确定性。
 //
-// 仅导出项目实际用到的两个方法：solar2lunar（公历转农历）、lunar2solar（农历转公历）。
+// 仅导出项目实际用到的三个方法：solar2lunar（公历转农历）、lunar2solar（农历转公历）、
+// lunarMonthLength（查询指定农历年月的实际天数，供纪念日"三十日缺失"兜底使用）。
 
 const lunarInfo = [
   0x04bd8, 0x04ae0, 0x0a570, 0x054d5, 0x0d260, 0x0d950, 0x16554, 0x056a0, 0x09ad0, 0x055d2,
@@ -404,4 +405,24 @@ export function lunar2solar(y, m, d, isLeapMonth) {
   return solar2lunar(cY, cM, cD);
 }
 
-export default { solar2lunar, lunar2solar };
+/**
+ * 查询指定农历年、农历月（含闰月）的实际天数
+ * 供纪念日"三十日"场景做兜底：某些年份对应月份是只有 29 天的小月，
+ * 或者当年该月根本没有闰月时，可以据此把日子退回到该月最后一天，
+ * 而不是让 lunar2solar 直接返回 -1、导致这一年整条纪念日被跳过
+ * @param {number} y 农历年
+ * @param {number} m 农历月 (1-12)
+ * @param {boolean} isLeapMonth 是否查询闰月
+ * @returns {number} 天数；若该年该月并不存在（例如请求闰月但当年没有这个闰月），返回 0
+ */
+export function lunarMonthLength(y, m, isLeapMonth) {
+  y = Number(y);
+  m = Number(m);
+  if (y < 1900 || y > 2100 || m < 1 || m > 12) return 0;
+  if (isLeapMonth) {
+    return leapMonth(y) === m ? leapDays(y) : 0;
+  }
+  return monthDays(y, m);
+}
+
+export default { solar2lunar, lunar2solar, lunarMonthLength };

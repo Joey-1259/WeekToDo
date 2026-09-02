@@ -7,15 +7,18 @@ const NEW_FIELD_DEFAULTS = {
   holidayCountries: ["CN"],
 };
 
-// UI 默认值调整记录：每次我们改了某个开关的“默认值”（不是新增字段，是已有字段的默认值变了），
+// UI 默认值调整记录：每次我们改了某个开关的"默认值"（不是新增字段，是已有字段的默认值变了），
 // 就把 UI_DEFAULTS_REVISION 加一，并在 applyUiDefaultsRevision 里写清楚要刷新哪些字段。
 // 已经把某个 revision 应用过的本地配置会打上 __uiDefaultsRev 标记，不会被重复覆盖，
 // 用户在这之后自己修改的值不会被再次强制改回去。
-const UI_DEFAULTS_REVISION = 1;
+//
+// revision 2：全屏显示待办事项（fullscreenToDoModal）默认值由 true 调整为 false，
+// 与本次调整一并生效，覆盖所有仍停留在 revision < 2 的存量配置。
+const UI_DEFAULTS_REVISION = 2;
 function applyUiDefaultsRevision(config) {
   if (!config.__uiDefaultsRev || config.__uiDefaultsRev < UI_DEFAULTS_REVISION) {
     config.moveCompletedTaskToBottom = false;
-    config.fullscreenToDoModal = true;
+    config.fullscreenToDoModal = false;
     config.__uiDefaultsRev = UI_DEFAULTS_REVISION;
     return true;
   }
@@ -67,7 +70,7 @@ export default {
         autoReorderTasks: false,
         moveCompletedTaskToBottom: false,
         moveCompletedSubTaskToBottom: true,
-        fullscreenToDoModal: true,
+        fullscreenToDoModal: false,
         weekStartOnMonday: true,
         lastDayOpened: moment().format("YYYY-MM-DD"),
         holidayCountries: ["CN"],

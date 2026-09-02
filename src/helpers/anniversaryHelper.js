@@ -7,7 +7,7 @@
 // normalize() 会把旧数据的 type/repeatYearly 字段自动映射成新的 repeat 字段，
 // 保证已有用户存量数据不会因为这次改版报错或丢失。
 import moment from "moment";
-import { solar2lunar, lunar2solar } from "./solarLunarCore";
+import { solar2lunar, lunar2solar, lunarMonthLength } from "./solarLunarCore";
 
 function safeSolar2Lunar(year, month, day) {
   try {
@@ -44,9 +44,23 @@ function normalize(item) {
 
 function toSolarMoment(targetYear, item) {
   if (item.dateType === "lunar") {
-    let result = safeLunar2Solar(targetYear, item.lunarMonth, item.lunarDay, !!item.lunarLeap);
-    if (!result && item.lunarLeap) {
-      result = safeLunar2Solar(targetYear, item.lunarMonth, item.lunarDay, false);
+    let isLeap = !!item.lunarLeap;
+    let day = item.lunarDay;
+
+    // 兜底一：目标农历年该月实际天数不足纪念日设置的"日"
+    // （常见于三十日的纪念日遇到只有二十九天的小月），退回到当月最后一天，
+    // 避免因为"那一天不存在"而把整个年份的纪念日直接跳过
+    let monthLength = lunarMonthLength(targetYear, item.lunarMonth, isLeap);
+    if (monthLength > 0 && day > monthLength) {
+      day = monthLength;
+    }
+
+    let result = safeLunar2Solar(targetYear, item.lunarMonth, day, isLeap);
+    if (!result && isLeap) {
+      // 兜底二：闰月在该年不存在（含 monthLength 为 0 的情况），退回按平月计算
+      let fallbackLength = lunarMonthLength(targetYear, item.lunarMonth, false);
+      let fallbackDay = fallbackLength > 0 ? Math.min(item.lunarDay, fallbackLength) : item.lunarDay;
+      result = safeLunar2Solar(targetYear, item.lunarMonth, fallbackDay, false);
     }
     if (!result) return null;
     return moment(
@@ -78,7 +92,13 @@ function computeOccurrence(rawItem, today) {
   let item = normalize(rawItem);
 
   if (item.repeat === "yearly") {
-    for (let offset = 0; offset <= 3; offset++) {
+    // 循环起点从 today.year() - 1 开始（offset = -1），而不是 today.year()：
+    // 农历腊月（十二月）往往跨到公历新年之后（1 月甚至 2 月上旬春节之前），
+    // 如果"今天"正处在这个窗口期内，此时实际所在的农历年是"公历年 - 1"，
+    // 只从 offset = 0 开始会完全跳过这个仍在进行中的农历年，
+    // 把明明只剩几天的纪念日误算成"还有约一年"。多试一次上一农历年，
+    // 交给下面 isSameOrAfter 过滤即可安全兼容所有正常场景（多余的候选会被自然跳过）。
+    for (let offset = -1; offset <= 3; offset++) {
       let targetYear = today.year() + offset;
       let m = toSolarMoment(targetYear, item);
       if (!m) continue;

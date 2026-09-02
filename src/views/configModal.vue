@@ -254,23 +254,8 @@
               <div class="d-flex flex-column mt-2 h-100">
                 <div>
                   <div>
-                    <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
-                      <label class="form-check-label" for="export-data-btn">{{ $t("settings.exportData") }}</label>
-                      <button id="export-data-btn" type="button" class="btn py-1 px-2 border" style="width: 140px;"
-                        @click="exportData">
-                        <i class="icons bi-cloud-arrow-down mx-2"></i>
-                        {{ $t("settings.export") }}
-                      </button>
-                    </div>
-
-                    <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
-                      <label class="form-check-label" for="import-data-btn">{{ $t("settings.importData") }}</label>
-                      <button id="import-data-btn" type="button" class="btn py-1 px-2 border" style="width: 140px;"
-                        @click="$refs.loadData.click">
-                        <i class="icons bi-cloud-arrow-up mx-2"></i>
-                        {{ $t("settings.import") }}
-                      </button>
-                    </div>
+                    <!-- 已删除：导出数据（exportData） -->
+                    <!-- 已删除：导入数据（importData） -->
 
                     <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
                       <label class="form-check-label" for="export-excel-btn">{{ $t("settings.exportExcel") }}</label>
@@ -299,8 +284,7 @@
                       </button>
                     </div>
                   </div>
-                  <input type="file" id="file-selector" class="d-none" accept=".wtdb" ref="loadData"
-                    @change="importData($event)" />
+                  <!-- 已删除：.wtdb 文件导入 input -->
                   <input type="file" id="excel-file-selector" class="d-none" accept=".xlsx" ref="loadExcel"
                     @change="importExcel($event)" />
                 </div>
@@ -347,7 +331,6 @@
 <script>
 import configRepository from "../repositories/configRepository";
 import toastMessage from "../components/toastMessage";
-import exportTool from "../helpers/exportTool";
 import excelTool from "../helpers/excelTool";
 import linkList from "../components/linkList";
 import configList from "./configList";
@@ -382,20 +365,8 @@ export default {
         if (key === "language") this.$i18n.locale = this.configData.language;
       });
     },
-    exportData: function () {
-      let configModal = Modal.getInstance(document.getElementById("configModal"));
-      configModal.hide();
-      let exportingModal = new Modal(document.getElementById("exportingModal"), { backdrop: "static" });
-      exportingModal.show();
-      exportTool.export();
-    },
-    importData: function (event) {
-      let configModal = Modal.getInstance(document.getElementById("configModal"));
-      configModal.hide();
-      let importingModal = new Modal(document.getElementById("importingModal"), { backdrop: "static" });
-      importingModal.show();
-      exportTool.import(event);
-    },
+    /* 已删除：exportData 方法（不再需要 .wtdb 导出） */
+    /* 已删除：importData 方法（不再需要 .wtdb 导入） */
     exportExcel: function () {
       let configModal = Modal.getInstance(document.getElementById("configModal"));
       configModal.hide();

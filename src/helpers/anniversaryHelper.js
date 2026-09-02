@@ -1,13 +1,11 @@
-// 纪念日（倒数日 / 正计时 / 生日）计算逻辑
+// 纪念日（不重复 / 每年重复 / 每月重复）计算逻辑
 // 依赖本地内置的 solarLunarCore 做农历<->公历转换，1900-2100 年范围内可用
 //
-// 说明：此前这里依赖 npm 包 solarlunar，但该包 3.x 版本用 package.json 的 exports 字段
-// 做条件导出，Webpack 4（本项目的打包器）无法正确识别，导致模块求值阶段直接报错，
-// 引发应用整体白屏且无法被任何错误兜底逻辑捕获。现改为从本地 solarLunarCore.js 引入，
-// 该文件是纯 ES 模块、无任何第三方依赖，从根源上消除这类风险。
-//
-// 本文件同时导出 computeNextOccurrence/calc、isOccurrenceOnDate/occursOn 等
-// 「新旧两套命名」，是为了兼容 monthCalendar.vue / anniversaryList.vue 里已经存在的调用名。
+// 数据模型说明：新版本用 repeat 字段（"none" | "yearly" | "monthly"）取代旧版本的
+// type 字段（"countdown" | "countup" | "birthday"），因为重复方式和类型名词本质上
+// 是同一个维度被拆成了两套命名，容易让用户在新建时纠结"该选哪个类型"。
+// normalize() 会把旧数据的 type/repeatYearly 字段自动映射成新的 repeat 字段，
+// 保证已有用户存量数据不会因为这次改版报错或丢失。
 import moment from "moment";
 import { solar2lunar, lunar2solar } from "./solarLunarCore";
 
@@ -37,7 +35,13 @@ function getLunarYearOfDate(dateStr) {
   return lunar ? lunar.lYear : m.year();
 }
 
-// 给定一个"目标农历年份"，把纪念日换算成该年对应的公历日期
+function normalize(item) {
+  if (item.repeat) return item;
+  let repeat = "none";
+  if (item.type === "birthday" || item.repeatYearly) repeat = "yearly";
+  return Object.assign({}, item, { repeat });
+}
+
 function toSolarMoment(targetYear, item) {
   if (item.dateType === "lunar") {
     let result = safeLunar2Solar(targetYear, item.lunarMonth, item.lunarDay, !!item.lunarLeap);
@@ -55,10 +59,25 @@ function toSolarMoment(targetYear, item) {
   }
 }
 
-// 核心计算：返回统一结构的结果对象，同时提供 daysLeft（可能为负）和 daysElapsed（非负、仅在已过去时有意义）
-// 这样无论调用方读取的是哪一个字段名，都不会因为字段缺失而拿到 undefined 引发后续报错。
-function computeOccurrence(item, today) {
-  if (item.type === "birthday" || item.repeatYearly) {
+function nextMonthlyOccurrence(item, today) {
+  let base = moment(item.date, "YYYY-MM-DD");
+  let targetDay = base.date();
+  for (let offset = 0; offset <= 2; offset++) {
+    let cursor = today.clone().add(offset, "months").startOf("month");
+    let daysInMonth = cursor.daysInMonth();
+    let day = Math.min(targetDay, daysInMonth);
+    let candidate = cursor.date(day);
+    if (candidate.isSameOrAfter(today, "day")) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function computeOccurrence(rawItem, today) {
+  let item = normalize(rawItem);
+
+  if (item.repeat === "yearly") {
     for (let offset = 0; offset <= 3; offset++) {
       let targetYear = today.year() + offset;
       let m = toSolarMoment(targetYear, item);
@@ -79,8 +98,20 @@ function computeOccurrence(item, today) {
       }
     }
     return null;
+  } else if (item.repeat === "monthly") {
+    let m = nextMonthlyOccurrence(item, today);
+    if (!m) return null;
+    let daysLeft = m.diff(today, "days");
+    return {
+      nextDateStr: m.format("YYYYMMDD"),
+      daysLeft,
+      daysElapsed: daysLeft < 0 ? -daysLeft : 0,
+      age: null,
+      isPast: false,
+    };
   } else {
-    // 一次性倒数日/正计时
+    // repeat === "none"：一次性事件，日期在过去则为"正计时"（已经过去多少天），
+    // 日期在未来则为一次性倒数
     let base = moment(item.date, "YYYY-MM-DD");
     let daysLeft = base.diff(today, "days");
     return {
@@ -94,9 +125,10 @@ function computeOccurrence(item, today) {
 }
 
 const helper = {
-  /**
-   * 把一个公历日期转换成农历信息，用于新建纪念日时给用户看"农历八月十五"这样的提示
-   */
+  normalize(item) {
+    return normalize(item);
+  },
+
   solarToLunarInfo(dateStr) {
     let m = moment(dateStr, "YYYY-MM-DD");
     let lunar = safeSolar2Lunar(m.year(), m.month() + 1, m.date());
@@ -112,44 +144,45 @@ const helper = {
     };
   },
 
-  /**
-   * 判断某一具体日期(YYYYMMDD) 是否正好是这个纪念日"今年这一轮"的发生日
-   * 用于月历格子打点，不关心过去/未来，只关心月/日是否匹配
-   */
-  isOccurrenceOnDate(item, dateStr) {
-    if (!item || !dateStr) return false;
+  isOccurrenceOnDate(rawItem, dateStr) {
+    if (!rawItem || !dateStr) return false;
+    let item = normalize(rawItem);
     let target = moment(dateStr, "YYYYMMDD");
-    if (item.dateType === "lunar") {
-      let lunar = safeSolar2Lunar(target.year(), target.month() + 1, target.date());
-      if (!lunar) return false;
-      return lunar.lMonth === item.lunarMonth && lunar.lDay === item.lunarDay && !!lunar.isLeap === !!item.lunarLeap;
+
+    if (item.repeat === "monthly") {
+      let base = moment(item.date, "YYYY-MM-DD");
+      let daysInMonth = target.daysInMonth();
+      return target.date() === Math.min(base.date(), daysInMonth);
     }
-    let base = moment(item.date, "YYYY-MM-DD");
-    return base.month() === target.month() && base.date() === target.date();
+
+    if (item.repeat === "yearly") {
+      if (item.dateType === "lunar") {
+        let lunar = safeSolar2Lunar(target.year(), target.month() + 1, target.date());
+        if (!lunar) return false;
+        return lunar.lMonth === item.lunarMonth && lunar.lDay === item.lunarDay && !!lunar.isLeap === !!item.lunarLeap;
+      }
+      let base = moment(item.date, "YYYY-MM-DD");
+      return base.month() === target.month() && base.date() === target.date();
+    }
+
+    // repeat === "none"：只在这一天精确命中一次
+    return moment(item.date, "YYYY-MM-DD").format("YYYYMMDD") === dateStr;
   },
-  // 别名：兼容 monthCalendar.vue 里使用的调用名
   occursOn(item, dateStr) {
     return helper.isOccurrenceOnDate(item, dateStr);
   },
 
-  /**
-   * 计算一个纪念日"下一次发生"的信息：日期、剩余/已过天数、年龄等
-   */
   computeNextOccurrence(item) {
     let today = moment().startOf("day");
     return computeOccurrence(item, today);
   },
-  // 别名：兼容 anniversaryList.vue 里使用的调用名
   calc(item) {
     return helper.computeNextOccurrence(item);
   },
 
-  /**
-   * 计算某个纪念日区间内（未来 N 天）会不会发生，返回列表用于"未来30天"卡片
-   */
-  getUpcomingAnniversaries(anniversaryList, days) {
-    let today = moment().startOf("day");
-    let endDate = moment().add(days, "days").endOf("day");
+  getUpcomingAnniversaries(anniversaryList, days, fromDateStr) {
+    let today = fromDateStr ? moment(fromDateStr, "YYYYMMDD") : moment().startOf("day");
+    let endDate = today.clone().add(days, "days").endOf("day");
     let results = [];
 
     (anniversaryList || []).forEach((item) => {
@@ -163,7 +196,7 @@ const helper = {
           date: calcResult.nextDateStr,
           daysLeft: calcResult.daysLeft,
           color: item.color,
-          type: item.type,
+          repeat: normalize(item).repeat,
           age: calcResult.age,
           source: "anniversary",
         });

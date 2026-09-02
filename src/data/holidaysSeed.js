@@ -1,11 +1,15 @@
 // 离线兜底的节假日种子数据，来源 NateScarlet/holiday-cn
 // 首次启动、或网络不可用时使用；App 启动后会尝试联网刷新覆盖这份数据
+//
+// 说明：isOffDay:false 的条目代表"调休上班日"（法定节假日前后需要补班的工作日），
+// 名称统一加上"调休"后缀，避免用户把它误读成"这天就是放假的节日本身"
+// （例如 2026-09-20 是国庆节调休上班日，不是国庆节放假开始日）。
 export default {
   "2025": {
     year: 2025,
     days: [
       { name: "元旦", date: "2025-01-01", isOffDay: true },
-      { name: "春节", date: "2025-01-26", isOffDay: false },
+      { name: "春节调休", date: "2025-01-26", isOffDay: false },
       { name: "春节", date: "2025-01-28", isOffDay: true },
       { name: "春节", date: "2025-01-29", isOffDay: true },
       { name: "春节", date: "2025-01-30", isOffDay: true },
@@ -14,11 +18,11 @@ export default {
       { name: "春节", date: "2025-02-02", isOffDay: true },
       { name: "春节", date: "2025-02-03", isOffDay: true },
       { name: "春节", date: "2025-02-04", isOffDay: true },
-      { name: "春节", date: "2025-02-08", isOffDay: false },
+      { name: "春节调休", date: "2025-02-08", isOffDay: false },
       { name: "清明节", date: "2025-04-04", isOffDay: true },
       { name: "清明节", date: "2025-04-05", isOffDay: true },
       { name: "清明节", date: "2025-04-06", isOffDay: true },
-      { name: "劳动节", date: "2025-04-27", isOffDay: false },
+      { name: "劳动节调休", date: "2025-04-27", isOffDay: false },
       { name: "劳动节", date: "2025-05-01", isOffDay: true },
       { name: "劳动节", date: "2025-05-02", isOffDay: true },
       { name: "劳动节", date: "2025-05-03", isOffDay: true },
@@ -27,7 +31,7 @@ export default {
       { name: "端午节", date: "2025-05-31", isOffDay: true },
       { name: "端午节", date: "2025-06-01", isOffDay: true },
       { name: "端午节", date: "2025-06-02", isOffDay: true },
-      { name: "国庆节、中秋节", date: "2025-09-28", isOffDay: false },
+      { name: "国庆节、中秋节调休", date: "2025-09-28", isOffDay: false },
       { name: "国庆节、中秋节", date: "2025-10-01", isOffDay: true },
       { name: "国庆节、中秋节", date: "2025-10-02", isOffDay: true },
       { name: "国庆节、中秋节", date: "2025-10-03", isOffDay: true },
@@ -36,7 +40,7 @@ export default {
       { name: "国庆节、中秋节", date: "2025-10-06", isOffDay: true },
       { name: "国庆节、中秋节", date: "2025-10-07", isOffDay: true },
       { name: "国庆节、中秋节", date: "2025-10-08", isOffDay: true },
-      { name: "国庆节、中秋节", date: "2025-10-11", isOffDay: false },
+      { name: "国庆节、中秋节调休", date: "2025-10-11", isOffDay: false },
     ],
   },
   "2026": {
@@ -45,8 +49,8 @@ export default {
       { name: "元旦", date: "2026-01-01", isOffDay: true },
       { name: "元旦", date: "2026-01-02", isOffDay: true },
       { name: "元旦", date: "2026-01-03", isOffDay: true },
-      { name: "元旦", date: "2026-01-04", isOffDay: false },
-      { name: "春节", date: "2026-02-14", isOffDay: false },
+      { name: "元旦调休", date: "2026-01-04", isOffDay: false },
+      { name: "春节调休", date: "2026-02-14", isOffDay: false },
       { name: "春节", date: "2026-02-15", isOffDay: true },
       { name: "春节", date: "2026-02-16", isOffDay: true },
       { name: "春节", date: "2026-02-17", isOffDay: true },
@@ -56,7 +60,7 @@ export default {
       { name: "春节", date: "2026-02-21", isOffDay: true },
       { name: "春节", date: "2026-02-22", isOffDay: true },
       { name: "春节", date: "2026-02-23", isOffDay: true },
-      { name: "春节", date: "2026-02-28", isOffDay: false },
+      { name: "春节调休", date: "2026-02-28", isOffDay: false },
       { name: "清明节", date: "2026-04-04", isOffDay: true },
       { name: "清明节", date: "2026-04-05", isOffDay: true },
       { name: "清明节", date: "2026-04-06", isOffDay: true },
@@ -65,11 +69,11 @@ export default {
       { name: "劳动节", date: "2026-05-03", isOffDay: true },
       { name: "劳动节", date: "2026-05-04", isOffDay: true },
       { name: "劳动节", date: "2026-05-05", isOffDay: true },
-      { name: "劳动节", date: "2026-05-09", isOffDay: false },
+      { name: "劳动节调休", date: "2026-05-09", isOffDay: false },
       { name: "端午节", date: "2026-06-19", isOffDay: true },
       { name: "端午节", date: "2026-06-20", isOffDay: true },
       { name: "端午节", date: "2026-06-21", isOffDay: true },
-      { name: "国庆节", date: "2026-09-20", isOffDay: false },
+      { name: "国庆节调休", date: "2026-09-20", isOffDay: false },
       { name: "中秋节", date: "2026-09-25", isOffDay: true },
       { name: "中秋节", date: "2026-09-26", isOffDay: true },
       { name: "中秋节", date: "2026-09-27", isOffDay: true },
@@ -80,7 +84,7 @@ export default {
       { name: "国庆节", date: "2026-10-05", isOffDay: true },
       { name: "国庆节", date: "2026-10-06", isOffDay: true },
       { name: "国庆节", date: "2026-10-07", isOffDay: true },
-      { name: "国庆节", date: "2026-10-10", isOffDay: false },
+      { name: "国庆节调休", date: "2026-10-10", isOffDay: false },
     ],
   },
 };

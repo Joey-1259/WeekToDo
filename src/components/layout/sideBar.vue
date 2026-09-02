@@ -32,13 +32,12 @@
       @yearPageChanged="onCalendarPageChanged"
     />
     <i v-if="showCalendar" class="bi-calendar-event" @click="changeDate" :title="$t('ui.calendar')"> </i>
-    <i class="bi-calendar-heart" @click="$emit('openCalendarHub')" :title="$t('calendarHub.title')"></i>
-    <!--
-      以下三个入口按需求隐藏：
-      - 重复任务（bi-arrow-repeat）
-      - 新建自定义列表（bi-clipboard-plus）：功能已移到主界面自定义列表末尾的"+"图块
-      - 重新排序自定义列表（bi-arrow-left-right）：功能已改为直接拖拽自定义列表表头
-    -->
+    <i
+      class="bi-calendar-heart"
+      :class="{ 'active-icon': calendarHubActive }"
+      @click="$emit('openCalendarHub')"
+      :title="$t('calendarHub.title')"
+    ></i>
     <span style="flex-grow: 1"></span>
     <div class="dropend d-flex justify-content-center sidebar-extra-menu">
       <i class="bi-three-dots sidebar-icon align-self-center" type="button" data-bs-toggle="dropdown"></i>
@@ -83,6 +82,9 @@ import holidayHelper from "../../helpers/holidayHelper.js";
 
 export default {
   name: "sideBar",
+  props: {
+    calendarHubActive: { type: Boolean, default: false },
+  },
   emits: ["changeDate", "openCalendarHub"],
   components: {
     Datepicker,
@@ -140,10 +142,6 @@ export default {
       this.calendarPageDate = pageDate;
       this.markHolidaysInCalendar();
     },
-    // 由于 vue3-datepicker 没有暴露"单日格自定义内容"的插槽，
-    // 这里在弹层打开/翻页后按库内部生成网格同样的算法反推每个按钮对应的日期，
-    // 再往对应按钮里追加一个节假日/调休上班日的小圆点标记。
-    // 如果未来升级 vue3-datepicker 且其内部 DOM 结构变化，这段匹配逻辑需要同步调整。
     markHolidaysInCalendar: function () {
       this.$nextTick(() => {
         let container = document.querySelector(".side-bar .v3dp__popout-day .v3dp__elements");
@@ -248,6 +246,12 @@ sidebar-icon:active {
   background-color: #dddfe2;
 }
 
+.side-bar .active-icon {
+  color: #4263eb;
+  background-color: #eef1ff;
+  border-radius: 6px;
+}
+
 .side-bar .logo {
   margin-bottom: 6px;
   margin-top: 10px;
@@ -266,6 +270,10 @@ sidebar-icon:active {
   .side-bar .logo-white {
     display: block;
     opacity: 0.95;
+  }
+  .side-bar .active-icon {
+    color: #6c8fff;
+    background-color: #1c2333;
   }
 }
 
@@ -295,8 +303,6 @@ sidebar-icon:active {
 .dropdown-toggle-split {
   padding: 0px;
 }
-
-/*------------------------Dark Theme*------------------*/
 
 .dark-theme .side-bar {
   background-color: #161b22;

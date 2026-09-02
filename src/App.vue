@@ -1,117 +1,129 @@
 <template>
   <input class="hidden-input-for-focus" type="text" />
   <div v-show="compatible" id="app-container" class="app-container" :class="{ 'dark-theme': darkTheme }">
-    <div v-show="!showCalendarHub" class="hidden-mobile app-body" :style="{ zoom: `${zoom}%` }">
+    <div class="hidden-mobile app-body" :style="{ zoom: `${zoom}%` }">
       <splash-screen ref="splash"></splash-screen>
-      <side-bar @change-date="setSelectedDate" @open-calendar-hub="openCalendarHub"></side-bar>
+      <side-bar
+        :calendarHubActive="showCalendarHub"
+        @change-date="setSelectedDate"
+        @open-calendar-hub="toggleCalendarHub"
+      ></side-bar>
 
       <div class="h-100 d-flex flex-column">
-        <div
-          v-show="showCalendar"
-          class="todo-lists-container"
-          :style="resizableStyle"
-          ref="calendarContainer"
-          :class="{
-            'full-screen': !showCustomList,
-            'hidden-lists-container': hideTopListContainer,
-            'full-screen-divider': hideBottomListContainer,
-          }"
-        >
-          <i class="bi-chevron-left slider-btn" ref="weekLeft" @click="weekMoveLeft"></i>
-          <div class="todo-slider weekdays" ref="weekListContainer">
-            <to-do-list
-              v-for="date in dates_array"
-              :key="date"
-              :id="date"
-              :showCustomList="showCustomList"
-              :pickedDate="pickedDate"
-              @todo-list-mounted="todoListMounted"
-            >
-            </to-do-list>
-          </div>
-          <i class="bi-chevron-right slider-btn" ref="weekRight" @click="weekMoveRight"></i>
-        </div>
-
-        <div
-          v-show="showCustomList && showCalendar"
-          class="main-horizontal-divider"
-          id="resizer"
-          :class="mainDividerPositionClass"
-          @mousedown="resizerMouseDownHandler"
-          @dblclick="resizerDblClick"
-        >
-          <div class="inner-main-horizontal-divider"></div>
-          <div class="divider-icons-container">
-            <i
-              class="bi-chevron-up move-to-center-up divider-icons"
-              @click="setDividerPosition(1)"
-              :title="$t('ui.restorePanel')"
-            ></i>
-            <i
-              class="bi-chevron-up move-to-corner-up divider-icons"
-              @click="setDividerPosition(2)"
-              :title="$t('ui.maximizeListPanel')"
-            ></i>
-            <i
-              class="bi-chevron-down move-to-center-down divider-icons"
-              @click="setDividerPosition(1)"
-              :title="$t('ui.restorePanel')"
-            ></i>
-            <i
-              class="bi-chevron-down move-to-corner-down divider-icons"
-              @click="setDividerPosition(0)"
-              :title="$t('ui.maximizeCalendarPanel')"
-            ></i>
-          </div>
-        </div>
-
-        <div
-          v-show="showCustomList"
-          class="todo-lists-container"
-          :class="{
-            'full-screen': !showCalendar,
-            'flex-grow-1': showCalendar,
-            'hidden-lists-container': hideBottomListContainer,
-          }"
-        >
-          <i
-            class="bi-chevron-left slider-btn"
-            @click="customMoveLeft"
-            :style="{
-              visibility: cTodoList.length > customColumns ? 'visible' : 'hidden',
+        <template v-if="!showCalendarHub">
+          <div
+            v-show="showCalendar"
+            class="todo-lists-container"
+            :style="resizableStyle"
+            ref="calendarContainer"
+            :class="{
+              'full-screen': !showCustomList,
+              'hidden-lists-container': hideTopListContainer,
+              'full-screen-divider': hideBottomListContainer,
             }"
-          ></i>
-          <div class="todo-slider slides" ref="customListContainer">
-            <to-do-list
-              v-for="(cTodoList, index) in cTodoList"
-              :key="cTodoList.listId"
-              :id="cTodoList.listId"
-              :customTodoList="true"
-              :cTodoListIndex="index"
-              :showCustomList="showCustomList"
-              :pickedDate="pickedDate"
-              @todo-list-mounted="todoListMounted"
-              @reorderCustomList="resetCustomList"
-            ></to-do-list>
-            <div class="add-list-tile d-flex flex-column align-items-center justify-content-center" @click="newCustomTodoList" :title="$t('ui.newCustomList')">
-              <i class="bi-plus-lg add-list-icon"></i>
+          >
+            <i class="bi-chevron-left slider-btn" ref="weekLeft" @click="weekMoveLeft"></i>
+            <div class="todo-slider weekdays" ref="weekListContainer">
+              <to-do-list
+                v-for="date in dates_array"
+                :key="date"
+                :id="date"
+                :showCustomList="showCustomList"
+                :pickedDate="pickedDate"
+                @todo-list-mounted="todoListMounted"
+              >
+              </to-do-list>
+            </div>
+            <i class="bi-chevron-right slider-btn" ref="weekRight" @click="weekMoveRight"></i>
+          </div>
+
+          <div
+            v-show="showCustomList && showCalendar"
+            class="main-horizontal-divider"
+            id="resizer"
+            :class="mainDividerPositionClass"
+            @mousedown="resizerMouseDownHandler"
+            @dblclick="resizerDblClick"
+          >
+            <div class="inner-main-horizontal-divider"></div>
+            <div class="divider-icons-container">
+              <i
+                class="bi-chevron-up move-to-center-up divider-icons"
+                @click="setDividerPosition(1)"
+                :title="$t('ui.restorePanel')"
+              ></i>
+              <i
+                class="bi-chevron-up move-to-corner-up divider-icons"
+                @click="setDividerPosition(2)"
+                :title="$t('ui.maximizeListPanel')"
+              ></i>
+              <i
+                class="bi-chevron-down move-to-center-down divider-icons"
+                @click="setDividerPosition(1)"
+                :title="$t('ui.restorePanel')"
+              ></i>
+              <i
+                class="bi-chevron-down move-to-corner-down divider-icons"
+                @click="setDividerPosition(0)"
+                :title="$t('ui.maximizeCalendarPanel')"
+              ></i>
             </div>
           </div>
-          <i
-            class="bi-chevron-right slider-btn"
-            @click="customMoveRight"
-            :style="{
-              visibility: cTodoList.length > customColumns ? 'visible' : 'hidden',
-            }"
-          ></i>
-        </div>
 
-        <div v-show="!showCustomList && !showCalendar" style="margin: auto">
-          <img v-if="darkTheme" src="img/WeekToDoDarkLogo.webp" />
-          <img v-else src="img/WeekToDoLightLogo.webp" />
-        </div>
+          <div
+            v-show="showCustomList"
+            class="todo-lists-container"
+            :class="{
+              'full-screen': !showCalendar,
+              'flex-grow-1': showCalendar,
+              'hidden-lists-container': hideBottomListContainer,
+            }"
+          >
+            <i
+              class="bi-chevron-left slider-btn"
+              @click="customMoveLeft"
+              :style="{
+                visibility: cTodoList.length > customColumns ? 'visible' : 'hidden',
+              }"
+            ></i>
+            <div class="todo-slider slides" ref="customListContainer">
+              <to-do-list
+                v-for="(cTodoList, index) in cTodoList"
+                :key="cTodoList.listId"
+                :id="cTodoList.listId"
+                :customTodoList="true"
+                :cTodoListIndex="index"
+                :showCustomList="showCustomList"
+                :pickedDate="pickedDate"
+                @todo-list-mounted="todoListMounted"
+                @reorderCustomList="resetCustomList"
+              ></to-do-list>
+              <div class="add-list-tile d-flex flex-column align-items-center justify-content-center" @click="newCustomTodoList" :title="$t('ui.newCustomList')">
+                <i class="bi-plus-lg add-list-icon"></i>
+              </div>
+            </div>
+            <i
+              class="bi-chevron-right slider-btn"
+              @click="customMoveRight"
+              :style="{
+                visibility: cTodoList.length > customColumns ? 'visible' : 'hidden',
+              }"
+            ></i>
+          </div>
+
+          <div v-show="!showCustomList && !showCalendar" style="margin: auto">
+            <img v-if="darkTheme" src="img/WeekToDoDarkLogo.webp" />
+            <img v-else src="img/WeekToDoLightLogo.webp" />
+          </div>
+        </template>
+
+        <calendar-hub-view
+          v-else
+          @close="closeCalendarHub"
+          @jump-to-date="jumpToDateFromHub"
+        ></calendar-hub-view>
       </div>
-      
+
       <remove-custom-list></remove-custom-list>
       <reorder-custom-lists-modal @resetCustomList="resetCustomList"></reorder-custom-lists-modal>
       <config-modal @change-columns="weekResetScroll" :configProp="$store.getters.config"></config-modal>
@@ -126,13 +138,6 @@
       <importing-modal :id="'importingModal'" :text="$t('settings.importing')"></importing-modal>
       <importing-modal :id="'exportingModal'" :text="$t('settings.exporting')"></importing-modal>
     </div>
-
-    <calendar-hub-view
-      v-if="showCalendarHub"
-      class="hidden-mobile"
-      @close="closeCalendarHub"
-      @jump-to-date="jumpToDateFromHub"
-    ></calendar-hub-view>
 
     <div class="mobile d-flex flex-column justify-content-center align-items-center">
       <i class="bi-exclamation-diamond mb-4" style="font-size: 100px"></i>
@@ -248,7 +253,6 @@ export default {
         let totalCustomListCount = this.$store.getters.cTodoListIds.length;
         this.initialListToLoad = totalDaysCount + totalCustomListCount;
         this.deleteOldRepeatingEvents();
-        // ""
         this.selected_date = moment().startOf("isoWeek").format("YYYYMMDD");
         this.$nextTick(() => {
           this.weekResetScroll();
@@ -282,7 +286,6 @@ export default {
       }
     }
 
-    // 
     holidayHelper.checkForUpdate(this.$store.getters.config.holidayCountries || ["CN"]);
 
     this.resetAppOnDayChange();
@@ -336,7 +339,6 @@ export default {
       return this.$refs.customListContainer.clientWidth / this.customColumns;
     },
     setSelectedDate: function (payload) {
-      //  {date, picked} 
       let date, picked;
       if (typeof payload === "string") {
         date = payload;
@@ -346,7 +348,6 @@ export default {
         picked = payload.picked;
       }
 
-      // 
       this.selected_date = moment(date).startOf("isoWeek").format("YYYYMMDD");
       this.pickedDate = picked ? date : null;
 
@@ -599,6 +600,9 @@ export default {
     closeCalendarHub: function () {
       this.showCalendarHub = false;
     },
+    toggleCalendarHub: function () {
+      this.showCalendarHub = !this.showCalendarHub;
+    },
     jumpToDateFromHub: function (dateStr) {
       this.showCalendarHub = false;
       this.$nextTick(function () {
@@ -773,7 +777,6 @@ body {
   margin-top: 20px;
 }
 
-/*----------------Dark Theme------------------*/
 .dark-theme {
   background-color: #13171d;
   color: #c9d1d9;
@@ -849,7 +852,7 @@ body {
     .inner-main-horizontal-divider {
       display: none;
     }
-        .divider-icons-container {
+    .divider-icons-container {
       margin-top: -25px;
       visibility: visible;
       opacity: 0.3;
@@ -911,7 +914,6 @@ body {
   height: 100% !important;
 }
 
-/*----------------"+"---------------*/
 .add-list-tile {
   cursor: pointer;
   margin-bottom: 5px;

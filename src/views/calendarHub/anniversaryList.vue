@@ -55,11 +55,12 @@ export default {
   },
   methods: {
     buildEntry: function (item) {
+      let normalized = anniversaryHelper.normalize(item);
       let result = anniversaryHelper.calc(item);
       let subText = "";
       let daysText = "";
 
-      if (item.type === "countup") {
+      if (normalized.repeat === "none" && result && result.isPast) {
         subText = moment(item.date).format("YYYY-MM-DD");
         daysText = this.$t("calendarHub.daysElapsed", [result.daysElapsed]);
       } else if (result) {
@@ -71,30 +72,34 @@ export default {
         } else {
           daysText = this.$t("calendarHub.expired");
         }
-        if (item.type === "birthday" && result.age != null) {
+        if (normalized.repeat === "yearly" && result.age != null) {
           daysText += ` · ${this.$t("calendarHub.ageLabel", [result.age])}`;
         }
       }
 
-      return { item, result, subText, daysText };
+      return { item, result, subText, daysText, repeat: normalized.repeat };
     },
   },
   computed: {
     tabs: function () {
       return [
         { key: "all", label: this.$t("calendarHub.tabAll") },
-        { key: "countdown", label: this.$t("calendarHub.typeCountdown") },
-        { key: "countup", label: this.$t("calendarHub.typeCountup") },
-        { key: "birthday", label: this.$t("calendarHub.typeBirthday") },
+        { key: "none", label: this.$t("calendarHub.repeatNone") },
+        { key: "yearly", label: this.$t("calendarHub.repeatYearlyOpt") },
+        { key: "monthly", label: this.$t("calendarHub.repeatMonthlyOpt") },
       ];
     },
     filteredItems: function () {
-      let filtered = this.activeTab === "all" ? this.list : this.list.filter((x) => x.type === this.activeTab);
-      let entries = filtered.map(this.buildEntry);
+      let entries = this.list.map(this.buildEntry);
+      if (this.activeTab !== "all") {
+        entries = entries.filter((e) => e.repeat === this.activeTab);
+      }
       entries.sort((a, b) => {
-        if (a.item.type === "countup" && b.item.type === "countup") return b.result.daysElapsed - a.result.daysElapsed;
-        if (a.item.type === "countup") return 1;
-        if (b.item.type === "countup") return -1;
+        let aPast = a.result ? a.result.isPast : false;
+        let bPast = b.result ? b.result.isPast : false;
+        if (aPast && bPast) return a.result.daysElapsed - b.result.daysElapsed;
+        if (aPast) return 1;
+        if (bPast) return -1;
         let aLeft = a.result ? a.result.daysLeft : 999999;
         let bLeft = b.result ? b.result.daysLeft : 999999;
         return aLeft - bLeft;

@@ -1,7 +1,7 @@
 <template>
   <div class="upcoming-tile-wrapper">
     <div class="upcoming-header d-flex align-items-center">
-      <h6 class="mb-0">{{ $t("calendarHub.upcoming30Days") }}</h6>
+      <h6 class="mb-0">{{ $t("calendarHub.recentItems") }}</h6>
       <span class="count-badge ms-2" v-if="items.length">{{ items.length }}</span>
     </div>
 
@@ -11,15 +11,15 @@
         v-for="entry in items"
         :key="entry.key"
         class="upcoming-card"
-        :class="{ 'is-holiday': entry.source === 'holiday' }"
         :style="{ borderTopColor: entry.color }"
-        @click="$emit('day-click', entry.date)"
+        @click="$emit('day-click', entry.startDate)"
       >
-        <div class="card-date">{{ formatCardDate(entry.date) }}</div>
+        <div class="card-date">{{ formatRange(entry) }}</div>
         <div class="card-name" :title="entry.name">{{ entry.name }}</div>
         <div class="card-days">{{ formatDaysLeft(entry.daysLeft) }}</div>
       </div>
     </div>
+    <div v-if="overflowCount > 0" class="overflow-hint">{{ $t("calendarHub.moreItemsHint", [overflowCount]) }}</div>
   </div>
 </template>
 
@@ -34,11 +34,15 @@ export default {
     anniversaryList: { type: Array, default: () => [] },
     countryCodes: { type: Array, default: () => ["CN"] },
     days: { type: Number, default: 30 },
+    maxCategories: { type: Number, default: 5 },
   },
   emits: ["day-click"],
   methods: {
-    formatCardDate: function (dateStr) {
-      return moment(dateStr, "YYYYMMDD").format("MM-DD dddd");
+    formatRange: function (entry) {
+      if (entry.startDate === entry.endDate) {
+        return moment(entry.startDate, "YYYYMMDD").format("MM-DD");
+      }
+      return `${moment(entry.startDate, "YYYYMMDD").format("MM-DD")} ~ ${moment(entry.endDate, "YYYYMMDD").format("MM-DD")}`;
     },
     formatDaysLeft: function (daysLeft) {
       if (daysLeft === 0) return this.$t("calendarHub.today");
@@ -46,26 +50,44 @@ export default {
     },
   },
   computed: {
-    items: function () {
+    mergedList: function () {
       let today = moment().startOf("day");
       let endDate = today.clone().add(this.days, "days");
 
-      let holidayEvents = holidayHelper
+      // 节假日：按名称把连续日期合并成一个区间（例如中秋节 09-25 ~ 09-27）
+      let holidayFlat = holidayHelper
         .getHolidaysBetween(today.format("YYYYMMDD"), endDate.format("YYYYMMDD"), this.countryCodes)
         .filter((h) => h.isOffDay)
-        .map((h) => ({
-          key: `holiday_${h.countryCode}_${h.date}_${h.name}`,
-          name: h.name,
-          date: h.date,
-          daysLeft: moment(h.date, "YYYYMMDD").diff(today, "days"),
-          color: "#ed544b",
-          source: "holiday",
-        }));
+        .sort((a, b) => (a.date < b.date ? -1 : 1));
+
+      let holidayGroups = [];
+      let lastGroupByName = {};
+      holidayFlat.forEach((h) => {
+        let g = lastGroupByName[h.name];
+        if (g && moment(h.date, "YYYYMMDD").diff(moment(g.endDate, "YYYYMMDD"), "days") === 1) {
+          g.endDate = h.date;
+        } else {
+          g = { name: h.name, startDate: h.date, endDate: h.date, color: "#ed544b", source: "holiday" };
+          holidayGroups.push(g);
+          lastGroupByName[h.name] = g;
+        }
+      });
+
+      let holidayEvents = holidayGroups.map((g) => ({
+        key: `holiday_${g.name}_${g.startDate}`,
+        name: g.name,
+        startDate: g.startDate,
+        endDate: g.endDate,
+        daysLeft: moment(g.startDate, "YYYYMMDD").diff(today, "days"),
+        color: g.color,
+        source: g.source,
+      }));
 
       let anniversaryEvents = anniversaryHelper.getUpcomingAnniversaries(this.anniversaryList, this.days, today.format("YYYYMMDD")).map((a) => ({
         key: `anniversary_${a.id}_${a.date}`,
         name: a.name,
-        date: a.date,
+        startDate: a.date,
+        endDate: a.date,
         daysLeft: a.daysLeft,
         color: a.color || "#748ffc",
         source: "anniversary",
@@ -74,6 +96,12 @@ export default {
       let merged = holidayEvents.concat(anniversaryEvents);
       merged.sort((a, b) => a.daysLeft - b.daysLeft);
       return merged;
+    },
+    items: function () {
+      return this.mergedList.slice(0, this.maxCategories);
+    },
+    overflowCount: function () {
+      return Math.max(0, this.mergedList.length - this.maxCategories);
     },
   },
 };
@@ -125,7 +153,7 @@ export default {
 }
 
 .upcoming-card {
-  flex: 0 0 118px;
+  flex: 0 0 128px;
   border-top: 3px solid #748ffc;
   background-color: #f8f9fb;
   border-radius: 8px;
@@ -164,5 +192,11 @@ export default {
   .dark-theme & {
     color: #6c8fff;
   }
+}
+
+.overflow-hint {
+  font-size: 0.74rem;
+  color: #9aa0a8;
+  margin-top: 6px;
 }
 </style>

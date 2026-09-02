@@ -2,9 +2,17 @@
   <div class="month-calendar">
     <div class="month-calendar-toolbar d-flex align-items-center mb-3">
       <i class="bi-chevron-left nav-icon" @click="prevMonth"></i>
-      <span class="month-label" @click="backToToday">{{ monthLabel }}</span>
+      <span class="month-label" @click="toggleYearMonthPicker">{{ monthLabel }}</span>
       <i class="bi-chevron-right nav-icon" @click="nextMonth"></i>
       <button class="btn btn-sm today-btn" type="button" @click="backToToday">{{ $t("calendarHub.today") }}</button>
+
+      <year-month-picker
+        v-if="showYearMonthPicker"
+        :value="month"
+        :language="language"
+        @select="onSelectYearMonth"
+        @close="showYearMonthPicker = false"
+      ></year-month-picker>
     </div>
 
     <div class="weekday-row">
@@ -25,11 +33,13 @@
         }"
         @click="$emit('day-click', cell.dateStr)"
       >
+        <span v-if="cell.hasWorkday && !cell.hasOffHoliday" class="workday-badge" :title="cell.holidayNamesFull">{{ $t("calendarHub.workdayBadge") }}</span>
         <span class="day-num">{{ cell.dayNum }}</span>
         <span v-if="cell.lunarText" class="lunar-text" :class="{ 'is-term': cell.isTerm }">{{ cell.lunarText }}</span>
-        <span v-if="cell.holidayName" class="holiday-name" :title="cell.holidayNamesFull">{{ cell.holidayName }}</span>
-        <span class="anniversary-dots">
-          <i v-for="a in cell.anniversaries.slice(0, 4)" :key="a.id" class="dot" :style="{ backgroundColor: a.color || '#748ffc' }" :title="a.name"></i>
+        <span v-if="cell.hasOffHoliday && cell.holidayName" class="holiday-name" :title="cell.holidayNamesFull">{{ cell.holidayName }}</span>
+        <span class="anniversary-dots" :title="cell.anniversaryNamesFull">
+          <i v-for="a in cell.anniversaries.slice(0, 4)" :key="a.id" class="dot" :style="{ backgroundColor: a.color || '#748ffc' }"></i>
+          <span v-if="cell.anniversaries.length > 4" class="dot-more">+{{ cell.anniversaries.length - 4 }}</span>
         </span>
       </div>
     </div>
@@ -41,9 +51,11 @@ import moment from "moment";
 import { solar2lunar } from "../../helpers/solarLunarCore";
 import holidayHelper from "../../helpers/holidayHelper";
 import anniversaryHelper from "../../helpers/anniversaryHelper";
+import yearMonthPicker from "./yearMonthPicker.vue";
 
 export default {
   name: "monthCalendar",
+  components: { yearMonthPicker },
   props: {
     month: { type: String, required: true }, // "YYYY-MM"
     countryCodes: { type: Array, default: () => ["CN"] },
@@ -54,6 +66,11 @@ export default {
     showLunar: { type: Boolean, default: true },
   },
   emits: ["update:month", "day-click"],
+  data() {
+    return {
+      showYearMonthPicker: false,
+    };
+  },
   methods: {
     prevMonth: function () {
       this.$emit("update:month", moment(this.month + "-01", "YYYY-MM-DD").subtract(1, "month").format("YYYY-MM"));
@@ -64,6 +81,12 @@ export default {
     backToToday: function () {
       this.$emit("update:month", moment().format("YYYY-MM"));
       this.$emit("day-click", moment().format("YYYYMMDD"));
+    },
+    toggleYearMonthPicker: function () {
+      this.showYearMonthPicker = !this.showYearMonthPicker;
+    },
+    onSelectYearMonth: function (newMonth) {
+      this.$emit("update:month", newMonth);
     },
   },
   computed: {
@@ -91,7 +114,8 @@ export default {
         let holidayInfos = holidayHelper.getDayInfoMulti(dateStr, this.countryCodes);
         let hasOffHoliday = holidayInfos.some((h) => h.isOffDay);
         let hasWorkday = holidayInfos.some((h) => !h.isOffDay);
-        let firstHolidayName = holidayInfos.length ? holidayInfos[0].name : "";
+        let offHolidayInfos = holidayInfos.filter((h) => h.isOffDay);
+        let firstHolidayName = offHolidayInfos.length ? offHolidayInfos[0].name : "";
         let allNames = holidayInfos.map((h) => h.name).join(" / ");
 
         let matchedAnniversaries = this.anniversaryList.filter((item) => anniversaryHelper.occursOn(item, dateStr));
@@ -123,6 +147,7 @@ export default {
           holidayName: firstHolidayName,
           holidayNamesFull: allNames,
           anniversaries: matchedAnniversaries,
+          anniversaryNamesFull: matchedAnniversaries.map((a) => a.name).join(" / "),
           lunarText,
           isTerm,
         });
@@ -136,7 +161,13 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.month-calendar {
+  position: relative;
+}
+
 .month-calendar-toolbar {
+  position: relative;
+
   .nav-icon {
     font-size: 1.1rem;
     padding: 6px 10px;
@@ -159,6 +190,16 @@ export default {
     cursor: pointer;
     min-width: 120px;
     text-align: center;
+    padding: 4px 8px;
+    border-radius: 6px;
+
+    &:hover {
+      background-color: #f4f5f7;
+
+      .dark-theme & {
+        background-color: #1a1e24;
+      }
+    }
   }
 
   .today-btn {
@@ -234,13 +275,21 @@ export default {
       color: #ff7875;
     }
   }
+}
 
-  &.has-workday .day-num {
-    color: #b8860b;
+.workday-badge {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 0.55rem;
+  color: #b8860b;
+  background-color: #fbf3de;
+  border-radius: 3px;
+  padding: 0px 3px;
 
-    .dark-theme & {
-      color: #e0a95c;
-    }
+  .dark-theme & {
+    color: #e0a95c;
+    background-color: #2c2a20;
   }
 }
 
@@ -282,6 +331,7 @@ export default {
 
 .anniversary-dots {
   display: flex;
+  align-items: center;
   gap: 2px;
   margin-top: 2px;
 
@@ -290,6 +340,12 @@ export default {
     height: 5px;
     border-radius: 50%;
     display: inline-block;
+  }
+
+  .dot-more {
+    font-size: 0.55rem;
+    color: #9aa0a8;
+    margin-left: 1px;
   }
 }
 </style>

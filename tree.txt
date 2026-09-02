@@ -38,7 +38,7 @@
 │   │   ├── background.js
 │   │   ├── browserconfig.xml
 │   │   ├── css
-│   │   │   ├── app.bda35a08.css
+│   │   │   ├── app.c659d7ad.css
 │   │   │   └── chunk-vendors.4cbc1385.css
 │   │   ├── fav_icons
 │   │   │   ├── android-chrome-192x192.png
@@ -68,12 +68,12 @@
 │   │   │   └── weektodo-isologo-white.svg
 │   │   ├── index.html
 │   │   ├── js
-│   │   │   ├── app.d9fa3ebd.js
-│   │   │   ├── app.d9fa3ebd.js.map
+│   │   │   ├── app.4232c1d2.js
+│   │   │   ├── app.4232c1d2.js.map
 │   │   │   ├── chunk-2d0b2ed7.f550b682.js
 │   │   │   ├── chunk-2d0b2ed7.f550b682.js.map
-│   │   │   ├── chunk-vendors.0c04d16d.js
-│   │   │   └── chunk-vendors.0c04d16d.js.map
+│   │   │   ├── chunk-vendors.c8414f0e.js
+│   │   │   └── chunk-vendors.c8414f0e.js.map
 │   │   ├── libs
 │   │   │   └── honeybadger.min.js
 │   │   ├── manifest.json
@@ -54331,6 +54331,7 @@
 │   │   └── toastMessage.vue
 │   ├── data
 │   │   ├── countryList.js
+│   │   ├── defaultAnniversaryTags.js
 │   │   └── holidaysSeed.js
 │   ├── helpers
 │   │   ├── anniversaryHelper.js
@@ -54349,6 +54350,7 @@
 │   │   └── migrations.js
 │   ├── repositories
 │   │   ├── anniversaryRepository.js
+│   │   ├── anniversaryTagRepository.js
 │   │   ├── configRepository.js
 │   │   ├── customToDoListIdsRepository.js
 │   │   ├── dbRepository.js
@@ -54376,7 +54378,8 @@
 │       │   ├── anniversaryEditModal.vue
 │       │   ├── anniversaryList.vue
 │       │   ├── monthCalendar.vue
-│       │   └── upcomingEventsTile.vue
+│       │   ├── upcomingEventsTile.vue
+│       │   └── yearMonthPicker.vue
 │       ├── configList.js
 │       ├── configModal.vue
 │       ├── donate
@@ -54403,4 +54406,4 @@
 ├── vue.config.js
 └── yarn.lock
 
-7092 directories, 47312 files
+7092 directories, 47315 files

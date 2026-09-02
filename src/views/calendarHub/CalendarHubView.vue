@@ -1,24 +1,37 @@
 <template>
   <div class="calendar-hub-view d-flex flex-column">
     <div class="hub-topbar d-flex align-items-center">
-      <i class="bi-arrow-left back-icon" @click="$emit('close')" :title="$t('calendarHub.back')"></i>
+      <i class="bi-calendar-heart hub-title-icon"></i>
       <h5 class="mb-0 ms-2">{{ $t("calendarHub.title") }}</h5>
-
-      <div class="country-selector ms-auto">
-        <i id="countrySelectorBtn" class="bi-globe2 country-icon" type="button" data-bs-toggle="dropdown"></i>
-        <ul class="dropdown-menu country-dropdown-menu" aria-labelledby="countrySelectorBtn">
-          <li v-for="c in countryList" :key="c.code">
-            <label class="dropdown-item country-item">
-              <input type="checkbox" :value="c.code" v-model="selectedCountries" @change="onCountriesChange" />
-              <span>{{ countryDisplayName(c) }}</span>
-            </label>
-          </li>
-        </ul>
-      </div>
     </div>
 
     <div class="hub-body flex-grow-1 d-flex">
       <div class="hub-left">
+        <div class="country-chip-bar d-flex align-items-center flex-wrap">
+          <span class="chip-label">{{ $t("calendarHub.holidayCountry") }}</span>
+          <span
+            v-for="c in primaryCountries"
+            :key="c.code"
+            class="country-chip"
+            :class="{ active: selectedCountries.includes(c.code) }"
+            @click="toggleCountry(c.code)"
+          >{{ countryDisplayName(c) }}</span>
+
+          <div class="more-country-wrap">
+            <span id="moreCountryBtn" class="country-chip more-chip" data-bs-toggle="dropdown">
+              {{ $t("calendarHub.moreCountries") }} <i class="bi-chevron-down"></i>
+            </span>
+            <ul class="dropdown-menu country-dropdown-menu" aria-labelledby="moreCountryBtn">
+              <li v-for="c in extraCountries" :key="c.code">
+                <label class="dropdown-item country-item">
+                  <input type="checkbox" :value="c.code" v-model="selectedCountries" @change="onCountriesChange" />
+                  <span>{{ countryDisplayName(c) }}</span>
+                </label>
+              </li>
+            </ul>
+          </div>
+        </div>
+
         <month-calendar
           v-model:month="currentMonth"
           :countryCodes="selectedCountries"
@@ -33,6 +46,7 @@
           :anniversaryList="anniversaryList"
           :countryCodes="selectedCountries"
           :days="30"
+          :maxCategories="5"
           @day-click="onDayClick"
         ></upcoming-events-tile>
       </div>
@@ -90,6 +104,15 @@ export default {
     countryDisplayName: function (c) {
       return this.language === "zh_cn" || this.language === "zh_tw" ? c.nameZh : c.nameEn;
     },
+    toggleCountry: function (code) {
+      let idx = this.selectedCountries.indexOf(code);
+      if (idx === -1) {
+        this.selectedCountries.push(code);
+      } else {
+        this.selectedCountries.splice(idx, 1);
+      }
+      this.onCountriesChange();
+    },
     onDayClick: function (dateStr) {
       this.pickedDate = dateStr;
       this.$emit("jump-to-date", dateStr);
@@ -133,6 +156,12 @@ export default {
     },
   },
   computed: {
+    primaryCountries: function () {
+      return this.countryList.slice(0, 5);
+    },
+    extraCountries: function () {
+      return this.countryList.slice(5);
+    },
     weekStartOnMonday: function () {
       return this.$store.getters.config.weekStartOnMonday;
     },
@@ -157,35 +186,66 @@ export default {
     font-weight: 600;
   }
 
-  .back-icon {
-    font-size: 1.3rem;
-    padding: 6px 8px;
-    border-radius: 6px;
-    cursor: pointer;
+  .hub-title-icon {
+    font-size: 1.15rem;
+    color: #4263eb;
 
-    &:hover {
-      background-color: #eaecef;
-
-      .dark-theme & {
-        background-color: #21262d;
-      }
+    .dark-theme & {
+      color: #6c8fff;
     }
   }
 }
 
-.country-icon {
-  font-size: 1.15rem;
-  padding: 7px;
-  border-radius: 6px;
+.country-chip-bar {
+  gap: 8px;
+  margin-bottom: 12px;
+
+  .chip-label {
+    font-size: 0.8rem;
+    color: #8a8f98;
+    margin-right: 4px;
+
+    .dark-theme & {
+      color: #6b7078;
+    }
+  }
+}
+
+.country-chip {
+  font-size: 0.8rem;
+  padding: 4px 12px;
+  border-radius: 14px;
+  background-color: #f4f5f7;
+  color: #5c5c5c;
   cursor: pointer;
+  transition: 0.2s ease-out;
 
   &:hover {
     background-color: #eaecef;
+  }
 
-    .dark-theme & {
+  &.active {
+    background-color: #4263eb;
+    color: white;
+  }
+
+  .dark-theme & {
+    background-color: #1a1e24;
+    color: #c9d1d9;
+
+    &:hover {
       background-color: #21262d;
     }
+
+    &.active {
+      background-color: #4263eb;
+      color: white;
+    }
   }
+}
+
+.more-country-wrap {
+  position: relative;
 }
 
 .country-dropdown-menu {

@@ -2,10 +2,26 @@ import storageRepository from "./storageRepository";
 import version_json from "../../public/version.json";
 import moment from "moment";
 
+// 这里列出所有"新增字段"的默认值。load() 读取已有配置时，
+// 如果发现某个字段缺失，会顺手补上，避免任何遗漏路径下拿到 undefined。
+const NEW_FIELD_DEFAULTS = {
+  holidayCountries: ["CN"],
+};
+
 export default {
   load() {
     let config = storageRepository.get("config");
     if (config) {
+      let patched = false;
+      Object.keys(NEW_FIELD_DEFAULTS).forEach((key) => {
+        if (!(key in config)) {
+          config[key] = NEW_FIELD_DEFAULTS[key];
+          patched = true;
+        }
+      });
+      if (patched) {
+        storageRepository.set("config", config);
+      }
       return config;
     } else {
       let default_config = {

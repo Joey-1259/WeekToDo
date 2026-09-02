@@ -203,12 +203,9 @@ export default {
     );
   },
   created() {
-    // 注意：ensureDefaultCustomList 是组件 methods，必须放在 created()（或之后）调用。
-    // Vue2 的初始化顺序是 beforeCreate -> initState(挂载 data/computed/methods/watch) -> created，
-    // 如果在 beforeCreate 里直接调用 this.ensureDefaultCustomList()，此时 methods 还没挂到 this 上，
-    // 会抛出 "this.ensureDefaultCustomList is not a function"。
-    // beforeCreate 中触发的 dispatch("loadAllRepeatingEvent").then(...) 是异步微任务，
-    // 会在本次同步初始化（包含这里的 created）全部完成后才执行，所以调用顺序不受影响。
+    // ensureDefaultCustomList 是 methods 里的函数，必须放在 created()（或之后）调用。
+    // Vue2 初始化顺序：beforeCreate -> initState(挂载 data/computed/methods/watch) -> created，
+    // 在 beforeCreate 里直接调用会因为 methods 还未挂载而报 "is not a function"。
     this.ensureDefaultCustomList();
   },
   mounted() {
@@ -500,8 +497,14 @@ export default {
       },
     },
     customListCount: function (val) {
+      // 把"索引越界/清单被清空"这两类需要修改 data 的副效应统一放在这里处理，
+      // 而不要放进 computed（computed 必须是纯函数，不能修改响应式数据，
+      // 否则会触发 eslint 规则 vue/no-side-effects-in-computed-properties 报错）。
       if (val === 0) {
         this.ensureDefaultCustomList();
+        this.homeCustomListIndex = 0;
+      } else if (this.homeCustomListIndex >= val) {
+        this.homeCustomListIndex = 0;
       }
     },
   },
@@ -541,10 +544,12 @@ export default {
         : `${start.format("MMM D, YYYY")} - ${end.format("MMM D, YYYY")}`;
     },
     homeCustomList: function () {
+      // 注意：computed 必须是纯函数读取，不能修改 this.homeCustomListIndex 这类响应式数据。
+      // 越界重置的副效应已经挪到上面的 watch.customListCount 里处理，这里只做安全读取。
       let ids = this.$store.getters.cTodoListIds;
       if (!ids || !ids.length) return null;
-      if (this.homeCustomListIndex >= ids.length) this.homeCustomListIndex = 0;
-      return ids[this.homeCustomListIndex];
+      let safeIndex = this.homeCustomListIndex < ids.length ? this.homeCustomListIndex : 0;
+      return ids[safeIndex];
     },
     customListCount: function () {
       let ids = this.$store.getters.cTodoListIds;

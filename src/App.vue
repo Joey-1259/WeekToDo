@@ -65,6 +65,7 @@
                 :columnsOverride="4"
                 @todo-list-mounted="todoListMounted"
                 @reorderCustomList="resetCustomList"
+                @addCustomList="onCustomListAdded"
               ></to-do-list>
               <!-- 归档操作栏 -->
               <div class="archive-action-bar">
@@ -311,6 +312,12 @@ export default {
     },
     resetCustomList: function () {
       // 占位
+    },
+    // 新列表创建后切换到最后一个（刚创建的）
+    onCustomListAdded: function () {
+      this.$nextTick(function () {
+        this.homeCustomListIndex = this.$store.getters.cTodoListIds.length - 1;
+      });
     },
     isElectron: function () {
       let isElectron = require("is-electron");

@@ -15,6 +15,7 @@
       :toDoList="toDoListState"
       :pickedDate="pickedDate"
       @reorderCustomList="$emit('reorderCustomList')"
+      @addCustomList="$emit('addCustomList')"
     >
     </list-header>
     <ul class="to-do-list">
@@ -65,11 +66,9 @@ export default {
     cTodoListIndex: { required: false, type: Number },
     showCustomList: { required: false, type: Boolean },
     pickedDate: { required: false, type: String, default: null },
-    // 首页固定两行四列布局需要强制列宽为 4 等分，不再依赖设置里的 columns/customColumns，
-    // 传入这个 prop 时会覆盖掉原来根据全局配置计算宽度的逻辑
     columnsOverride: { required: false, type: Number, default: null },
   },
-  emits: ["todoListMounted", "reorderCustomList"],
+  emits: ["todoListMounted", "reorderCustomList", "addCustomList"],
   data() {
     return {
       newToDo: { text: "", checked: false },
@@ -258,8 +257,6 @@ export default {
   padding-right: 13px;
   scroll-snap-align: start;
   margin-bottom: 5px;
-  /* 去掉这一列自身的滚动条视觉，任务多的时候依旧可以在这个区域内正常上下滑动，
-     只是不再显示丑陋的滚动条轨道和滑块 */
   scrollbar-width: none;
   -ms-overflow-style: none;
 }

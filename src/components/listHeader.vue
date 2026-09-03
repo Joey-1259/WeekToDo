@@ -33,7 +33,8 @@
     <i v-show="!editing" class="bi-three-dots-vertical header-menu-icons dropdown-toggle-split align-self-center"
       type="button" data-bs-toggle="dropdown"></i>
     <ul class="dropdown-menu" aria-labelledby="btnTaskOptionMenu">
-      <li>
+      <!-- ===== 日历列表专属菜单项 ===== -->
+      <li v-show="!customTodoList">
         <button class="dropdown-item" type="button" @click="newTask">
           <i class="bi-plus-lg"></i> <span>{{ $t('ui.newTask') }}</span>
         </button>
@@ -43,8 +44,8 @@
           <i class="bi-check2-all"></i> <span>{{ $t('ui.completeAll') }}</span>
         </button>
       </li>
-      <li>
-        <button class="dropdown-item" type="button" @click="customTodoList ? openReorderListsModal() : sortItems()">
+      <li v-show="!customTodoList">
+        <button class="dropdown-item" type="button" @click="sortItems()">
           <i class="bi-sort-down"></i> <span>{{ $t('ui.reorder') }}</span>
         </button>
       </li>
@@ -53,11 +54,19 @@
           <i class="bi-reply-all"></i> <span>{{ $t('ui.postpone') }}</span>
         </button>
       </li>
-      <li>
+      <li v-show="!customTodoList">
         <button class="dropdown-item" type="button" @click="copyListTasksToClipboard">
           <i class="bi-clipboard"></i> <span>{{ $t('ui.copyTasks') }}</span>
         </button>
       </li>
+
+      <!-- ===== 自定义列表专属菜单项 ===== -->
+      <li v-show="customTodoList">
+        <button class="dropdown-item" type="button" @click="addNewCustomList">
+          <i class="bi-plus-circle"></i> <span>{{ $t('ui.newList') }}</span>
+        </button>
+      </li>
+
       <li>
         <hr class="dropdown-divider" />
       </li>
@@ -95,7 +104,7 @@ export default {
     toDoList: { required: false, type: Array },
     pickedDate: { required: false, type: String, default: null },
   },
-  emits: ["reorderCustomList"],
+  emits: ["reorderCustomList", "addCustomList"],
   data() {
     return {
       editing: false,
@@ -133,7 +142,6 @@ export default {
       } else {
         this.updateTodoList(towmorrow_id, this.$store.getters.todoLists[towmorrow_id]);
       }
-
     },
     moments: function (date) {
       return moment(date);
@@ -208,6 +216,21 @@ export default {
           .getElementsByClassName("new-todo-input")[0]
           .focus();
       });
+    },
+    // ===== 新增列表 =====
+    addNewCustomList: function () {
+      const newId = moment().format("YYYYMMDDTHHmmssS");
+      const newListObj = {
+        listId: newId,
+        listName: this.$t("ui.defaultCustomListName"),
+      };
+      this.$store.commit("newCustomTodoList", newListObj);
+      customToDoListIdsRepository.update(this.$store.getters.cTodoListIds);
+      toDoListRepository.update(newId, []);
+      // 标记刚创建，触发新列表自动进入编辑模式
+      this.$store.commit("actionsCListCreatedUpdate", true);
+      // 通知父组件切换到新创建的列表
+      this.$emit("addCustomList");
     },
     startListDrag: function (event) {
       event.dataTransfer.setData("customListIndex", String(this.cTodoListIndex));

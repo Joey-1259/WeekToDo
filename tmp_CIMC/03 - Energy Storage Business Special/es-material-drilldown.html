@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>储能材料量价穿透分析</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+:root{
+--i:#6366f1;--i2:#818cf8;--em:#10b981;--am:#f59e0b;--ro:#ef4444;
+--bk:#0f172a;--s0:#020617;--s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;
+--s300:#cbd5e1;--s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;
+--s800:#1e293b;--s900:#0f172a;
+--glass:rgba(255,255,255,.62);--glass-b:rgba(255,255,255,.18);
+--radius:14px;--shadow:0 4px 24px rgba(0,0,0,.06);
+--topH:52px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter','Noto Sans SC',system-ui,sans-serif;background:linear-gradient(135deg,#f0f4ff 0%,#e8ecf9 40%,#f5f0ff 100%);min-height:100vh;color:var(--s800)}
+.topbar{position:sticky;top:0;z-index:100;height:var(--topH);display:flex;align-items:center;justify-content:space-between;padding:0 24px;
+background:rgba(255,255,255,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--s200)}
+.brand{font-weight:700;font-size:15px;color:var(--i);display:flex;align-items:center;gap:6px}
+.brand svg{width:22px;height:22px}
+.nav-links{display:flex;gap:4px}
+.nav-links a{font-size:12.5px;padding:5px 13px;border-radius:8px;text-decoration:none;color:var(--s600);font-weight:500;transition:.2s}
+.nav-links a:hover{background:var(--s100);color:var(--i)}
+.nav-links a.active{background:var(--i);color:#fff}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.btn-export{font-size:12px;padding:5px 14px;border-radius:8px;border:1px solid var(--s200);background:#fff;cursor:pointer;font-weight:500;color:var(--s600);transition:.15s}
+.btn-export:hover{border-color:var(--i);color:var(--i)}
+.filter-bar{display:flex;align-items:center;gap:10px;padding:10px 24px;flex-wrap:wrap}
+.filter-bar label{font-size:12px;color:var(--s500);font-weight:500}
+.filter-bar select{font-size:12.5px;padding:5px 10px;border-radius:8px;border:1px solid var(--s200);background:#fff;color:var(--s700);font-family:inherit;outline:none;cursor:pointer}
+.filter-bar select:focus{border-color:var(--i)}
+.filter-sep{width:1px;height:22px;background:var(--s200);margin:0 4px}
+.main{padding:4px 24px 32px}
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.kpi-card{background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-b);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow)}
+.kpi-card .kl{font-size:11.5px;color:var(--s500);font-weight:500}
+.kpi-card .kv{font-size:22px;font-weight:700;color:var(--s900)}
+.kpi-card .kt{font-size:11px;font-weight:500;display:flex;align-items:center;gap:3px}
+.kt.up{color:var(--ro)}.kt.down{color:var(--em)}
+.card{background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-b);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
+.card-head{padding:16px 20px 0}
+.card-title{font-size:14.5px;font-weight:700;color:var(--s800)}
+.tab-nav{display:flex;gap:4px;padding:12px 20px 0}
+.tab-btn{font-size:12.5px;padding:6px 16px;border-radius:8px 8px 0 0;border:none;background:transparent;color:var(--s500);font-weight:500;cursor:pointer;transition:.15s;font-family:inherit;border-bottom:2px solid transparent}
+.tab-btn:hover{color:var(--i)}
+.tab-btn.on{color:var(--i);background:rgba(99,102,241,.06);border-bottom-color:var(--i);font-weight:600}
+.tab-pane{display:none;padding:16px 20px 20px}
+.tab-pane.show{display:block}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-box{position:relative;height:370px}
+.chart-box canvas{width:100%!important;height:100%!important}
+.insight-box{margin-top:14px;padding:12px 16px;border-radius:10px;background:linear-gradient(90deg,rgba(99,102,241,.06),rgba(16,185,129,.04));border-left:3px solid var(--i);font-size:12.5px;color:var(--s600);line-height:1.7}
+.insight-box strong{color:var(--s800)}
+.tbl-wrap{overflow-x:auto;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:var(--s50);position:sticky;top:0;font-weight:600;color:var(--s600);text-align:left;padding:9px 12px;border-bottom:2px solid var(--s200);white-space:nowrap}
+td{padding:8px 12px;border-bottom:1px solid var(--s100);color:var(--s700);white-space:nowrap}
+tr:hover td{background:rgba(99,102,241,.03)}
+.val-hi{color:var(--ro);font-weight:600}.val-lo{color:var(--em);font-weight:600}
+.link-drill{color:var(--i);text-decoration:none;font-weight:500;cursor:pointer;font-size:12px}
+.link-drill:hover{text-decoration:underline}
+/* classification mapping */
+.class-map{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:16px}
+.class-chip{padding:12px 10px;border-radius:10px;text-align:center;border:1px solid var(--glass-b);background:var(--glass);backdrop-filter:blur(8px);cursor:pointer;transition:.2s}
+.class-chip:hover,.class-chip.active{border-color:var(--i);background:rgba(99,102,241,.08);transform:translateY(-2px);box-shadow:0 4px 12px rgba(99,102,241,.15)}
+.class-chip .cc-icon{font-size:22px;margin-bottom:4px}
+.class-chip .cc-name{font-size:12px;font-weight:600;color:var(--s800)}
+.class-chip .cc-sub{font-size:10.5px;color:var(--s400);margin-top:2px}
+.class-chip .cc-val{font-size:14px;font-weight:700;color:var(--i);margin-top:4px}
+/* pill selector */
+.pill-row{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.pill{font-size:11.5px;padding:4px 12px;border-radius:20px;border:1px solid var(--s200);background:#fff;cursor:pointer;color:var(--s600);font-weight:500;transition:.15s}
+.pill:hover{border-color:var(--i);color:var(--i)}
+.pill.on{background:var(--i);color:#fff;border-color:var(--i)}
+/* bar group */
+.qp-legend{display:flex;gap:16px;align-items:center;margin-bottom:8px;font-size:11.5px;color:var(--s500)}
+.qp-legend span{display:flex;align-items:center;gap:4px}
+.qp-legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+@media(max-width:1200px){.kpi-strip{grid-template-columns:repeat(3,1fr)}.chart-row{grid-template-columns:1fr}.class-map{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:768px){.kpi-strip{grid-template-columns:repeat(2,1fr)}.class-map{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18M3 9h18"/></svg>
+    储能成本对标中心
+  </div>
+  <nav class="nav-links">
+    <a href="es-cost-benchmark.html" id="lnk1">全成本对标总览</a>
+    <a href="es-material-drilldown.html" class="active" id="lnk2">材料量价穿透</a>
+    <a href="es-labor-process.html" id="lnk3">工序工时工费率</a>
+  </nav>
+  <div class="topbar-right">
+    <button class="btn-export" onclick="snapshot()">📸 导出快照</button>
+  </div>
+</header>
+
+<div class="filter-bar">
+  <label>期间</label>
+  <select id="fPeriod"><option>2026年8月</option><option>2026年7月</option><option>2026年6月</option><option>2026年5月</option></select>
+  <div class="filter-sep"></div>
+  <label>对标企业</label>
+  <select id="fEnterprise"><option value="all">全部企业</option><option>东莞南方</option><option>新会</option><option>青岛</option><option>扬州</option><option>宁波</option><option>天津</option><option>太仓</option><option>南通</option><option>南通元能</option></select>
+  <div class="filter-sep"></div>
+  <label>产线类型</label>
+  <select id="fLineType"><option value="all">全部产线</option><option>储能柜线</option><option>储能集装箱线</option></select>
+  <div class="filter-sep"></div>
+  <label>产品</label>
+  <select id="fProduct"><option value="all">全部产品</option><option>20尺标准储能柜</option><option>40尺标准储能柜</option><option>定制储能集装箱</option></select>
+</div>
+
+<div class="main">
+
+<!-- 储能专属材料分类规则 -->
+<div class="card">
+  <div class="card-head"><span class="card-title">📋 储能专属材料七大分类规则</span>
+    <span style="font-size:11.5px;color:var(--s400);margin-left:10px">基于储能产品BOM结构定义，确保跨企业对标口径一致 | 点击分类卡片可穿透至量价明细</span>
+  </div>
+  <div style="padding:16px 20px 20px">
+    <div class="class-map" id="classMap"></div>
+  </div>
+</div>
+
+<!-- KPI -->
+<div class="kpi-strip" id="kpiStrip2"></div>
+
+<!-- 分析主卡片 -->
+<div class="card">
+  <div class="tab-nav">
+    <button class="tab-btn on" data-t="mt1">材料成本对标排名</button>
+    <button class="tab-btn" data-t="mt2">量差 · 价差分离分析</button>
+    <button class="tab-btn" data-t="mt3">材料明细穿透</button>
+  </div>
+
+  <!-- Tab1: 材料对标排名 -->
+  <div class="tab-pane show" id="mt1">
+    <div class="pill-row" id="catPills"></div>
+    <div class="chart-row">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">各企业材料成本对比（元/台）</div>
+        <div class="chart-box"><canvas id="chartMatBar"></canvas></div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">七大类材料占比对比</div>
+        <div class="chart-box"><canvas id="chartMatPie"></canvas></div>
+      </div>
+    </div>
+    <div class="insight-box" id="insightMt1"></div>
+  </div>
+
+  <!-- Tab2: 量价分离 -->
+  <div class="tab-pane" id="mt2">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <label style="font-size:12px;color:var(--s500);font-weight:500">分析分类</label>
+      <select id="qpCat" style="font-size:12.5px;padding:5px 10px;border-radius:8px;border:1px solid var(--s200);font-family:inherit"></select>
+      <label style="font-size:12px;color:var(--s500);font-weight:500;margin-left:12px">对标基准</label>
+      <select id="qpBase" style="font-size:12.5px;padding:5px 10px;border-radius:8px;border:1px solid var(--s200);font-family:inherit"></select>
+    </div>
+    <div class="qp-legend">
+      <span><i style="background:#6366f1"></i> 量差（用量偏差）</span>
+      <span><i style="background:#f59e0b"></i> 价差（单价偏差）</span>
+      <span><i style="background:#94a3b8"></i> 交叉差异</span>
+    </div>
+    <div class="chart-row">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">量差 vs 价差分解（元/台）</div>
+        <div class="chart-box"><canvas id="chartQP"></canvas></div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">各企业量价差异占比</div>
+        <div class="chart-box"><canvas id="chartQPpct"></canvas></div>
+      </div>
+    </div>
+    <div class="insight-box" id="insightMt2"></div>
+    <div class="tbl-wrap"><table id="tblQP"></table></div>
+  </div>
+
+  <!-- Tab3: 明细穿透 -->
+  <div class="tab-pane" id="mt3">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <label style="font-size:12px;color:var(--s500);font-weight:500">穿透企业</label>
+      <select id="detailEnt" style="font-size:12.5px;padding:5px 10px;border-radius:8px;border:1px solid var(--s200);font-family:inherit"></select>
+      <label style="font-size:12px;color:var(--s500);font-weight:500;margin-left:8px">分类筛选</label>
+      <select id="detailCat" style="font-size:12.5px;padding:5px 10px;border-radius:8px;border:1px solid var(--s200);font-family:inherit"></select>
+      <input id="detailSearch" placeholder="搜索材料名称..." style="font-size:12.5px;padding:5px 10px;border-radius:8px;border:1px solid var(--s200);width:180px;font-family:inherit">
+    </div>
+    <div class="tbl-wrap"><table id="tblDetail"></table></div>
+  </div>
+</div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   DATA — 储能专属材料分类 + 量价数据
+   ═══════════════════════════════════════ */
+const ENTERPRISES=['东莞南方','新会','青岛','扬州','宁波','天津','太仓','南通','南通元能'];
+
+const CLASS_DEF=[
+  {key:'cell',name:'电芯模组',icon:'🔋',desc:'磷酸铁锂/三元电芯、模组PACK',pct:'55-62%'},
+  {key:'bms',name:'BMS系统',icon:'🧠',desc:'电池管理系统、均衡板、采集线束',pct:'4-6%'},
+  {key:'pcs',name:'PCS/逆变器',icon:'⚡',desc:'储能变流器、并网控制器',pct:'11-15%'},
+  {key:'thermal',name:'温控系统',icon:'❄️',desc:'液冷机组、水泵、管路、膨胀阀',pct:'5-7%'},
+  {key:'structure',name:'结构件',icon:'🏗️',desc:'箱体框架、门板、支架、紧固件',pct:'7-9%'},
+  {key:'harness',name:'线束/连接器',icon:'🔌',desc:'高压线束、航插、铜排',pct:'2.5-3.5%'},
+  {key:'aux',name:'辅材/其他',icon:'📦',desc:'密封胶、标识牌、包装、消防',pct:'1.5-2.5%'}
+];
+
+// 各企业各分类成本（元/台）
+const MAT_COST={
+  '东莞南方':{cell:68500,bms:5800,pcs:14200,thermal:6100,structure:8900,harness:3200,aux:2100},
+  '新会':{cell:66200,bms:5500,pcs:13800,thermal:5800,structure:8200,harness:3000,aux:1900},
+  '青岛':{cell:71300,bms:6200,pcs:15100,thermal:6500,structure:9400,harness:3500,aux:2400},
+  '扬州':{cell:67800,bms:5600,pcs:14000,thermal:5900,structure:8500,harness:3100,aux:2000},
+  '宁波':{cell:69900,bms:5900,pcs:14600,thermal:6300,structure:9100,harness:3300,aux:2200},
+  '天津':{cell:72500,bms:6400,pcs:15500,thermal:6800,structure:9700,harness:3600,aux:2500},
+  '太仓':{cell:67000,bms:5500,pcs:13900,thermal:5850,structure:8400,harness:3050,aux:1950},
+  '南通':{cell:70800,bms:6100,pcs:14800,thermal:6400,structure:9200,harness:3400,aux:2300},
+  '南通元能':{cell:65800,bms:5400,pcs:13600,thermal:5700,structure:8000,harness:2900,aux:1800}
+};
+
+// 量价分离数据 — 每个分类的用量与单价
+const QP_DATA={
+  cell:{unit:'组',
+    data:{'东莞南方':{qty:16,price:4281},'新会':{qty:16,price:4138},'青岛':{qty:16,price:4456},'扬州':{qty:16,price:4238},'宁波':{qty:16,price:4369},'天津':{qty:17,price:4265},'太仓':{qty:16,price:4188},'南通':{qty:16,price:4425},'南通元能':{qty:15,price:4387}}
+  },
+  bms:{unit:'套',
+    data:{'东莞南方':{qty:1,price:5800},'新会':{qty:1,price:5500},'青岛':{qty:1,price:6200},'扬州':{qty:1,price:5600},'宁波':{qty:1,price:5900},'天津':{qty:1,price:6400},'太仓':{qty:1,price:5500},'南通':{qty:1,price:6100},'南通元能':{qty:1,price:5400}}
+  },
+  pcs:{unit:'台',
+    data:{'东莞南方':{qty:1,price:14200},'新会':{qty:1,price:13800},'青岛':{qty:1,price:15100},'扬州':{qty:1,price:14000},'宁波':{qty:1,price:14600},'天津':{qty:1,price:15500},'太仓':{qty:1,price:13900},'南通':{qty:1,price:14800},'南通元能':{qty:1,price:13600}}
+  },
+  thermal:{unit:'套',
+    data:{'东莞南方':{qty:2,price:3050},'新会':{qty:2,price:2900},'青岛':{qty:2,price:3250},'扬州':{qty:2,price:2950},'宁波':{qty:2,price:3150},'天津':{qty:2,price:3400},'太仓':{qty:2,price:2925},'南通':{qty:2,price:3200},'南通元能':{qty:2,price:2850}}
+  },
+  structure:{unit:'套',
+    data:{'东莞南方':{qty:1.0,price:8900},'新会':{qty:1.0,price:8200},'青岛':{qty:1.0,price:9400},'扬州':{qty:1.0,price:8500},'宁波':{qty:1.0,price:9100},'天津':{qty:1.05,price:9238},'太仓':{qty:1.0,price:8400},'南通':{qty:1.0,price:9200},'南通元能':{qty:0.98,price:8163}}
+  },
+  harness:{unit:'套',
+    data:{'东莞南方':{qty:3,price:1067},'新会':{qty:3,price:1000},'青岛':{qty:3,price:1167},'扬州':{qty:3,price:1033},'宁波':{qty:3,price:1100},'天津':{qty:4,price:900},'太仓':{qty:3,price:1017},'南通':{qty:3,price:1133},'南通元能':{qty:3,price:967}}
+  },
+  aux:{unit:'批',
+    data:{'东莞南方':{qty:1,price:2100},'新会':{qty:1,price:1900},'青岛':{qty:1,price:2400},'扬州':{qty:1,price:2000},'宁波':{qty:1,price:2200},'天津':{qty:1,price:2500},'太仓':{qty:1,price:1950},'南通':{qty:1,price:2300},'南通元能':{qty:1,price:1800}}
+  }
+};
+
+// 材料明细 — 穿透数据
+const DETAIL_DATA={
+  '东莞南方':[
+    {cat:'电芯模组',name:'280Ah磷酸铁锂电芯',spec:'3.2V/280Ah',unit:'只',qty:256,price:245,amount:62720},
+    {cat:'电芯模组',name:'模组PACK组件',spec:'16S1P',unit:'组',qty:16,price:361,amount:5780},
+    {cat:'BMS系统',name:'储能BMS主控板',spec:'V3.2',unit:'套',qty:1,price:3200,amount:3200},
+    {cat:'BMS系统',name:'BMS从控采集板',spec:'16通道',unit:'块',qty:16,price:163,amount:2600},
+    {cat:'PCS/逆变器',name:'储能变流器PCS',spec:'100kW/三相',unit:'台',qty:1,price:14200,amount:14200},
+    {cat:'温控系统',name:'液冷机组',spec:'5kW',unit:'台',qty:2,price:2600,amount:5200},
+    {cat:'温控系统',name:'冷却管路组件',spec:'DN25',unit:'套',qty:1,price:900,amount:900},
+    {cat:'结构件',name:'集装箱箱体框架',spec:'20尺',unit:'套',qty:1,price:5800,amount:5800},
+    {cat:'结构件',name:'电池安装支架',spec:'16位',unit:'套',qty:1,price:2200,amount:2200},
+    {cat:'结构件',name:'门板及五金',spec:'双开门',unit:'套',qty:1,price:900,amount:900},
+    {cat:'线束/连接器',name:'高压线束总成',spec:'1000V',unit:'套',qty:1,price:1800,amount:1800},
+    {cat:'线束/连接器',name:'航空插头连接器',spec:'8芯',unit:'只',qty:8,price:175,amount:1400},
+    {cat:'辅材/其他',name:'密封胶/防火涂料',spec:'混合',unit:'批',qty:1,price:1200,amount:1200},
+    {cat:'辅材/其他',name:'标识牌/铭牌/包装',spec:'—',unit:'批',qty:1,price:900,amount:900}
+  ]
+};
+// 其他企业复用并微调
+ENTERPRISES.forEach(ent=>{
+  if(!DETAIL_DATA[ent]){
+    const ratio=Object.values(MAT_COST[ent]).reduce((s,v)=>s+v,0)/Object.values(MAT_COST['东莞南方']).reduce((s,v)=>s+v,0);
+    DETAIL_DATA[ent]=DETAIL_DATA['东莞南方'].map(r=>({...r,price:Math.round(r.price*ratio*(0.95+Math.random()*0.1)),amount:Math.round(r.amount*ratio*(0.95+Math.random()*0.1))}));
+  }
+});
+
+/* ── helpers ── */
+const fmt=n=>n>=10000?(n/10000).toFixed(2)+'万':n.toLocaleString();
+const fmtK=n=>(n/1000).toFixed(1)+'k';
+const params=new URLSearchParams(location.search);
+const COLORS={cell:'#6366f1',bms:'#818cf8',pcs:'#a78bfa',thermal:'#38bdf8',structure:'#f59e0b',harness:'#fb923c',aux:'#94a3b8'};
+const catKeys=['cell','bms','pcs','thermal','structure','harness','aux'];
+
+function buildParams(){
+  const p=new URLSearchParams();
+  p.set('period',document.getElementById('fPeriod').value);
+  p.set('enterprise',document.getElementById('fEnterprise').value);
+  p.set('lineType',document.getElementById('fLineType').value);
+  p.set('product',document.getElementById('fProduct').value);
+  return p.toString();
+}
+function navTo(page){location.href=page+'?'+buildParams()}
+function updateNavLinks(){
+  const q='?'+buildParams();
+  document.getElementById('lnk1').href='es-cost-benchmark.html'+q;
+  document.getElementById('lnk2').href='es-material-drilldown.html'+q;
+  document.getElementById('lnk3').href='es-labor-process.html'+q;
+}
+document.querySelectorAll('.filter-bar select').forEach(s=>s.addEventListener('change',()=>{updateNavLinks();renderAll()}));
+
+// restore from URL
+['fPeriod','fEnterprise','fLineType','fProduct'].forEach(k=>{
+  const v=params.get(k.replace('f','').toLowerCase())||params.get(k);
+  if(v){const el=document.getElementById(k);if(el){for(let o of el.options){if(o.value===v||o.text===v){el.value=o.value;break}}}}
+});
+
+/* ── tabs ── */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('show'));
+    btn.classList.add('on');
+    document.getElementById(btn.dataset.t).classList.add('show');
+  });
+});
+
+function snapshot(){html2canvas(document.body,{scale:2,useCORS:true}).then(c=>{const a=document.createElement('a');a.download='储能材料量价分析_'+new Date().toISOString().slice(0,10)+'.png';a.href=c.toDataURL();a.click()})}
+
+let chartInstances={};
+function destroyChart(id){if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id]}}
+
+/* ═══ RENDER ═══ */
+
+/* Classification chips */
+function renderClassMap(){
+  const avgCosts={};
+  catKeys.forEach(k=>{avgCosts[k]=Math.round(ENTERPRISES.reduce((s,e)=>s+MAT_COST[e][k],0)/ENTERPRISES.length)});
+  document.getElementById('classMap').innerHTML=CLASS_DEF.map((c,i)=>`
+    <div class="class-chip ${i===0?'active':''}" data-key="${c.key}" onclick="selectClass('${c.key}')">
+      <div class="cc-icon">${c.icon}</div>
+      <div class="cc-name">${c.name}</div>
+      <div class="cc-sub">${c.desc}</div>
+      <div class="cc-val">均值 ${fmt(avgCosts[c.key])}</div>
+      <div style="font-size:10px;color:var(--s400);margin-top:2px">占比 ${c.pct}</div>
+    </div>`).join('');
+}
+
+let selectedCat='cell';
+function selectClass(key){
+  selectedCat=key;
+  document.querySelectorAll('.class-chip').forEach(c=>c.classList.toggle('active',c.dataset.key===key));
+  renderQPAnalysis();
+}
+
+/* KPI */
+function renderKPI(){
+  const totals=ENTERPRISES.map(e=>({name:e,total:catKeys.reduce((s,k)=>s+MAT_COST[e][k],0)})).sort((a,b)=>a.total-b.total);
+  const avg=Math.round(totals.reduce((s,t)=>s+t.total,0)/totals.length);
+  const best=totals[0],worst=totals[totals.length-1];
+  const cellAvg=Math.round(ENTERPRISES.reduce((s,e)=>s+MAT_COST[e].cell,0)/ENTERPRISES.length);
+  const cellPct=(cellAvg/avg*100).toFixed(1);
+
+  const kpis=[
+    {l:'最优材料成本',v:fmt(best.total),sub:best.name},
+    {l:'最高材料成本',v:fmt(worst.total),sub:worst.name},
+    {l:'材料成本均值',v:fmt(avg),sub:'全企业'},
+    {l:'电芯成本占比',v:cellPct+'%',sub:'均值 '+fmt(cellAvg)},
+    {l:'材料极差',v:fmt(worst.total-best.total),sub:((worst.total-best.total)/best.total*100).toFixed(1)+'%'}
+  ];
+  document.getElementById('kpiStrip2').innerHTML=kpis.map(k=>`
+    <div class="kpi-card"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="kt">${k.sub}</div></div>`).join('');
+}
+
+/* Tab1: Material Bar & Pie */
+let activePill='all';
+function renderCatPills(){
+  const pills=[{key:'all',name:'全部材料'},...CLASS_DEF.map(c=>({key:c.key,name:c.name}))];
+  document.getElementById('catPills').innerHTML=pills.map(p=>`<div class="pill ${p.key===activePill?'on':''}" onclick="setPill('${p.key}')">${p.name}</div>`).join('');
+}
+function setPill(k){activePill=k;renderCatPills();renderMatBar()}
+
+function renderMatBar(){
+  destroyChart('chartMatBar');
+  const sorted=ENTERPRISES.map(e=>{
+    const val=activePill==='all'?catKeys.reduce((s,k)=>s+MAT_COST[e][k],0):MAT_COST[e][activePill];
+    return {name:e,val};
+  }).sort((a,b)=>a.val-b.val);
+
+  chartInstances.chartMatBar=new Chart(document.getElementById('chartMatBar'),{
+    type:'bar',
+    data:{labels:sorted.map(e=>e.name),datasets:[{data:sorted.map(e=>e.val),backgroundColor:sorted.map((_,i)=>i===0?'#10b981':'#6366f1'),borderRadius:6,barThickness:26}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},datalabels:{anchor:'end',align:'end',font:{size:11,weight:600},color:'#334155',formatter:v=>fmt(v)}},
+      scales:{x:{grid:{display:false},ticks:{callback:v=>fmtK(v)}},y:{grid:{display:false}}}
+    },
+    plugins:[ChartDataLabels]
+  });
+}
+
+function renderMatPie(){
+  destroyChart('chartMatPie');
+  const avgCosts=catKeys.map(k=>({key:k,val:Math.round(ENTERPRISES.reduce((s,e)=>s+MAT_COST[e][k],0)/ENTERPRISES.length)}));
+  chartInstances.chartMatPie=new Chart(document.getElementById('chartMatPie'),{
+    type:'doughnut',
+    data:{labels:avgCosts.map(c=>CLASS_DEF.find(d=>d.key===c.key).name),
+      datasets:[{data:avgCosts.map(c=>c.val),backgroundColor:catKeys.map(k=>COLORS[k]),borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
+      plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}},
+        datalabels:{color:'#fff',font:{size:10,weight:700},
+          formatter:(v,ctx)=>{const total=ctx.dataset.data.reduce((s,d)=>s+d,0);return (v/total*100).toFixed(1)+'%'}}
+      }},
+    plugins:[ChartDataLabels]
+  });
+
+  document.getElementById('insightMt1').innerHTML=`<strong>💡 材料对标洞察：</strong>电芯模组占材料总成本约 <strong>60%</strong>，是对标分析的第一优先级。各企业间电芯成本极差约 <strong>${fmt(Math.max(...ENTERPRISES.map(e=>MAT_COST[e].cell))-Math.min(...ENTERPRISES.map(e=>MAT_COST[e].cell)))}</strong>，需进一步分解为量差（用芯数量/PACK效率）与价差（采购议价能力）——<a class="link-drill" onclick="document.querySelector('[data-t=mt2]').click()">前往量价分离分析 →</a>`;
+}
+
+/* Tab2: Quantity-Price Separation */
+function renderQPAnalysis(){
+  const cat=selectedCat;
+  const qpSel=document.getElementById('qpCat');
+  qpSel.innerHTML=CLASS_DEF.map(c=>`<option value="${c.key}" ${c.key===cat?'selected':''}>${c.name}</option>`).join('');
+  const baseSel=document.getElementById('qpBase');
+  baseSel.innerHTML=ENTERPRISES.map(e=>`<option>${e}</option>`).join('');
+
+  const base=baseSel.value;
+  const baseD=QP_DATA[cat].data[base];
+
+  // 量差 = (实际量 - 基准量) × 基准价
+  // 价差 = (实际价 - 基准价) × 基准量
+  // 交叉 = (实际量 - 基准量) × (实际价 - 基准价)
+  const analysis=ENTERPRISES.filter(e=>e!==base).map(e=>{
+    const d=QP_DATA[cat].data[e];
+    const qtyDiff=d.qty-baseD.qty;
+    const priceDiff=d.price-baseD.price;
+    const qtyVar=qtyDiff*baseD.price;
+    const priceVar=priceDiff*baseD.qty;
+    const crossVar=qtyDiff*priceDiff;
+    const totalDiff=MAT_COST[e][cat]-MAT_COST[base][cat];
+    return {name:e,qty:d.qty,price:d.price,qtyVar,priceVar,crossVar,totalDiff};
+  });
+
+  destroyChart('chartQP');
+  chartInstances.chartQP=new Chart(document.getElementById('chartQP'),{
+    type:'bar',
+    data:{labels:analysis.map(a=>a.name),
+      datasets:[
+        {label:'量差',data:analysis.map(a=>a.qtyVar),backgroundColor:'#6366f1',borderRadius:4,barThickness:18},
+        {label:'价差',data:analysis.map(a=>a.priceVar),backgroundColor:'#f59e0b',borderRadius:4,barThickness:18},
+        {label:'交叉差',data:analysis.map(a=>a.crossVar),backgroundColor:'#94a3b8',borderRadius:4,barThickness:18}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:12}},datalabels:{display:false}},
+      scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>v>=0?'+'+fmt(v):fmt(v)}}}
+    }
+  });
+
+  destroyChart('chartQPpct');
+  const pctData=analysis.map(a=>{
+    const absTotal=Math.abs(a.qtyVar)+Math.abs(a.priceVar)+Math.abs(a.crossVar)||1;
+    return {qP:(Math.abs(a.qtyVar)/absTotal*100).toFixed(1),pP:(Math.abs(a.priceVar)/absTotal*100).toFixed(1),cP:(Math.abs(a.crossVar)/absTotal*100).toFixed(1)};
+  });
+  chartInstances.chartQPpct=new Chart(document.getElementById('chartQPpct'),{
+    type:'bar',
+    data:{labels:analysis.map(a=>a.name),
+      datasets:[
+        {label:'量差占比',data:pctData.map(d=>d.qP),backgroundColor:'#6366f1',borderRadius:2},
+        {label:'价差占比',data:pctData.map(d=>d.pP),backgroundColor:'#f59e0b',borderRadius:2},
+        {label:'交叉差占比',data:pctData.map(d=>d.cP),backgroundColor:'#94a3b8',borderRadius:2}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:12}},datalabels:{display:false}},
+      scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,max:100,ticks:{callback:v=>v+'%'},grid:{color:'rgba(0,0,0,.04)'}}}
+    }
+  });
+
+  // insight
+  const maxPriceVar=analysis.reduce((m,a)=>Math.abs(a.priceVar)>Math.abs(m.priceVar)?a:m,analysis[0]);
+  const maxQtyVar=analysis.reduce((m,a)=>Math.abs(a.qtyVar)>Math.abs(m.qtyVar)?a:m,analysis[0]);
+  document.getElementById('insightMt2').innerHTML=`<strong>💡 量价分离洞察（${CLASS_DEF.find(c=>c.key===cat).name}）：</strong>相对标杆 ${base}，价差最大的企业是 <strong>${maxPriceVar.name}</strong>（价差 ${maxPriceVar.priceVar>0?'+':''}${fmt(maxPriceVar.priceVar)}），量差最大的是 <strong>${maxQtyVar.name}</strong>（量差 ${maxQtyVar.qtyVar>0?'+':''}${fmt(maxQtyVar.qtyVar)}）。价差主导说明议价空间存在差异，量差主导则需审视BOM设计与工艺标准。`;
+
+  // table
+  let html='<thead><tr><th>企业</th><th>用量</th><th>单价</th><th>量差（元）</th><th>价差（元）</th><th>交叉差</th><th>总差异</th><th>主要动因</th></tr></thead><tbody>';
+  analysis.forEach(a=>{
+    const driver=Math.abs(a.priceVar)>Math.abs(a.qtyVar)?'价差主导':'量差主导';
+    html+=`<tr><td style="font-weight:600">${a.name}</td><td>${a.qty}</td><td>${a.price.toLocaleString()}</td>
+      <td class="${a.qtyVar>0?'val-hi':'val-lo'}">${a.qtyVar>0?'+':''}${a.qtyVar.toLocaleString()}</td>
+      <td class="${a.priceVar>0?'val-hi':'val-lo'}">${a.priceVar>0?'+':''}${a.priceVar.toLocaleString()}</td>
+      <td>${a.crossVar>0?'+':''}${a.crossVar.toLocaleString()}</td>
+      <td style="font-weight:700" class="${a.totalDiff>0?'val-hi':'val-lo'}">${a.totalDiff>0?'+':''}${a.totalDiff.toLocaleString()}</td>
+      <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${Math.abs(a.priceVar)>Math.abs(a.qtyVar)?'rgba(245,158,11,.12);color:#b45309':'rgba(99,102,241,.12);color:#4f46e5'}">${driver}</span></td>
+    </tr>`;
+  });
+  html+='</tbody>';
+  document.getElementById('tblQP').innerHTML=html;
+}
+document.getElementById('qpCat').addEventListener('change',e=>{selectedCat=e.target.value;renderQPAnalysis()});
+document.getElementById('qpBase').addEventListener('change',renderQPAnalysis);
+
+/* Tab3: Detail drill */
+function renderDetail(){
+  const entSel=document.getElementById('detailEnt');
+  entSel.innerHTML=ENTERPRISES.map(e=>`<option>${e}</option>`).join('');
+  const catSel=document.getElementById('detailCat');
+  catSel.innerHTML='<option value="all">全部分类</option>'+CLASS_DEF.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
+
+  function draw(){
+    const ent=entSel.value;
+    const cat=catSel.value;
+    const kw=document.getElementById('detailSearch').value.toLowerCase();
+    let rows=DETAIL_DATA[ent]||[];
+    if(cat!=='all') rows=rows.filter(r=>r.cat===cat);
+    if(kw) rows=rows.filter(r=>r.name.toLowerCase().includes(kw)||r.cat.toLowerCase().includes(kw));
+
+    let html='<thead><tr><th>材料分类</th><th>材料名称</th><th>规格型号</th><th>单位</th><th>用量</th><th>单价（元）</th><th>金额（元）</th></tr></thead><tbody>';
+    let total=0;
+    rows.forEach(r=>{
+      total+=r.amount;
+      html+=`<tr><td>${r.cat}</td><td style="font-weight:600">${r.name}</td><td>${r.spec}</td><td>${r.unit}</td><td>${r.qty}</td><td>${r.price.toLocaleString()}</td><td style="font-weight:600">${r.amount.toLocaleString()}</td></tr>`;
+    });
+    html+=`<tr style="background:var(--s50);font-weight:700"><td colspan="6">合计</td><td>${total.toLocaleString()}</td></tr>`;
+    html+='</tbody>';
+    document.getElementById('tblDetail').innerHTML=html;
+  }
+  entSel.addEventListener('change',draw);
+  catSel.addEventListener('change',draw);
+  document.getElementById('detailSearch').addEventListener('input',draw);
+  draw();
+}
+
+/* ── RENDER ALL ── */
+function renderAll(){
+  renderClassMap();renderKPI();renderCatPills();renderMatBar();renderMatPie();renderQPAnalysis();renderDetail();updateNavLinks();
+}
+renderAll();
+</script>
+</body>
+</html>

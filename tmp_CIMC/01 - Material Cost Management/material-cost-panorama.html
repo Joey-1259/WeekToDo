@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>材料成本全景对标看板</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --i:#4F46E5;--il:#6366F1;--i-bg:rgba(79,70,229,.08);--i-bd:rgba(79,70,229,.20);
+  --v:#7C3AED;--v-bg:rgba(124,58,237,.08);
+  --em:#059669;--em-bg:rgba(5,150,105,.09);--em-bd:rgba(5,150,105,.22);
+  --am:#D97706;--am-bg:rgba(217,119,6,.09);--am-bd:rgba(217,119,6,.22);
+  --ro:#E11D48;--ro-bg:rgba(225,29,72,.08);--ro-bd:rgba(225,29,72,.20);
+  --sk:#0284C7;--sk-bg:rgba(2,132,199,.08);
+  --tl:#0D9488;--tl-bg:rgba(13,148,136,.08);
+  --s0:#fff;--s50:#F8FAFC;--s100:#F1F5F9;--s200:#E2E8F0;--s300:#CBD5E1;--s400:#94A3B8;
+  --s500:#64748B;--s600:#475569;--s700:#334155;--s800:#1E293B;--s900:#0F172A;
+  --glass:rgba(255,255,255,.78);--glass-b:rgba(255,255,255,.55);
+  --sh-sm:0 1px 3px rgba(0,0,0,.04);
+  --sh-md:0 4px 16px rgba(79,70,229,.08),0 1px 4px rgba(0,0,0,.04);
+  --sh-lg:0 8px 28px rgba(79,70,229,.12),0 2px 8px rgba(0,0,0,.06);
+  --r:14px;--rs:8px;
+  --hm-g3:rgba(5,150,105,.7);--hm-g2:rgba(5,150,105,.4);--hm-g1:rgba(5,150,105,.15);
+  --hm-n:rgba(148,163,184,.1);
+  --hm-r1:rgba(217,119,6,.15);--hm-r2:rgba(225,29,72,.25);--hm-r3:rgba(225,29,72,.55);
+}
+html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','Noto Sans SC',sans-serif;background:var(--s50);color:var(--s700)}
+.bg-l{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.bg-l::before{content:'';position:absolute;top:-120px;right:-60px;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(79,70,229,.06) 0%,transparent 70%)}
+.bg-l::after{content:'';position:absolute;bottom:-60px;left:-40px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(5,150,105,.04) 0%,transparent 70%)}
+.shell{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+
+/* Topbar */
+.topbar{position:sticky;top:0;z-index:300;height:52px;padding:0 20px;display:flex;align-items:center;gap:12px;background:var(--glass);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-b);box-shadow:var(--sh-sm)}
+.bc{display:flex;align-items:center;gap:5px;font-size:11px;flex-shrink:0}
+.bc a{color:var(--s400);text-decoration:none}.bc a:hover{color:var(--i)}
+.bc .sep{color:var(--s300)}.bc .cur{color:var(--i);font-weight:700}
+.tb-d{width:1px;height:18px;background:var(--s200);flex-shrink:0}
+.filters{display:flex;align-items:center;gap:7px;flex:1;flex-wrap:wrap;justify-content:center}
+.fi-g{display:flex;align-items:center;gap:4px}
+.fi-l{font-size:10px;color:var(--s400);white-space:nowrap}
+.fi-s{appearance:none;padding:4px 20px 4px 8px;border-radius:var(--rs);background:var(--s0) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394A3B8'/%3E%3C/svg%3E") no-repeat right 6px center;border:1px solid var(--s200);font-size:11px;color:var(--s700);cursor:pointer;font-family:inherit;transition:all .15s}
+.fi-s:focus{outline:none;border-color:var(--il);box-shadow:0 0 0 3px rgba(99,102,241,.10)}
+.fi-dv{width:1px;height:14px;background:var(--s200)}
+.tb-r{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.ib{width:28px;height:28px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--s200);cursor:pointer;font-size:13px;color:var(--s500);transition:all .15s}
+.ib:hover{border-color:var(--il);color:var(--i);background:var(--i-bg)}
+.detail-link{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:var(--rs);border:1px solid var(--s200);font-size:10px;font-weight:600;color:var(--s500);cursor:pointer;text-decoration:none;transition:all .15s;white-space:nowrap;background:var(--s0)}
+.detail-link:hover{border-color:var(--il);color:var(--i);background:var(--i-bg)}
+
+.main{flex:1;padding:16px 20px 24px;display:flex;flex-direction:column;gap:14px}
+.sh{display:flex;align-items:center;gap:7px;margin-bottom:2px}
+.sh-d{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sh-t{font-size:11px;font-weight:700;color:var(--s400);text-transform:uppercase;letter-spacing:.06em}
+.sh-l{flex:1;height:1px;background:var(--s100)}
+.sh-extra{font-size:10px;color:var(--s400)}
+.card{background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--glass-b);border-radius:var(--r);box-shadow:var(--sh-md)}
+
+/* ═══ Summary Table ═══ */
+.summary-card{padding:16px;overflow-x:auto}
+.summary-tbl{width:100%;border-collapse:collapse;font-size:11px;min-width:700px}
+.summary-tbl th{padding:8px 10px;text-align:center;font-weight:600;color:var(--s500);font-size:10px;border-bottom:2px solid var(--s200);background:var(--s50);white-space:nowrap}
+.summary-tbl th:first-child{text-align:left;min-width:110px}
+.summary-tbl td{padding:8px 10px;text-align:center;border-bottom:1px solid var(--s100);white-space:nowrap;font-size:12px;font-weight:600;color:var(--s700)}
+.summary-tbl td:first-child{text-align:left;font-weight:700;color:var(--s800);font-size:11px}
+.summary-tbl tr:last-child td{border-bottom:none}
+.summary-tbl .row-star td:first-child{border-left:3px solid var(--am)}
+.summary-tbl .row-avg td:first-child{border-left:3px solid var(--i)}
+.summary-tbl .row-bench td:first-child{border-left:3px solid var(--em)}
+
+/* ═══ Heatmap ═══ */
+.heatmap-card{padding:16px;overflow-x:auto}
+.hm-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.hm-ti{font-size:12px;font-weight:700;color:var(--s800);display:flex;align-items:center;gap:6px}
+.hm-subtitle{font-size:10px;color:var(--s400);margin-top:2px}
+.hm-badge{font-size:9px;font-weight:600;padding:2px 7px;border-radius:8px}
+.hm-legend{display:flex;align-items:center;gap:3px;font-size:9px;color:var(--s400)}
+.hm-lg-box{width:14px;height:10px;border-radius:2px}
+.bm-switch{display:flex;gap:0;background:var(--s100);border-radius:var(--rs);padding:2px;overflow:hidden}
+.bm-btn{padding:4px 10px;font-size:10px;font-weight:600;color:var(--s500);cursor:pointer;border-radius:6px;transition:all .15s;white-space:nowrap;border:none;background:none;font-family:inherit}
+.bm-btn.active{background:var(--s0);color:var(--i);box-shadow:var(--sh-sm)}
+.bm-btn:hover:not(.active){color:var(--s700)}
+.hm-tbl{width:100%;border-collapse:collapse;font-size:11px;min-width:900px}
+.hm-tbl th{padding:7px 6px;text-align:center;font-weight:600;color:var(--s500);font-size:10px;border-bottom:2px solid var(--s200);background:var(--s50);white-space:nowrap}
+.hm-tbl th:first-child{text-align:left;min-width:80px}
+.hm-tbl td{padding:5px 4px;text-align:center;border-bottom:1px solid var(--s100);white-space:nowrap;font-size:11px;position:relative}
+.hm-tbl td:first-child{text-align:left;font-weight:600;color:var(--s700)}
+.hm-tbl tbody tr{transition:background .12s;cursor:pointer}
+.hm-tbl tbody tr:hover td{background:rgba(79,70,229,.03) !important}
+.hm-tbl tbody tr.hm-highlight td:first-child{border-left:3px solid var(--ro)}
+.hm-cell{display:inline-flex;flex-direction:column;align-items:center;padding:4px 6px;border-radius:6px;min-width:68px;gap:0px}
+.hm-cell-v{font-weight:700;font-size:11px}
+.hm-cell-sub{font-size:9px;color:var(--s400);display:flex;align-items:center;gap:3px}
+.hm-cell.g3{background:var(--hm-g3);color:#fff}.hm-cell.g3 .hm-cell-sub{color:rgba(255,255,255,.7)}
+.hm-cell.g2{background:var(--hm-g2);color:#064E3B}.hm-cell.g2 .hm-cell-sub{color:#065F46}
+.hm-cell.g1{background:var(--hm-g1);color:#065F46}
+.hm-cell.n{background:var(--hm-n);color:var(--s600)}
+.hm-cell.r1{background:var(--hm-r1);color:#92400E}
+.hm-cell.r2{background:var(--hm-r2);color:#9F1239}
+.hm-cell.r3{background:var(--hm-r3);color:#fff}.hm-cell.r3 .hm-cell-sub{color:rgba(255,255,255,.7)}
+.hm-rank-col{font-size:10px;font-weight:700;color:var(--s500)}
+.ent-name{color:var(--i);font-weight:700;cursor:pointer;text-decoration:none;padding:2px 4px;border-radius:4px;transition:all .12s}
+.ent-name:hover{background:var(--i-bg);text-decoration:underline}
+.ent-name.selected{background:var(--i-bg);box-shadow:0 0 0 2px var(--i-bd)}
+
+/* ═══ Layer 2: Trend ═══ */
+.layer2-hd{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.trend-mat-tabs{display:flex;gap:0;background:var(--s100);border-radius:var(--rs);padding:2px;flex-wrap:wrap}
+.trend-mat-tab{padding:4px 9px;font-size:10px;font-weight:600;color:var(--s500);cursor:pointer;border-radius:6px;transition:all .15s;white-space:nowrap;border:none;background:none;font-family:inherit}
+.trend-mat-tab.active{background:var(--s0);color:var(--i);box-shadow:var(--sh-sm)}
+.trend-mat-tab:hover:not(.active){color:var(--s700)}
+.layer2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+.trend-card{padding:16px;display:flex;flex-direction:column}
+.trend-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.trend-ti{font-size:12px;font-weight:700;color:var(--s800)}
+.trend-canvas{flex:1;min-height:220px;position:relative}
+.trend-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:9px;color:var(--s400)}
+.trend-legend-item{display:flex;align-items:center;gap:3px}
+.tl-dot{width:10px;height:4px;border-radius:2px;flex-shrink:0}
+
+/* Footer */
+.foot{padding:10px 20px;border-top:1px solid var(--s100);font-size:10px;color:var(--s300);display:flex;justify-content:space-between}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.93);backdrop-filter:blur(12px);color:#F8FAFC;padding:9px 18px;border-radius:10px;font-size:12px;font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;white-space:nowrap}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--s200);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="bg-l"></div>
+<div id="toast"></div>
+<div class="shell">
+
+<!-- ═══ TOPBAR ═══ -->
+<nav class="topbar">
+  <div class="bc"><a href="#">成本管理</a><span class="sep">›</span><a href="#">材料成本</a><span class="sep">›</span><span class="cur">全景对标看板</span></div>
+  <div class="tb-d"></div>
+  <div class="filters">
+    <div class="fi-g"><span class="fi-l">期间</span><select class="fi-s" id="f-period"><option selected>2026年7月</option><option>2026年6月</option><option>2026年5月</option><option>2026年4月</option><option>2026年3月</option><option>2026年2月</option><option>2026年1月</option></select></div>
+    <div class="fi-dv"></div>
+    <div class="fi-g"><span class="fi-l">企业</span><select class="fi-s" id="f-enterprise"><option selected value="all">全部企业</option><option value="新会">新会</option><option value="东莞南方">东莞南方</option><option value="青岛">青岛</option><option value="扬州">扬州</option><option value="宁波">宁波</option><option value="天津">天津</option><option value="太仓">太仓</option><option value="南通">南通</option><option value="大连">大连</option><option value="漳州">漳州</option><option value="福建">福建</option><option value="南通元能">南通元能</option></select></div>
+    <div class="fi-dv"></div>
+    <div class="fi-g"><span class="fi-l">产线类型</span><select class="fi-s" id="f-line"><option selected>标箱线</option><option>特箱线</option><option>全部产线</option></select></div>
+    <div class="fi-g"><span class="fi-l">产品线</span><select class="fi-s" id="f-product"><option selected>40尺标准干货箱</option><option>20尺标准干货箱</option><option>45尺高箱</option><option>全部产品</option></select></div>
+    <div class="fi-g"><span class="fi-l">客户</span><select class="fi-s" id="f-customer"><option selected>MAERSK</option><option>CMA CGM</option><option>MSC</option><option>COSCO</option><option>Hapag-Lloyd</option><option>ONE</option><option>全部客户</option></select></div>
+    <div class="fi-g"><span class="fi-l">规格</span><select class="fi-s" id="f-spec"><option selected>全部规格</option><option>标准规格A</option><option>标准规格B</option><option>加高规格</option></select></div>
+  </div>
+  <div class="tb-d"></div>
+  <div class="tb-r">
+    <a class="detail-link" onclick="goToDetail()" title="查看材料成本明细表">📋 明细表</a>
+    <div class="fi-dv"></div>
+    <button class="ib" title="重置筛选" onclick="resetFilters()">↺</button>
+    <button class="ib" title="导出PNG" onclick="exportPNG()">⬇</button>
+    <button class="ib" title="全屏" onclick="toggleFullscreen()">⛶</button>
+  </div>
+</nav>
+
+<main class="main" id="capture-area">
+
+<!-- ═══ LAYER 1A: Material Cost Summary Table ═══ -->
+<div class="sh">
+  <div class="sh-d" style="background:var(--i)"></div>
+  <div class="sh-t">材料成本总览 · 对标基准一览</div>
+  <div class="sh-l"></div>
+  <div class="sh-extra">单位：¥/EA | 2026年7月 月结数据</div>
+</div>
+<div class="card summary-card">
+  <table class="summary-tbl">
+    <thead>
+      <tr>
+        <th>对标基准</th>
+        <th>单箱成本</th>
+        <th>钢材</th>
+        <th>型钢</th>
+        <th>木地板</th>
+        <th>油漆</th>
+        <th>外购件</th>
+        <th>辅料</th>
+        <th>商标</th>
+        <th>其他</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="row-star">
+        <td>⭐ 恒星均值</td>
+        <td>8,240</td>
+        <td>4,774</td>
+        <td>1,245</td>
+        <td>628</td>
+        <td>944</td>
+        <td>448</td>
+        <td>189</td>
+        <td>62</td>
+        <td>-50</td>
+      </tr>
+      <tr class="row-avg">
+        <td>📊 同类企业均值</td>
+        <td>8,186</td>
+        <td>4,728</td>
+        <td>1,232</td>
+        <td>622</td>
+        <td>938</td>
+        <td>442</td>
+        <td>185</td>
+        <td>60</td>
+        <td>-21</td>
+      </tr>
+      <tr class="row-bench">
+        <td>🏆 标杆企业(新会)</td>
+        <td>8,155</td>
+        <td>4,722</td>
+        <td>1,237</td>
+        <td>623</td>
+        <td>929</td>
+        <td>445</td>
+        <td>187</td>
+        <td>58</td>
+        <td>-46</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══ LAYER 1B: Enterprise Benchmark Heatmap Matrix ═══ -->
+<div class="sh">
+  <div class="sh-d" style="background:var(--v)"></div>
+  <div class="sh-t">企业成本对标矩阵</div>
+  <div class="sh-l"></div>
+</div>
+<div class="card heatmap-card">
+  <div class="hm-hd">
+    <div>
+      <div class="hm-ti">
+        企业成本对标矩阵 · <span id="hm-filter-display">标箱线 · 40尺标准干货箱 · MAERSK</span>
+        <span class="hm-badge" style="background:var(--v-bg);color:var(--v)">12家标箱企业</span>
+      </div>
+      <div class="hm-subtitle">点击企业名称/单箱成本 → 联动筛选下方趋势 | 点击具体材料 → 穿透至对应材料量价归因页面</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="bm-switch" id="bm-switch">
+        <button class="bm-btn active" data-bm="star">恒星均值</button>
+        <button class="bm-btn" data-bm="avg">同类均值</button>
+        <button class="bm-btn" data-bm="bench">标杆企业</button>
+      </div>
+      <div class="hm-legend">
+        <div class="hm-lg-box" style="background:var(--hm-g3)"></div><span>优</span>
+        <div class="hm-lg-box" style="background:var(--hm-g2)"></div><span>良</span>
+        <div class="hm-lg-box" style="background:var(--hm-g1)"></div><span>略优</span>
+        <div class="hm-lg-box" style="background:var(--hm-n)"></div><span>正常</span>
+        <div class="hm-lg-box" style="background:var(--hm-r1)"></div><span>偏高</span>
+        <div class="hm-lg-box" style="background:var(--hm-r2)"></div><span>高</span>
+        <div class="hm-lg-box" style="background:var(--hm-r3)"></div><span>异常</span>
+      </div>
+    </div>
+  </div>
+  <table class="hm-tbl">
+    <thead>
+      <tr>
+        <th>企业</th>
+        <th>单箱成本</th>
+        <th>钢材</th>
+        <th>型钢</th>
+        <th>木地板</th>
+        <th>油漆</th>
+        <th>外购件</th>
+        <th>辅料</th>
+        <th>商标</th>
+        <th>其他</th>
+        <th>综合排名</th>
+      </tr>
+    </thead>
+    <tbody id="hm-body">
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══ LAYER 2: Trend Analysis ═══ -->
+<div class="sh">
+  <div class="sh-d" style="background:var(--tl)"></div>
+  <div class="sh-t">月度趋势分析 · 2026年1-7月</div>
+  <div class="sh-l"></div>
+  <div class="sh-extra" id="trend-filter-display">当前选中：全部企业</div>
+</div>
+<div class="layer2-hd">
+  <div class="trend-mat-tabs" id="trend-mat-tabs">
+    <button class="trend-mat-tab active" data-mat="total">单箱成本</button>
+    <button class="trend-mat-tab" data-mat="steel">钢材</button>
+    <button class="trend-mat-tab" data-mat="profile">型钢</button>
+    <button class="trend-mat-tab" data-mat="floor">木地板</button>
+    <button class="trend-mat-tab" data-mat="paint">油漆</button>
+    <button class="trend-mat-tab" data-mat="outsource">外购件</button>
+    <button class="trend-mat-tab" data-mat="aux">辅料</button>
+    <button class="trend-mat-tab" data-mat="brand">商标</button>
+    <button class="trend-mat-tab" data-mat="other">其他</button>
+  </div>
+</div>
+<div class="layer2">
+  <div class="card trend-card">
+    <div class="trend-hd">
+      <div class="trend-ti" id="cost-trend-title">📈 单箱材料成本趋势</div>
+    </div>
+    <div class="trend-canvas"><canvas id="c-cost-trend"></canvas></div>
+    <div class="trend-legend">
+      <div class="trend-legend-item"><div class="tl-dot" style="background:var(--i)"></div>成本(¥/EA)</div>
+      <div class="trend-legend-item"><div class="tl-dot" style="background:var(--ro)"></div>同比(%)</div>
+      <div class="trend-legend-item"><div class="tl-dot" style="background:var(--am)"></div>环比(%)</div>
+    </div>
+  </div>
+  <div class="card trend-card">
+    <div class="trend-hd">
+      <div class="trend-ti">📦 产量趋势</div>
+    </div>
+    <div class="trend-canvas"><canvas id="c-vol-trend"></canvas></div>
+    <div class="trend-legend">
+      <div class="trend-legend-item"><div class="tl-dot" style="background:var(--em)"></div>产量(台)</div>
+      <div class="trend-legend-item"><div class="tl-dot" style="background:var(--ro)"></div>同比(%)</div>
+      <div class="trend-legend-item"><div class="tl-dot" style="background:var(--am)"></div>环比(%)</div>
+    </div>
+  </div>
+</div>
+
+</main>
+<footer class="foot">
+  <span>材料成本全景对标看板 · material-cost-panorama.html · Dashboard 1</span>
+  <span id="fdt"></span>
+</footer>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   PAGE FILE NAMING CONVENTION (all in same folder)
+   ─────────────────────────────────────────────────────────────
+   material-cost-panorama.html           → 全景对标看板 (本页)
+   
+   material-cost-vp-steel.html           → 量价归因·钢材
+   material-cost-vp-profile.html         → 量价归因·型钢
+   material-cost-vp-floor.html           → 量价归因·木地板
+   material-cost-vp-paint.html           → 量价归因·油漆
+   material-cost-vp-outsource.html       → 量价归因·外购件
+   material-cost-vp-aux.html             → 量价归因·辅料
+   material-cost-vp-brand.html           → 量价归因·商标
+   material-cost-vp-other.html           → 量价归因·其他
+   
+   material-cost-driver-steel.html       → 专项分析·钢材
+   material-cost-driver-profile.html     → 专项分析·型钢
+   material-cost-driver-floor.html       → 专项分析·木地板
+   material-cost-driver-paint.html       → 专项分析·油漆
+   material-cost-driver-outsource.html   → 专项分析·外购件
+   material-cost-driver-aux.html         → 专项分析·辅料
+   
+   material-cost-detail.html             → 材料成本明细表
+   ═══════════════════════════════════════════════════════════════ */
+
+const $=id=>document.getElementById(id);
+$('fdt').textContent='数据刷新：2026-08-05 · 月结T+1';
+
+let _t;
+function toast(m){const e=$('toast');e.textContent=m;e.style.opacity='1';clearTimeout(_t);_t=setTimeout(()=>e.style.opacity='0',2800)}
+
+function resetFilters(){
+  $('f-period').selectedIndex=0;$('f-enterprise').selectedIndex=0;$('f-line').selectedIndex=0;
+  $('f-product').selectedIndex=0;$('f-customer').selectedIndex=0;$('f-spec').selectedIndex=0;
+  selectedEnterprise=null;renderHeatmap();updateTrendDisplay();renderTrends();toast('✓ 已重置所有筛选条件');
+}
+
+function exportPNG(){
+  toast('⬇ 正在生成截图...');
+  html2canvas($('capture-area'),{scale:2,backgroundColor:'#F8FAFC'}).then(canvas=>{
+    const a=document.createElement('a');a.download='材料成本全景对标_2026-07.png';a.href=canvas.toDataURL('image/png');a.click();toast('✓ 已导出PNG');
+  });
+}
+
+function toggleFullscreen(){
+  if(!document.fullscreenElement){document.documentElement.requestFullscreen();toast('已进入全屏模式');}
+  else{document.exitFullscreen();toast('已退出全屏模式');}
+}
+
+function goToDetail(){
+  const params=new URLSearchParams({
+    period:$('f-period').value,
+    enterprise:$('f-enterprise').value,
+    lineType:$('f-line').value,
+    product:$('f-product').value,
+    customer:$('f-customer').value,
+    spec:$('f-spec').value
+  });
+  const url=`material-cost-detail.html?${params.toString()}`;
+  toast('跳转到材料成本明细表...');
+  console.log('Navigate to:',url);
+  window.location.href = `material-cost-detail.html?${params.toString()}`;
+}
+
+/* ═══ STATE ═══ */
+let selectedEnterprise = null;
+let currentBenchmark = 'star';
+let currentTrendMat = 'total';
+
+/* ═══ BENCHMARK SWITCH ═══ */
+$('bm-switch').addEventListener('click',function(e){
+  const btn=e.target.closest('.bm-btn');if(!btn||btn.classList.contains('active'))return;
+  this.querySelectorAll('.bm-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  currentBenchmark=btn.dataset.bm;renderHeatmap();
+  const names={star:'恒星均值',avg:'同类企业均值',bench:'标杆企业'};
+  toast('对标基准切换为：'+names[currentBenchmark]);
+});
+
+/* ═══ TREND MATERIAL TABS ═══ */
+$('trend-mat-tabs').addEventListener('click',function(e){
+  const tab=e.target.closest('.trend-mat-tab');if(!tab||tab.classList.contains('active'))return;
+  this.querySelectorAll('.trend-mat-tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');
+  currentTrendMat=tab.dataset.mat;
+  renderTrends();
+});
+
+/* ═══ FILTER DISPLAY UPDATE ═══ */
+function getFilterDisplay(){return `${$('f-line').value} · ${$('f-product').value} · ${$('f-customer').value}`;}
+function updateFilterDisplay(){$('hm-filter-display').textContent=getFilterDisplay();}
+function updateTrendDisplay(){
+  const ent=selectedEnterprise||'全部企业';
+  $('trend-filter-display').textContent=`当前选中：${ent}`;
+}
+['f-period','f-enterprise','f-line','f-product','f-customer','f-spec'].forEach(id=>{
+  $(id).addEventListener('change',()=>{updateFilterDisplay();toast('筛选条件已更新');});
+});
+
+/* ═══ HEATMAP DATA (12 标箱企业) ═══ */
+const MATERIALS=['total','steel','profile','floor','paint','outsource','aux','brand','other'];
+const MAT_NAMES={total:'单箱成本',steel:'钢材',profile:'型钢',floor:'木地板',paint:'油漆',outsource:'外购件',aux:'辅料',brand:'商标',other:'其他'};
+const MAT_FILE_MAP={steel:'steel',profile:'profile',floor:'floor',paint:'paint',outsource:'outsource',aux:'aux',brand:'brand',other:'other'};
+
+const BENCHMARKS={
+  star:  {total:8240,steel:4774,profile:1245,floor:628,paint:944,outsource:448,aux:189,brand:62,other:-50},
+  avg:   {total:8186,steel:4728,profile:1232,floor:622,paint:938,outsource:442,aux:185,brand:60,other:-21},
+  bench: {total:8155,steel:4722,profile:1237,floor:623,paint:929,outsource:445,aux:187,brand:58,other:-46}
+};
+
+const ENTERPRISES=[
+  {name:'新会',total:8155,steel:4722,profile:1237,floor:623,paint:929,outsource:445,aux:187,brand:58,other:-46},
+  {name:'东莞南方',total:8178,steel:4736,profile:1235,floor:626,paint:936,outsource:446,aux:187,brand:60,other:-48},
+  {name:'青岛',total:8195,steel:4746,profile:1240,floor:656,paint:938,outsource:446,aux:185,brand:61,other:-77},
+  {name:'扬州',total:8222,steel:4812,profile:1223,floor:620,paint:926,outsource:443,aux:186,brand:60,other:-48},
+  {name:'宁波',total:8228,steel:4759,profile:1250,floor:628,paint:936,outsource:450,aux:211,brand:62,other:-68},
+  {name:'天津',total:8268,steel:4769,profile:1253,floor:620,paint:956,outsource:493,aux:183,brand:63,other:-69},
+  {name:'太仓',total:8255,steel:4782,profile:1263,floor:630,paint:939,outsource:440,aux:189,brand:64,other:-52},
+  {name:'南通',total:8275,steel:4796,profile:1253,floor:628,paint:949,outsource:448,aux:189,brand:62,other:-50},
+  {name:'大连',total:8308,steel:4789,profile:1248,floor:623,paint:996,outsource:453,aux:187,brand:63,other:-51},
+  {name:'漳州',total:8338,steel:4842,profile:1250,floor:630,paint:956,outsource:456,aux:192,brand:62,other:-50},
+  {name:'福建',total:8302,steel:4806,profile:1257,floor:631,paint:954,outsource:451,aux:191,brand:63,other:-51},
+  {name:'南通元能',total:8312,steel:4809,profile:1263,floor:633,paint:954,outsource:450,aux:191,brand:63,other:-51}
+];
+
+function getHmClass(v){
+  if(v<=-50)return 'g3';if(v<=-25)return 'g2';if(v<=-5)return 'g1';
+  if(v<=5)return 'n';if(v<=25)return 'r1';if(v<=45)return 'r2';return 'r3';
+}
+
+function renderHeatmap(){
+  const bm=BENCHMARKS[currentBenchmark];
+  const sorted=[...ENTERPRISES].sort((a,b)=>a.total-b.total);
+  const matRanks={};
+  MATERIALS.forEach(m=>{
+    const ranked=[...ENTERPRISES].sort((a,b)=>a[m]-b[m]);
+    matRanks[m]={};ranked.forEach((ent,idx)=>{matRanks[m][ent.name]=idx+1;});
+  });
+
+  $('hm-body').innerHTML=sorted.map((ent,i)=>{
+    const totalRank=i+1;
+    const isHighlight=ent.total-bm.total>60;
+    const isSelected=selectedEnterprise===ent.name;
+    const cells=MATERIALS.map(m=>{
+      const actual=ent[m];const dev=actual-bm[m];const cls=getHmClass(dev);
+      const rank=matRanks[m][ent.name];const sign=dev>0?'+':'';
+      const clickAction=m==='total'
+        ?`selectEnterprise('${ent.name}')`
+        :`drillToMaterial('${ent.name}','${m}')`;
+      return `<td onclick="${clickAction}"><div class="hm-cell ${cls}"><span class="hm-cell-v">${actual.toLocaleString()}</span><span class="hm-cell-sub">${sign}${dev} | #${rank}</span></div></td>`;
+    }).join('');
+    return `<tr class="${isHighlight?'hm-highlight':''}">
+      <td><a class="ent-name ${isSelected?'selected':''}" onclick="selectEnterprise('${ent.name}')">${ent.name}</a></td>
+      ${cells}<td class="hm-rank-col">#${totalRank}</td></tr>`;
+  }).join('');
+}
+
+/* ═══ INTERACTIONS ═══ */
+function selectEnterprise(name){
+  if(selectedEnterprise===name){selectedEnterprise=null;$('f-enterprise').value='all';}
+  else{selectedEnterprise=name;$('f-enterprise').value=name;}
+  renderHeatmap();updateTrendDisplay();renderTrends();
+  toast(selectedEnterprise?`已选中企业：${name}，下方趋势联动更新`:'已取消企业选中');
+}
+
+function drillToMaterial(enterprise,matKey){
+  const fileKey=MAT_FILE_MAP[matKey];
+  const params=new URLSearchParams({
+    period:$('f-period').value,enterprise:enterprise,
+    lineType:$('f-line').value,product:$('f-product').value,
+    customer:$('f-customer').value,spec:$('f-spec').value
+  });
+  const url=`material-cost-vp-${fileKey}.html?${params.toString()}`;
+  toast(`穿透到量价归因：${enterprise} → ${MAT_NAMES[matKey]}`);
+  console.log('Navigate to:',url);
+  window.location.href = `material-cost-vp-${fileKey}.html?${params.toString()}`;
+}
+
+renderHeatmap();
+
+/* ═══ Chart.js Global Config ═══ */
+Chart.defaults.font.family="'Inter','Noto Sans SC',sans-serif";
+Chart.defaults.font.size=11;
+Chart.defaults.color='#64748B';
+Chart.defaults.plugins.legend.display=false;
+Chart.defaults.plugins.tooltip.backgroundColor='rgba(15,23,42,.93)';
+Chart.defaults.plugins.tooltip.padding=10;
+Chart.defaults.plugins.tooltip.cornerRadius=8;
+
+/* ═══ LAYER 2: Trend Data ═══ */
+const months=['1月','2月','3月','4月','5月','6月','7月'];
+
+// Cost trend data by material (all enterprises avg)
+const COST_TREND_DATA={
+  total:{cost:[8180,8220,8195,8240,8260,8290,8240],yoy:[2.1,1.8,2.3,1.5,1.2,0.8,0.6],mom:[0,0.5,-0.3,0.5,0.2,0.4,-0.6]},
+  steel:{cost:[4720,4740,4750,4760,4780,4790,4774],yoy:[1.8,1.5,1.9,1.2,1.0,0.6,0.4],mom:[0,0.4,0.2,0.2,0.4,0.2,-0.3]},
+  profile:{cost:[1230,1235,1238,1240,1242,1248,1245],yoy:[1.2,1.0,1.3,0.8,0.6,0.5,0.3],mom:[0,0.4,0.2,0.2,0.2,0.5,-0.2]},
+  floor:{cost:[620,622,625,624,626,630,628],yoy:[0.8,0.6,1.0,0.5,0.3,0.8,0.5],mom:[0,0.3,0.5,-0.2,0.3,0.6,-0.3]},
+  paint:{cost:[930,935,938,940,942,946,944],yoy:[2.5,2.2,2.4,2.0,1.8,1.5,1.2],mom:[0,0.5,0.3,0.2,0.2,0.4,-0.2]},
+  outsource:{cost:[440,442,445,446,447,450,448],yoy:[1.5,1.2,1.6,1.0,0.8,1.0,0.6],mom:[0,0.5,0.7,0.2,0.2,0.7,-0.4]},
+  aux:{cost:[185,186,187,188,189,190,189],yoy:[1.0,0.8,1.2,0.6,0.5,0.8,0.3],mom:[0,0.5,0.5,0.5,0.5,0.5,-0.5]},
+  brand:{cost:[60,61,61,62,62,62,62],yoy:[0.5,0.3,0.5,0.3,0.2,0.2,0.1],mom:[0,1.7,0,1.6,0,0,0]},
+  other:{cost:[-48,-50,-52,-48,-46,-50,-50],yoy:[0,0,0,0,0,0,0],mom:[0,4.2,-4.0,7.7,4.2,-8.7,0]}
+};
+
+// Enterprise-specific cost trends (subset for demo)
+const COST_TREND_ENT={
+  '漳州':{
+    total:{cost:[8280,8310,8325,8340,8355,8360,8338],yoy:[3.2,2.8,3.1,2.5,2.2,1.8,1.5],mom:[0,0.4,0.2,0.2,0.2,0.1,-0.3]},
+    steel:{cost:[4800,4815,4825,4830,4838,4845,4842],yoy:[2.8,2.5,2.7,2.2,2.0,1.6,1.4],mom:[0,0.3,0.2,0.1,0.2,0.1,-0.1]},
+    paint:{cost:[940,945,948,950,952,958,956],yoy:[3.0,2.6,2.8,2.3,2.0,1.8,1.5],mom:[0,0.5,0.3,0.2,0.2,0.6,-0.2]}
+  },
+  '新会':{
+    total:{cost:[8120,8140,8135,8150,8145,8160,8155],yoy:[1.2,0.9,1.1,0.8,0.6,0.4,0.3],mom:[0,0.2,-0.1,0.2,-0.1,0.2,-0.1]},
+    steel:{cost:[4690,4700,4695,4710,4705,4718,4722],yoy:[0.9,0.7,0.8,0.6,0.4,0.3,0.2],mom:[0,0.2,-0.1,0.3,-0.1,0.3,0.1]},
+    paint:{cost:[910,915,920,922,925,928,929],yoy:[1.5,1.2,1.4,1.0,0.8,0.6,0.4],mom:[0,0.5,0.5,0.2,0.3,0.3,0.1]}
+  },
+  '大连':{
+    total:{cost:[8250,8270,8285,8295,8300,8310,8308],yoy:[2.8,2.5,2.6,2.2,1.9,1.5,1.2],mom:[0,0.2,0.2,0.1,0.1,0.1,0]},
+    steel:{cost:[4750,4760,4770,4775,4780,4788,4789],yoy:[2.0,1.8,2.0,1.5,1.3,1.0,0.8],mom:[0,0.2,0.2,0.1,0.1,0.2,0]},
+    paint:{cost:[975,980,985,988,992,998,996],yoy:[4.2,3.8,4.0,3.5,3.2,2.8,2.5],mom:[0,0.5,0.5,0.3,0.4,0.6,-0.2]}
+  }
+};
+
+// Volume trend data
+const VOL_TREND_ALL={vol:[12500,13200,11800,14500,15200,14800,13900],yoy:[5.2,8.1,3.5,12.3,15.1,10.5,8.2],mom:[0,5.6,-10.6,22.9,4.8,-2.6,-6.1]};
+const VOL_TREND_ENT={
+  '漳州':{vol:[1050,1120,980,1250,1320,1280,1180],yoy:[4.8,7.5,2.8,11.5,14.2,9.8,7.5],mom:[0,6.7,-12.5,27.6,5.6,-3.0,-7.8]},
+  '新会':{vol:[1280,1350,1220,1480,1560,1520,1420],yoy:[6.1,9.2,4.2,13.5,16.2,11.8,9.5],mom:[0,5.5,-9.6,21.3,5.4,-2.6,-6.6]},
+  '大连':{vol:[980,1050,920,1150,1210,1170,1090],yoy:[3.5,6.2,1.8,9.8,12.5,8.2,6.1],mom:[0,7.1,-12.4,25.0,5.2,-3.3,-6.8]}
+};
+
+let costTrendChart=null,volTrendChart=null;
+
+function getCostTrendData(){
+  const mat=currentTrendMat;
+  if(selectedEnterprise && COST_TREND_ENT[selectedEnterprise] && COST_TREND_ENT[selectedEnterprise][mat]){
+    return COST_TREND_ENT[selectedEnterprise][mat];
+  }
+  return COST_TREND_DATA[mat]||COST_TREND_DATA.total;
+}
+
+function getVolTrendData(){
+  if(selectedEnterprise && VOL_TREND_ENT[selectedEnterprise]){
+    return VOL_TREND_ENT[selectedEnterprise];
+  }
+  return VOL_TREND_ALL;
+}
+
+function renderTrends(){
+  renderCostTrend();
+  renderVolTrend();
+  const matLabel=MAT_NAMES[currentTrendMat]||'单箱成本';
+  $('cost-trend-title').textContent=`📈 ${matLabel}趋势`;
+}
+
+function renderCostTrend(){
+  const data=getCostTrendData();
+  if(costTrendChart)costTrendChart.destroy();
+  const ctx=$('c-cost-trend').getContext('2d');
+  costTrendChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:months,
+      datasets:[
+        {type:'bar',data:data.cost,backgroundColor:'rgba(79,70,229,.5)',borderRadius:4,barPercentage:.5,yAxisID:'y',order:2},
+        {type:'line',data:data.yoy,borderColor:'#E11D48',borderWidth:2,pointRadius:3,pointBackgroundColor:'#E11D48',fill:false,tension:.3,yAxisID:'y1',order:1},
+        {type:'line',data:data.mom,borderColor:'#D97706',borderWidth:2,pointRadius:3,pointBackgroundColor:'#D97706',fill:false,tension:.3,yAxisID:'y1',borderDash:[4,3],order:1}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{grid:{display:false},border:{display:false}},
+        y:{position:'left',grid:{color:'rgba(226,232,240,.5)'},border:{display:false},ticks:{callback:v=>v.toLocaleString(),maxTicksLimit:5},title:{display:true,text:'¥/EA',font:{size:9},color:'#94A3B8'}},
+        y1:{position:'right',grid:{display:false},border:{display:false},ticks:{callback:v=>v+'%',maxTicksLimit:5},title:{display:true,text:'增长率%',font:{size:9},color:'#94A3B8'}}
+      },
+      plugins:{tooltip:{callbacks:{label:ctx=>{
+        const labels=[MAT_NAMES[currentTrendMat]||'成本','同比','环比'];
+        const suffix=[' ¥/EA','%','%'];
+        return `${labels[ctx.datasetIndex]}：${ctx.raw}${suffix[ctx.datasetIndex]}`;
+      }}}}
+    }
+  });
+}
+
+function renderVolTrend(){
+  const data=getVolTrendData();
+  if(volTrendChart)volTrendChart.destroy();
+  const ctx=$('c-vol-trend').getContext('2d');
+  volTrendChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:months,
+      datasets:[
+        {type:'bar',data:data.vol,backgroundColor:'rgba(5,150,105,.5)',borderRadius:4,barPercentage:.5,yAxisID:'y',order:2},
+        {type:'line',data:data.yoy,borderColor:'#E11D48',borderWidth:2,pointRadius:3,pointBackgroundColor:'#E11D48',fill:false,tension:.3,yAxisID:'y1',order:1},
+        {type:'line',data:data.mom,borderColor:'#D97706',borderWidth:2,pointRadius:3,pointBackgroundColor:'#D97706',fill:false,tension:.3,yAxisID:'y1',borderDash:[4,3],order:1}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{grid:{display:false},border:{display:false}},
+        y:{position:'left',grid:{color:'rgba(226,232,240,.5)'},border:{display:false},ticks:{callback:v=>v.toLocaleString(),maxTicksLimit:5},title:{display:true,text:'台',font:{size:9},color:'#94A3B8'}},
+        y1:{position:'right',grid:{display:false},border:{display:false},ticks:{callback:v=>v+'%',maxTicksLimit:5},title:{display:true,text:'增长率%',font:{size:9},color:'#94A3B8'}}
+      },
+      plugins:{tooltip:{callbacks:{label:ctx=>{
+        const labels=['产量','同比','环比'];
+        const suffix=[' 台','%','%'];
+        return `${labels[ctx.datasetIndex]}：${ctx.raw}${suffix[ctx.datasetIndex]}`;
+      }}}}
+    }
+  });
+}
+
+renderTrends();
+</script>
+</body>
+</html>

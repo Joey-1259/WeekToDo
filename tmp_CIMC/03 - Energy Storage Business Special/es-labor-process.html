@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>储能工序工时与工费率对标</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+:root{
+--i:#6366f1;--i2:#818cf8;--em:#10b981;--am:#f59e0b;--ro:#ef4444;
+--bk:#0f172a;--s0:#020617;--s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;
+--s300:#cbd5e1;--s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;
+--s800:#1e293b;--s900:#0f172a;
+--glass:rgba(255,255,255,.62);--glass-b:rgba(255,255,255,.18);
+--radius:14px;--shadow:0 4px 24px rgba(0,0,0,.06);
+--topH:52px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter','Noto Sans SC',system-ui,sans-serif;background:linear-gradient(135deg,#f0f4ff 0%,#e8ecf9 40%,#f5f0ff 100%);min-height:100vh;color:var(--s800)}
+.topbar{position:sticky;top:0;z-index:100;height:var(--topH);display:flex;align-items:center;justify-content:space-between;padding:0 24px;
+background:rgba(255,255,255,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--s200)}
+.brand{font-weight:700;font-size:15px;color:var(--i);display:flex;align-items:center;gap:6px}
+.brand svg{width:22px;height:22px}
+.nav-links{display:flex;gap:4px}
+.nav-links a{font-size:12.5px;padding:5px 13px;border-radius:8px;text-decoration:none;color:var(--s600);font-weight:500;transition:.2s}
+.nav-links a:hover{background:var(--s100);color:var(--i)}
+.nav-links a.active{background:var(--i);color:#fff}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.btn-export{font-size:12px;padding:5px 14px;border-radius:8px;border:1px solid var(--s200);background:#fff;cursor:pointer;font-weight:500;color:var(--s600);transition:.15s}
+.btn-export:hover{border-color:var(--i);color:var(--i)}
+.filter-bar{display:flex;align-items:center;gap:10px;padding:10px 24px;flex-wrap:wrap}
+.filter-bar label{font-size:12px;color:var(--s500);font-weight:500}
+.filter-bar select{font-size:12.5px;padding:5px 10px;border-radius:8px;border:1px solid var(--s200);background:#fff;color:var(--s700);font-family:inherit;outline:none;cursor:pointer}
+.filter-bar select:focus{border-color:var(--i)}
+.filter-sep{width:1px;height:22px;background:var(--s200);margin:0 4px}
+.main{padding:4px 24px 32px}
+.kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
+.kpi-card{background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-b);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow)}
+.kpi-card .kl{font-size:11.5px;color:var(--s500);font-weight:500}
+.kpi-card .kv{font-size:22px;font-weight:700;color:var(--s900)}
+.kpi-card .kt{font-size:11px;font-weight:500}
+.card{background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-b);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
+.tab-nav{display:flex;gap:4px;padding:12px 20px 0}
+.tab-btn{font-size:12.5px;padding:6px 16px;border-radius:8px 8px 0 0;border:none;background:transparent;color:var(--s500);font-weight:500;cursor:pointer;transition:.15s;font-family:inherit;border-bottom:2px solid transparent}
+.tab-btn:hover{color:var(--i)}
+.tab-btn.on{color:var(--i);background:rgba(99,102,241,.06);border-bottom-color:var(--i);font-weight:600}
+.tab-pane{display:none;padding:16px 20px 20px}
+.tab-pane.show{display:block}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-box{position:relative;height:380px}
+.chart-box canvas{width:100%!important;height:100%!important}
+.insight-box{margin-top:14px;padding:12px 16px;border-radius:10px;background:linear-gradient(90deg,rgba(99,102,241,.06),rgba(16,185,129,.04));border-left:3px solid var(--i);font-size:12.5px;color:var(--s600);line-height:1.7}
+.insight-box strong{color:var(--s800)}
+.tbl-wrap{overflow-x:auto;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:var(--s50);position:sticky;top:0;font-weight:600;color:var(--s600);text-align:left;padding:9px 12px;border-bottom:2px solid var(--s200);white-space:nowrap}
+td{padding:8px 12px;border-bottom:1px solid var(--s100);color:var(--s700);white-space:nowrap}
+tr:hover td{background:rgba(99,102,241,.03)}
+.val-hi{color:var(--ro);font-weight:600}.val-lo{color:var(--em);font-weight:600}
+.link-drill{color:var(--i);text-decoration:none;font-weight:500;cursor:pointer;font-size:12px}
+.link-drill:hover{text-decoration:underline}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:700;color:#fff}
+.rank-1{background:linear-gradient(135deg,#f59e0b,#f97316)}.rank-2{background:linear-gradient(135deg,#94a3b8,#64748b)}.rank-3{background:linear-gradient(135deg,#d97706,#b45309)}.rank-n{background:var(--s300);color:var(--s600)}
+/* bottleneck tag */
+.tag-bottleneck{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;background:rgba(239,68,68,.1);color:#dc2626}
+.tag-ok{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;background:rgba(16,185,129,.1);color:#059669}
+.tag-warn{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;background:rgba(245,158,11,.1);color:#b45309}
+/* process flow */
+.process-flow{display:flex;align-items:center;gap:4px;overflow-x:auto;padding:16px 0 8px;margin-bottom:12px}
+.pf-step{flex-shrink:0;padding:10px 16px;border-radius:10px;text-align:center;border:1.5px solid var(--s200);background:#fff;cursor:pointer;transition:.2s;min-width:110px}
+.pf-step:hover,.pf-step.active{border-color:var(--i);background:rgba(99,102,241,.06);transform:translateY(-2px);box-shadow:0 3px 12px rgba(99,102,241,.12)}
+.pf-step .pf-name{font-size:12px;font-weight:600;color:var(--s800)}
+.pf-step .pf-time{font-size:18px;font-weight:700;color:var(--i);margin-top:4px}
+.pf-step .pf-unit{font-size:10px;color:var(--s400)}
+.pf-arrow{color:var(--s300);font-size:18px;flex-shrink:0}
+@media(max-width:1200px){.kpi-strip{grid-template-columns:repeat(3,1fr)}.chart-row{grid-template-columns:1fr}}
+@media(max-width:768px){.kpi-strip{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18M3 9h18"/></svg>
+    储能成本对标中心
+  </div>
+  <nav class="nav-links">
+    <a href="es-cost-benchmark.html" id="lnk1">全成本对标总览</a>
+    <a href="es-material-drilldown.html" id="lnk2">材料量价穿透</a>
+    <a href="es-labor-process.html" class="active" id="lnk3">工序工时工费率</a>
+  </nav>
+  <div class="topbar-right">
+    <button class="btn-export" onclick="snapshot()">📸 导出快照</button>
+  </div>
+</header>
+
+<div class="filter-bar">
+  <label>期间</label>
+  <select id="fPeriod"><option>2026年8月</option><option>2026年7月</option><option>2026年6月</option><option>2026年5月</option></select>
+  <div class="filter-sep"></div>
+  <label>对标企业</label>
+  <select id="fEnterprise"><option value="all">全部企业</option><option>东莞南方</option><option>新会</option><option>青岛</option><option>扬州</option><option>宁波</option><option>天津</option><option>太仓</option><option>南通</option><option>南通元能</option></select>
+  <div class="filter-sep"></div>
+  <label>产线类型</label>
+  <select id="fLineType"><option value="all">全部产线</option><option>储能柜线</option><option>储能集装箱线</option></select>
+  <div class="filter-sep"></div>
+  <label>产品</label>
+  <select id="fProduct"><option value="all">全部产品</option><option>20尺标准储能柜</option><option>40尺标准储能柜</option><option>定制储能集装箱</option></select>
+</div>
+
+<div class="main">
+
+<!-- KPI -->
+<div class="kpi-strip" id="kpiStrip3"></div>
+
+<!-- 工序流程图 -->
+<div class="card">
+  <div style="padding:16px 20px 0">
+    <span style="font-size:14.5px;font-weight:700;color:var(--s800)">⚙️ 储能产品制造工序流程</span>
+    <span style="font-size:11.5px;color:var(--s400);margin-left:10px">点击工序查看跨企业对标详情 | 工时单位: 工时/台</span>
+  </div>
+  <div style="padding:0 20px 16px">
+    <div class="process-flow" id="processFlow"></div>
+  </div>
+</div>
+
+<!-- 分析主卡片 -->
+<div class="card">
+  <div class="tab-nav">
+    <button class="tab-btn on" data-t="lt1">工时对标排名</button>
+    <button class="tab-btn" data-t="lt2">工费率对标分析</button>
+    <button class="tab-btn" data-t="lt3">瓶颈工序识别</button>
+  </div>
+
+  <!-- Tab1: 工时排名 -->
+  <div class="tab-pane show" id="lt1">
+    <div class="chart-row">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">各企业单台总工时排名（工时/台）</div>
+        <div class="chart-box"><canvas id="chartHourRank"></canvas></div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">工序工时堆叠对比</div>
+        <div class="chart-box"><canvas id="chartHourStack"></canvas></div>
+      </div>
+    </div>
+    <div class="insight-box" id="insightLt1"></div>
+    <div class="tbl-wrap"><table id="tblHourRank"></table></div>
+  </div>
+
+  <!-- Tab2: 工费率对标 -->
+  <div class="tab-pane" id="lt2">
+    <div class="chart-row">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">各企业综合工费率（元/工时）</div>
+        <div class="chart-box"><canvas id="chartRateBar"></canvas></div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">工时 × 工费率散点（气泡 = 费用总额）</div>
+        <div class="chart-box"><canvas id="chartBubble"></canvas></div>
+      </div>
+    </div>
+    <div class="insight-box" id="insightLt2"></div>
+    <div class="tbl-wrap"><table id="tblRate"></table></div>
+  </div>
+
+  <!-- Tab3: 瓶颈识别 -->
+  <div class="tab-pane" id="lt3">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <label style="font-size:12px;color:var(--s500);font-weight:500">瓶颈阈值（超出均值百分比）</label>
+      <input id="bottleneckPct" type="number" value="15" min="5" max="50" step="5" style="width:70px;font-size:12.5px;padding:5px 10px;border-radius:8px;border:1px solid var(--s200);font-family:inherit">
+      <span style="font-size:12px;color:var(--s500)">%</span>
+    </div>
+    <div class="chart-row">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">工序级效率偏差热力图</div>
+        <div class="chart-box"><canvas id="chartBottleneck"></canvas></div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">瓶颈工序改善潜力排序</div>
+        <div class="chart-box"><canvas id="chartPotential"></canvas></div>
+      </div>
+    </div>
+    <div class="insight-box" id="insightLt3"></div>
+    <div class="tbl-wrap"><table id="tblBottleneck"></table></div>
+  </div>
+</div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   DATA — 储能制造工序 + 工时 + 工费率
+   ═══════════════════════════════════════ */
+const ENTERPRISES=['东莞南方','新会','青岛','扬州','宁波','天津','太仓','南通','南通元能'];
+
+// 储能产品核心工序定义
+const PROCESSES=[
+  {key:'cellTest',name:'电芯检测配组',icon:'🔋'},
+  {key:'modulePack',name:'模组PACK',icon:'📦'},
+  {key:'bmsInstall',name:'BMS安装调试',icon:'🧠'},
+  {key:'pcsMount',name:'PCS安装接线',icon:'⚡'},
+  {key:'thermalPipe',name:'温控管路安装',icon:'❄️'},
+  {key:'cabinetAsm',name:'柜体总装集成',icon:'🏗️'},
+  {key:'wiringHarness',name:'线束布线',icon:'🔌'},
+  {key:'systemTest',name:'系统联调测试',icon:'✅'},
+  {key:'aging',name:'老化充放电',icon:'🔄'},
+  {key:'finalQC',name:'终检包装',icon:'📋'}
+];
+const procKeys=PROCESSES.map(p=>p.key);
+
+// 各企业各工序工时（工时/台）
+const HOURS={
+  '东莞南方':{cellTest:3.2,modulePack:8.5,bmsInstall:2.8,pcsMount:3.5,thermalPipe:4.2,cabinetAsm:12.0,wiringHarness:5.5,systemTest:6.0,aging:8.0,finalQC:2.3},
+  '新会':{cellTest:2.9,modulePack:7.8,bmsInstall:2.5,pcsMount:3.2,thermalPipe:3.8,cabinetAsm:11.0,wiringHarness:5.0,systemTest:5.5,aging:8.0,finalQC:2.1},
+  '青岛':{cellTest:3.8,modulePack:9.5,bmsInstall:3.2,pcsMount:4.0,thermalPipe:4.8,cabinetAsm:13.5,wiringHarness:6.2,systemTest:7.0,aging:8.5,finalQC:2.8},
+  '扬州':{cellTest:3.0,modulePack:8.2,bmsInstall:2.6,pcsMount:3.3,thermalPipe:4.0,cabinetAsm:11.5,wiringHarness:5.2,systemTest:5.8,aging:8.0,finalQC:2.2},
+  '宁波':{cellTest:3.5,modulePack:8.8,bmsInstall:2.9,pcsMount:3.6,thermalPipe:4.4,cabinetAsm:12.5,wiringHarness:5.6,systemTest:6.2,aging:8.2,finalQC:2.5},
+  '天津':{cellTest:4.0,modulePack:10.0,bmsInstall:3.5,pcsMount:4.2,thermalPipe:5.0,cabinetAsm:14.0,wiringHarness:6.5,systemTest:7.5,aging:9.0,finalQC:3.0},
+  '太仓':{cellTest:2.8,modulePack:7.9,bmsInstall:2.5,pcsMount:3.1,thermalPipe:3.9,cabinetAsm:11.2,wiringHarness:5.1,systemTest:5.6,aging:8.0,finalQC:2.1},
+  '南通':{cellTest:3.6,modulePack:9.2,bmsInstall:3.0,pcsMount:3.8,thermalPipe:4.5,cabinetAsm:13.0,wiringHarness:5.8,systemTest:6.5,aging:8.5,finalQC:2.6},
+  '南通元能':{cellTest:2.7,modulePack:7.5,bmsInstall:2.4,pcsMount:3.0,thermalPipe:3.7,cabinetAsm:10.5,wiringHarness:4.8,systemTest:5.2,aging:7.5,finalQC:2.0}
+};
+
+// 各企业工费率（元/工时）— 包含人工+制造费用分摊
+const RATES={
+  '东莞南方':{cellTest:135,modulePack:128,bmsInstall:145,pcsMount:140,thermalPipe:125,cabinetAsm:118,wiringHarness:122,systemTest:155,aging:85,finalQC:105},
+  '新会':{cellTest:130,modulePack:125,bmsInstall:140,pcsMount:135,thermalPipe:120,cabinetAsm:115,wiringHarness:118,systemTest:150,aging:82,finalQC:100},
+  '青岛':{cellTest:140,modulePack:132,bmsInstall:150,pcsMount:145,thermalPipe:130,cabinetAsm:125,wiringHarness:128,systemTest:162,aging:90,finalQC:112},
+  '扬州':{cellTest:132,modulePack:126,bmsInstall:142,pcsMount:137,thermalPipe:122,cabinetAsm:116,wiringHarness:120,systemTest:152,aging:83,finalQC:102},
+  '宁波':{cellTest:138,modulePack:130,bmsInstall:148,pcsMount:142,thermalPipe:128,cabinetAsm:122,wiringHarness:125,systemTest:158,aging:88,finalQC:108},
+  '天津':{cellTest:142,modulePack:135,bmsInstall:155,pcsMount:148,thermalPipe:132,cabinetAsm:128,wiringHarness:130,systemTest:165,aging:92,finalQC:115},
+  '太仓':{cellTest:128,modulePack:124,bmsInstall:138,pcsMount:133,thermalPipe:118,cabinetAsm:113,wiringHarness:116,systemTest:148,aging:80,finalQC:98},
+  '南通':{cellTest:137,modulePack:130,bmsInstall:147,pcsMount:141,thermalPipe:127,cabinetAsm:120,wiringHarness:124,systemTest:157,aging:87,finalQC:107},
+  '南通元能':{cellTest:126,modulePack:122,bmsInstall:136,pcsMount:131,thermalPipe:116,cabinetAsm:110,wiringHarness:114,systemTest:145,aging:78,finalQC:96}
+};
+
+/* ── helpers ── */
+const fmt=n=>n>=10000?(n/10000).toFixed(2)+'万':n.toLocaleString();
+const params=new URLSearchParams(location.search);
+
+function buildParams(){
+  const p=new URLSearchParams();
+  p.set('period',document.getElementById('fPeriod').value);
+  p.set('enterprise',document.getElementById('fEnterprise').value);
+  p.set('lineType',document.getElementById('fLineType').value);
+  p.set('product',document.getElementById('fProduct').value);
+  return p.toString();
+}
+function navTo(page){location.href=page+'?'+buildParams()}
+function updateNavLinks(){
+  const q='?'+buildParams();
+  document.getElementById('lnk1').href='es-cost-benchmark.html'+q;
+  document.getElementById('lnk2').href='es-material-drilldown.html'+q;
+  document.getElementById('lnk3').href='es-labor-process.html'+q;
+}
+document.querySelectorAll('.filter-bar select').forEach(s=>s.addEventListener('change',()=>{updateNavLinks();renderAll()}));
+
+['fPeriod','fEnterprise','fLineType','fProduct'].forEach(k=>{
+  const v=params.get(k.replace('f','').toLowerCase())||params.get(k);
+  if(v){const el=document.getElementById(k);if(el){for(let o of el.options){if(o.value===v||o.text===v){el.value=o.value;break}}}}
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('show'));
+    btn.classList.add('on');
+    document.getElementById(btn.dataset.t).classList.add('show');
+  });
+});
+
+function snapshot(){html2canvas(document.body,{scale:2,useCORS:true}).then(c=>{const a=document.createElement('a');a.download='储能工序工费率_'+new Date().toISOString().slice(0,10)+'.png';a.href=c.toDataURL();a.click()})}
+
+let chartInstances={};
+function destroyChart(id){if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id]}}
+
+function getTotalHours(ent){return procKeys.reduce((s,k)=>s+HOURS[ent][k],0)}
+function getWeightedRate(ent){
+  const totalCost=procKeys.reduce((s,k)=>s+HOURS[ent][k]*RATES[ent][k],0);
+  return totalCost/getTotalHours(ent);
+}
+function getTotalLaborCost(ent){return procKeys.reduce((s,k)=>s+HOURS[ent][k]*RATES[ent][k],0)}
+
+/* ═══ RENDER ═══ */
+
+/* KPI */
+function renderKPI(){
+  const sorted=ENTERPRISES.map(e=>({name:e,hours:getTotalHours(e),rate:getWeightedRate(e),cost:getTotalLaborCost(e)})).sort((a,b)=>a.hours-b.hours);
+  const avgH=(sorted.reduce((s,e)=>s+e.hours,0)/sorted.length).toFixed(1);
+  const avgR=(sorted.reduce((s,e)=>s+e.rate,0)/sorted.length).toFixed(0);
+  const avgC=Math.round(sorted.reduce((s,e)=>s+e.cost,0)/sorted.length);
+  const best=sorted[0],worst=sorted[sorted.length-1];
+
+  const kpis=[
+    {l:'最优单台工时',v:best.hours.toFixed(1)+'h',sub:best.name},
+    {l:'最高单台工时',v:worst.hours.toFixed(1)+'h',sub:worst.name},
+    {l:'平均单台工时',v:avgH+'h',sub:'全企业'},
+    {l:'平均工费率',v:avgR+'元/h',sub:'加权平均'},
+    {l:'平均费用成本',v:fmt(avgC),sub:'工时×工费率'},
+    {l:'工时极差',v:(worst.hours-best.hours).toFixed(1)+'h',sub:((worst.hours-best.hours)/best.hours*100).toFixed(1)+'%'}
+  ];
+  document.getElementById('kpiStrip3').innerHTML=kpis.map(k=>`
+    <div class="kpi-card"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="kt">${k.sub}</div></div>`).join('');
+}
+
+/* Process Flow */
+let selectedProc='cabinetAsm';
+function renderProcessFlow(){
+  const avgHours={};
+  procKeys.forEach(k=>{avgHours[k]=(ENTERPRISES.reduce((s,e)=>s+HOURS[e][k],0)/ENTERPRISES.length).toFixed(1)});
+
+  document.getElementById('processFlow').innerHTML=PROCESSES.map((p,i)=>{
+    const isActive=p.key===selectedProc;
+    return (i>0?'<div class="pf-arrow">→</div>':'')+
+    `<div class="pf-step ${isActive?'active':''}" onclick="selectProc('${p.key}')">
+      <div style="font-size:18px">${p.icon}</div>
+      <div class="pf-name">${p.name}</div>
+      <div class="pf-time">${avgHours[p.key]}</div>
+      <div class="pf-unit">工时/台(均值)</div>
+    </div>`;
+  }).join('');
+}
+function selectProc(key){selectedProc=key;renderProcessFlow();renderBottleneck()}
+
+/* Tab1: Hour Rank */
+function renderHourRank(){
+  destroyChart('chartHourRank');
+  const sorted=ENTERPRISES.map(e=>({name:e,hours:getTotalHours(e)})).sort((a,b)=>a.hours-b.hours);
+
+  chartInstances.chartHourRank=new Chart(document.getElementById('chartHourRank'),{
+    type:'bar',
+    data:{labels:sorted.map(e=>e.name),datasets:[{data:sorted.map(e=>e.hours),backgroundColor:sorted.map((_,i)=>i===0?'#10b981':'#6366f1'),borderRadius:6,barThickness:26}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},datalabels:{anchor:'end',align:'end',font:{size:11,weight:600},color:'#334155',formatter:v=>v.toFixed(1)+'h'}},
+      scales:{x:{grid:{display:false},title:{display:true,text:'工时/台',font:{size:11}}},y:{grid:{display:false}}}
+    },
+    plugins:[ChartDataLabels]
+  });
+
+  // stacked
+  destroyChart('chartHourStack');
+  const PROC_COLORS=['#6366f1','#818cf8','#a78bfa','#38bdf8','#14b8a6','#f59e0b','#fb923c','#10b981','#94a3b8','#e879f9'];
+  const sortedEnts=sorted.map(e=>e.name);
+
+  chartInstances.chartHourStack=new Chart(document.getElementById('chartHourStack'),{
+    type:'bar',
+    data:{labels:sortedEnts,
+      datasets:PROCESSES.map((p,i)=>({
+        label:p.name,data:sortedEnts.map(e=>HOURS[e][p.key]),backgroundColor:PROC_COLORS[i],borderRadius:1
+      }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9.5}}},datalabels:{display:false}},
+      scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:'rgba(0,0,0,.04)'},title:{display:true,text:'工时/台'}}}
+    }
+  });
+
+  // insight
+  const best=sorted[0],worst=sorted[sorted.length-1];
+  document.getElementById('insightLt1').innerHTML=`<strong>💡 工时对标洞察：</strong>南通元能以单台 <strong>${best.hours.toFixed(1)}h</strong> 排名工时最优，天津 <strong>${worst.hours.toFixed(1)}h</strong> 最高，极差 <strong>${(worst.hours-best.hours).toFixed(1)}h</strong>（${((worst.hours-best.hours)/best.hours*100).toFixed(1)}%）。柜体总装集成工序占总工时比重最大（约22%），是工时优化的首要目标——<a class="link-drill" onclick="document.querySelector('[data-t=lt3]').click()">前往瓶颈识别 →</a>`;
+
+  // table
+  let html='<thead><tr><th>排名</th><th>企业</th><th>总工时</th>';
+  PROCESSES.forEach(p=>{html+=`<th>${p.name}</th>`});
+  html+='<th>vs标杆</th></tr></thead><tbody>';
+  sorted.forEach((e,i)=>{
+    const rc=i<3?`rank-${i+1}`:'rank-n';
+    html+=`<tr><td><span class="rank-badge ${rc}">${i+1}</span></td><td style="font-weight:600">${e.name}</td><td style="font-weight:700">${e.hours.toFixed(1)}h</td>`;
+    procKeys.forEach(k=>{
+      const avg=ENTERPRISES.reduce((s,ent)=>s+HOURS[ent][k],0)/ENTERPRISES.length;
+      const val=HOURS[e.name][k];
+      const cls=val>avg*1.1?'val-hi':val<avg*0.9?'val-lo':'';
+      html+=`<td class="${cls}">${val.toFixed(1)}</td>`;
+    });
+    const vsBest=((e.hours-sorted[0].hours)/sorted[0].hours*100).toFixed(1);
+    html+=`<td class="${vsBest>0?'val-hi':''}">${vsBest>0?'+':''}${vsBest}%</td></tr>`;
+  });
+  html+='</tbody>';
+  document.getElementById('tblHourRank').innerHTML=html;
+}
+
+/* Tab2: Rate */
+function renderRateAnalysis(){
+  destroyChart('chartRateBar');
+  const sorted=ENTERPRISES.map(e=>({name:e,rate:getWeightedRate(e)})).sort((a,b)=>a.rate-b.rate);
+
+  chartInstances.chartRateBar=new Chart(document.getElementById('chartRateBar'),{
+    type:'bar',
+    data:{labels:sorted.map(e=>e.name),datasets:[{data:sorted.map(e=>e.rate),backgroundColor:sorted.map((_,i)=>i===0?'#10b981':'#f59e0b'),borderRadius:6,barThickness:26}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},datalabels:{anchor:'end',align:'end',font:{size:11,weight:600},color:'#334155',formatter:v=>v.toFixed(0)+'元/h'}},
+      scales:{x:{grid:{display:false},title:{display:true,text:'元/工时'}},y:{grid:{display:false}}}
+    },
+    plugins:[ChartDataLabels]
+  });
+
+  // bubble
+  destroyChart('chartBubble');
+  const bubbleData=ENTERPRISES.map(e=>{
+    const h=getTotalHours(e);
+    const r=getWeightedRate(e);
+    const c=getTotalLaborCost(e);
+    return {x:h,y:r,r:Math.sqrt(c)/8,name:e,cost:c};
+  });
+  const BCOLORS=['#6366f1','#10b981','#f59e0b','#ef4444','#38bdf8','#a78bfa','#fb923c','#14b8a6','#e879f9'];
+
+  chartInstances.chartBubble=new Chart(document.getElementById('chartBubble'),{
+    type:'bubble',
+    data:{datasets:ENTERPRISES.map((e,i)=>({
+      label:e,data:[bubbleData[i]],backgroundColor:BCOLORS[i]+'88',borderColor:BCOLORS[i],borderWidth:2
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}},
+        datalabels:{display:true,align:'top',font:{size:9,weight:600},color:'#475569',
+          formatter:(_,ctx)=>ENTERPRISES[ctx.datasetIndex]}
+      },
+      scales:{
+        x:{title:{display:true,text:'总工时（h/台）',font:{size:11}},grid:{color:'rgba(0,0,0,.04)'}},
+        y:{title:{display:true,text:'工费率（元/h）',font:{size:11}},grid:{color:'rgba(0,0,0,.04)'}}
+      }
+    },
+    plugins:[ChartDataLabels]
+  });
+
+  // insight
+  const bestRate=sorted[0],worstRate=sorted[sorted.length-1];
+  document.getElementById('insightLt2').innerHTML=`<strong>💡 工费率洞察：</strong>${bestRate.name} 综合工费率最优（<strong>${bestRate.rate.toFixed(0)}元/h</strong>），${worstRate.name} 最高（<strong>${worstRate.rate.toFixed(0)}元/h</strong>）。散点图中，右上象限的企业（高工时+高工费率）费用成本最高，应双管齐下——工艺优化降工时 + 产能利用率提升降单位分摊费率。`;
+
+  // table
+  let html='<thead><tr><th>排名</th><th>企业</th><th>综合工费率</th>';
+  PROCESSES.forEach(p=>{html+=`<th>${p.name}</th>`});
+  html+='<th>费用成本</th></tr></thead><tbody>';
+  sorted.forEach((e,i)=>{
+    const rc=i<3?`rank-${i+1}`:'rank-n';
+    html+=`<tr><td><span class="rank-badge ${rc}">${i+1}</span></td><td style="font-weight:600">${e.name}</td><td style="font-weight:700">${e.rate.toFixed(0)}元/h</td>`;
+    procKeys.forEach(k=>{
+      const avg=ENTERPRISES.reduce((s,ent)=>s+RATES[ent][k],0)/ENTERPRISES.length;
+      const val=RATES[e.name][k];
+      const cls=val>avg*1.05?'val-hi':val<avg*0.95?'val-lo':'';
+      html+=`<td class="${cls}">${val}</td>`;
+    });
+    html+=`<td style="font-weight:700">${fmt(getTotalLaborCost(e.name))}</td></tr>`;
+  });
+  html+='</tbody>';
+  document.getElementById('tblRate').innerHTML=html;
+}
+
+/* Tab3: Bottleneck */
+function renderBottleneck(){
+  const threshold=parseFloat(document.getElementById('bottleneckPct').value)||15;
+
+  // compute avg for each process
+  const avgHours={},avgRates={};
+  procKeys.forEach(k=>{
+    avgHours[k]=ENTERPRISES.reduce((s,e)=>s+HOURS[e][k],0)/ENTERPRISES.length;
+    avgRates[k]=ENTERPRISES.reduce((s,e)=>s+RATES[e][k],0)/ENTERPRISES.length;
+  });
+
+  // heatmap data (deviation %)
+  destroyChart('chartBottleneck');
+  const heatData=[];
+  ENTERPRISES.forEach((ent,ei)=>{
+    procKeys.forEach((k,pi)=>{
+      const dev=((HOURS[ent][k]-avgHours[k])/avgHours[k]*100);
+      heatData.push({x:pi,y:ei,v:dev});
+    });
+  });
+
+  chartInstances.chartBottleneck=new Chart(document.getElementById('chartBottleneck'),{
+    type:'bubble',
+    data:{datasets:[{
+      data:heatData.map(d=>({x:d.x,y:d.y,r:Math.min(Math.abs(d.v)/3+3,15),v:d.v})),
+      backgroundColor:heatData.map(d=>d.v>threshold?'rgba(239,68,68,0.6)':d.v>0?'rgba(245,158,11,0.4)':'rgba(16,185,129,0.4)'),
+      borderColor:heatData.map(d=>d.v>threshold?'#ef4444':d.v>0?'#f59e0b':'#10b981'),
+      borderWidth:1.5
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        datalabels:{display:true,font:{size:8.5,weight:600},
+          color:ctx=>{const v=ctx.dataset.data[ctx.dataIndex].v;return v>threshold?'#dc2626':v>0?'#b45309':'#059669'},
+          formatter:(_,ctx)=>{const v=ctx.dataset.data[ctx.dataIndex].v;return (v>0?'+':'')+v.toFixed(0)+'%'}}
+      },
+      scales:{
+        x:{type:'linear',min:-0.5,max:procKeys.length-0.5,
+          ticks:{callback:(v)=>PROCESSES[v]?PROCESSES[v].name:'',stepSize:1,font:{size:9},maxRotation:45},
+          grid:{display:false}},
+        y:{type:'linear',min:-0.5,max:ENTERPRISES.length-0.5,
+          ticks:{callback:(v)=>ENTERPRISES[v]||'',stepSize:1,font:{size:10}},
+          grid:{color:'rgba(0,0,0,.03)'}}
+      }
+    },
+    plugins:[ChartDataLabels]
+  });
+
+  // improvement potential
+  destroyChart('chartPotential');
+  const potentials=[];
+  ENTERPRISES.forEach(ent=>{
+    procKeys.forEach(k=>{
+      const hourDev=HOURS[ent][k]-avgHours[k];
+      const rateDev=RATES[ent][k]-avgRates[k];
+      if(hourDev>0||rateDev>0){
+        const savingH=Math.max(0,hourDev)*RATES[ent][k];
+        const savingR=Math.max(0,rateDev)*HOURS[ent][k];
+        potentials.push({ent,proc:PROCESSES.find(p=>p.key===k).name,key:k,hourDev,savingH,savingR,totalSaving:savingH+savingR});
+      }
+    });
+  });
+  potentials.sort((a,b)=>b.totalSaving-a.totalSaving);
+  const top10=potentials.slice(0,10);
+
+  chartInstances.chartPotential=new Chart(document.getElementById('chartPotential'),{
+    type:'bar',
+    data:{labels:top10.map(p=>`${p.ent}-${p.proc}`),
+      datasets:[
+        {label:'工时改善潜力',data:top10.map(p=>p.savingH),backgroundColor:'#6366f1',borderRadius:3},
+        {label:'工费率改善潜力',data:top10.map(p=>p.savingR),backgroundColor:'#f59e0b',borderRadius:3}
+      ]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:12}},datalabels:{display:false}},
+      scales:{x:{stacked:true,grid:{display:false},title:{display:true,text:'改善潜力（元/台）'}},y:{stacked:true,grid:{display:false},ticks:{font:{size:10}}}}
+    }
+  });
+
+  // insight
+  const bottlenecks=[];
+  ENTERPRISES.forEach(ent=>{
+    procKeys.forEach(k=>{
+      const dev=(HOURS[ent][k]-avgHours[k])/avgHours[k]*100;
+      if(dev>threshold) bottlenecks.push({ent,proc:PROCESSES.find(p=>p.key===k).name,dev:dev.toFixed(1)});
+    });
+  });
+  document.getElementById('insightLt3').innerHTML=`<strong>💡 瓶颈识别（阈值 >${threshold}%）：</strong>共识别出 <strong>${bottlenecks.length}</strong> 个瓶颈点。Top改善潜力：<strong>${top10[0]?.ent}-${top10[0]?.proc}</strong>（潜在节约 ${top10[0]?.totalSaving.toFixed(0)} 元/台）。红色气泡表示超出均值 ${threshold}% 以上的异常工序，建议优先组织对标学习与工艺改善。<a class="link-drill" onclick="navTo('es-cost-benchmark.html')">← 返回全成本总览</a>`;
+
+  // table
+  let html='<thead><tr><th>企业</th><th>工序</th><th>实际工时</th><th>均值工时</th><th>偏差%</th><th>工费率</th><th>改善潜力(元/台)</th><th>状态</th></tr></thead><tbody>';
+  potentials.slice(0,20).forEach(p=>{
+    const actH=HOURS[p.ent][p.key];
+    const avgH=avgHours[p.key];
+    const devPct=((actH-avgH)/avgH*100).toFixed(1);
+    const rate=RATES[p.ent][p.key];
+    const tag=devPct>threshold?'tag-bottleneck':devPct>5?'tag-warn':'tag-ok';
+    const tagText=devPct>threshold?'🔴 瓶颈':devPct>5?'🟡 关注':'🟢 正常';
+    html+=`<tr><td style="font-weight:600">${p.ent}</td><td>${p.proc}</td><td style="font-weight:700">${actH.toFixed(1)}h</td><td>${avgH.toFixed(1)}h</td>
+      <td class="${devPct>threshold?'val-hi':devPct>5?'':'val-lo'}">+${devPct}%</td><td>${rate}元/h</td>
+      <td style="font-weight:600">${p.totalSaving.toFixed(0)}</td>
+      <td><span class="${tag}">${tagText}</span></td></tr>`;
+  });
+  html+='</tbody>';
+  document.getElementById('tblBottleneck').innerHTML=html;
+}
+document.getElementById('bottleneckPct').addEventListener('change',renderBottleneck);
+
+/* ── RENDER ALL ── */
+function renderAll(){
+  renderKPI();renderProcessFlow();renderHourRank();renderRateAnalysis();renderBottleneck();updateNavLinks();
+}
+renderAll();
+</script>
+</body>
+</html>

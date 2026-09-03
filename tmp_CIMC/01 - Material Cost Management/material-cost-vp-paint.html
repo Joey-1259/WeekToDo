@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>材料成本 · 油漆量价归因分析</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --i:#4F46E5;--il:#6366F1;--i-bg:rgba(79,70,229,.08);--i-bd:rgba(79,70,229,.20);
+  --v:#7C3AED;--v-bg:rgba(124,58,237,.08);
+  --em:#059669;--em-bg:rgba(5,150,105,.09);--em-bd:rgba(5,150,105,.22);
+  --am:#D97706;--am-bg:rgba(217,119,6,.09);--am-bd:rgba(217,119,6,.22);
+  --ro:#E11D48;--ro-bg:rgba(225,29,72,.08);--ro-bd:rgba(225,29,72,.20);
+  --sk:#0284C7;--sk-bg:rgba(2,132,199,.08);
+  --tl:#0D9488;--tl-bg:rgba(13,148,136,.08);
+  --s0:#fff;--s50:#F8FAFC;--s100:#F1F5F9;--s200:#E2E8F0;--s300:#CBD5E1;--s400:#94A3B8;
+  --s500:#64748B;--s600:#475569;--s700:#334155;--s800:#1E293B;--s900:#0F172A;
+  --glass:rgba(255,255,255,.78);--glass-b:rgba(255,255,255,.55);
+  --sh-sm:0 1px 3px rgba(0,0,0,.04);
+  --sh-md:0 4px 16px rgba(79,70,229,.08),0 1px 4px rgba(0,0,0,.04);
+  --sh-lg:0 8px 28px rgba(79,70,229,.12),0 2px 8px rgba(0,0,0,.06);
+  --r:14px;--rs:8px;
+}
+html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','Noto Sans SC',sans-serif;background:var(--s50);color:var(--s700)}
+.bg-l{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.bg-l::before{content:'';position:absolute;top:-120px;right:-60px;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(79,70,229,.06) 0%,transparent 70%)}
+.bg-l::after{content:'';position:absolute;bottom:-60px;left:-40px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(5,150,105,.04) 0%,transparent 70%)}
+.shell{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+
+/* ═══ TOPBAR (Steel-style) ═══ */
+.topbar{position:sticky;top:0;z-index:300;height:52px;padding:0 20px;display:flex;align-items:center;gap:12px;background:var(--glass);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-b);box-shadow:var(--sh-sm)}
+.bc{display:flex;align-items:center;gap:5px;font-size:11px;flex-shrink:0}
+.bc a{color:var(--s400);text-decoration:none;cursor:pointer}.bc a:hover{color:var(--i)}
+.bc .sep{color:var(--s300)}.bc .cur{color:var(--i);font-weight:700}
+.tb-d{width:1px;height:18px;background:var(--s200);flex-shrink:0}
+.filters{display:flex;align-items:center;gap:7px;flex:1;flex-wrap:wrap;justify-content:center}
+.fi-g{display:flex;align-items:center;gap:4px}
+.fi-l{font-size:10px;color:var(--s400);white-space:nowrap}
+.fi-s{appearance:none;padding:4px 20px 4px 8px;border-radius:var(--rs);background:var(--s0) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394A3B8'/%3E%3C/svg%3E") no-repeat right 6px center;border:1px solid var(--s200);font-size:11px;color:var(--s700);cursor:pointer;font-family:inherit;transition:all .15s}
+.fi-s:focus{outline:none;border-color:var(--il);box-shadow:0 0 0 3px rgba(99,102,241,.10)}
+.fi-dv{width:1px;height:14px;background:var(--s200)}
+.tb-r{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.ib{width:28px;height:28px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--s200);cursor:pointer;font-size:13px;color:var(--s500);transition:all .15s}
+.ib:hover{border-color:var(--il);color:var(--i);background:var(--i-bg)}
+.back-link{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:var(--rs);border:1px solid var(--em-bd);font-size:10px;font-weight:600;color:var(--em);cursor:pointer;text-decoration:none;transition:all .15s;white-space:nowrap;background:var(--em-bg)}
+.back-link:hover{background:rgba(5,150,105,.16)}
+
+/* ═══ MAIN LAYOUT ═══ */
+.main{flex:1;padding:16px 20px 24px;display:flex;flex-direction:column;gap:14px}
+
+/* Section Heading (Steel-style 层级标题) */
+.sh{display:flex;align-items:center;gap:7px;margin-bottom:2px}
+.sh-d{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sh-t{font-size:11px;font-weight:700;color:var(--s400);text-transform:uppercase;letter-spacing:.06em}
+.sh-l{flex:1;height:1px;background:var(--s100)}
+.sh-extra{font-size:10px;color:var(--s400)}
+
+/* Card */
+.card{background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--glass-b);border-radius:var(--r);box-shadow:var(--sh-md)}
+.card-title{font-size:12px;font-weight:700;color:var(--s700);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+
+/* ═══ BENCHMARK SWITCH ═══ */
+.bm-switch{display:inline-flex;gap:0;background:var(--s100);border-radius:var(--rs);padding:2px;overflow:hidden;margin-left:12px;vertical-align:middle}
+.bm-btn{padding:4px 10px;font-size:10px;font-weight:600;color:var(--s500);cursor:pointer;border-radius:6px;transition:all .15s;white-space:nowrap;border:none;background:none;font-family:inherit}
+.bm-btn.active{background:var(--s0);color:var(--i);box-shadow:var(--sh-sm)}
+.bm-btn:hover:not(.active){color:var(--s700)}
+
+/* ═══ DUPONT GRID (Layer 1) ═══ */
+.dupont-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch}
+@media(max-width:1200px){.dupont-grid{grid-template-columns:1fr}}
+.dupont-card{padding:20px 24px}
+.dupont-header{display:flex;flex-direction:column;gap:4px;margin-bottom:16px}
+.dupont-title-row{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.dupont-title{font-size:12px;font-weight:700;color:var(--s800);display:flex;align-items:center;gap:6px}
+.dupont-subtitle{font-size:10px;color:var(--s400);margin-top:2px}
+
+/* Tree */
+.tree-container{display:flex;flex-direction:column;align-items:center;gap:12px;padding:8px}
+.tree-root{background:linear-gradient(135deg,var(--i),#3730A3);color:#fff;border-radius:var(--r);padding:16px 28px;text-align:center;box-shadow:0 4px 16px rgba(79,70,229,.25);cursor:pointer;transition:transform .2s}
+.tree-root:hover{transform:scale(1.02)}
+.tree-root .val{font-size:24px;font-weight:800}
+.tree-root .lbl{font-size:11px;opacity:.85;margin-top:2px}
+.tree-root .dev{font-size:11px;margin-top:6px;padding:3px 10px;border-radius:10px;display:inline-block;background:rgba(255,255,255,.18)}
+.tree-connector{width:2px;height:14px;background:var(--s200)}
+.tree-branches{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.tree-node{border:2px solid var(--s200);border-radius:var(--rs);padding:10px 14px;text-align:center;min-width:88px;cursor:pointer;transition:all .2s;background:var(--s0);position:relative}
+.tree-node:hover{border-color:var(--il);box-shadow:var(--sh-md);transform:translateY(-2px)}
+.tree-node.active{border-color:var(--i);background:var(--i-bg);box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+.tree-node .node-lbl{font-size:10px;color:var(--s400);font-weight:500}
+.tree-node .node-dev{font-size:13px;font-weight:700;margin-top:4px}
+.dev-pos{color:var(--ro)}.dev-neg{color:var(--em)}
+
+/* Detail panel */
+.detail-panel{border:1px solid var(--s200);border-radius:var(--r);padding:16px 18px;background:var(--s50);margin-top:14px;width:100%}
+.detail-panel-title{font-size:13px;font-weight:700;color:var(--i);margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.detail-box{border:1px solid var(--s200);border-radius:var(--rs);padding:14px;background:var(--s0)}
+.detail-box-title{font-size:11px;font-weight:700;color:var(--s600);margin-bottom:10px;display:flex;align-items:center;gap:4px}
+.detail-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;padding:2px 0}
+.detail-row .label{color:var(--s400)}
+.detail-row .value{font-weight:600}
+.detail-row .value.highlight{font-size:13px}
+
+/* ═══ RANK TABLE ═══ */
+.rank-card{padding:16px;display:flex;flex-direction:column;overflow-x:auto}
+.rank-card-title{font-size:11px;font-weight:700;color:var(--s700);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.rank-tbl{width:100%;border-collapse:collapse;font-size:10px;min-width:440px}
+.rank-tbl th{padding:7px 6px;text-align:center;font-weight:600;color:var(--s400);font-size:9px;border-bottom:2px solid var(--s200);background:var(--s50);white-space:nowrap}
+.rank-tbl th:first-child{text-align:left}
+.rank-tbl td{padding:7px 6px;text-align:center;border-bottom:1px solid var(--s100);font-size:10px;font-weight:600;white-space:nowrap}
+.rank-tbl td:first-child{text-align:left;color:var(--s600);font-size:10px}
+.rank-tbl tr:last-child td{border-bottom:none}
+.rank-val{font-weight:800;font-size:11px}
+.rank-pos{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:9px;font-weight:800}
+.rank-pos.top3{background:rgba(5,150,105,.15);color:#059669}
+.rank-pos.mid{background:rgba(217,119,6,.12);color:#D97706}
+.rank-pos.bot{background:rgba(225,29,72,.12);color:#E11D48}
+.rank-dev{font-size:9px;font-weight:700}
+.rank-dev.bad{color:var(--ro)}.rank-dev.good{color:var(--em)}
+.rank-bm{font-size:9px;color:var(--s500);font-weight:500}
+
+/* ═══ TAB SYSTEM (Steel-style) ═══ */
+.tab-card{padding:0;overflow:hidden}
+.tab-nav{display:flex;border-bottom:2px solid var(--s100);background:var(--s50);overflow-x:auto}
+.tab-btn{padding:12px 18px;font-size:11px;font-weight:600;color:var(--s500);cursor:pointer;border:none;background:none;font-family:inherit;white-space:nowrap;position:relative;transition:all .15s}
+.tab-btn:hover{color:var(--i);background:var(--i-bg)}
+.tab-btn.active{color:var(--i);font-weight:700}
+.tab-btn.active::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;background:var(--i);border-radius:1px}
+.tab-content{padding:20px;display:none;min-height:400px}
+.tab-content.active{display:block}
+
+/* Tab approach note (思路说明) */
+.tab-approach{background:var(--i-bg);border:1px solid var(--i-bd);border-radius:var(--rs);padding:10px 14px;margin-bottom:16px;font-size:11px;color:var(--s600);line-height:1.6}
+.tab-approach strong{color:var(--i);font-weight:700}
+
+/* ═══ KPI CARDS ═══ */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.kpi-card{background:var(--s0);border:1px solid var(--s200);border-radius:10px;padding:12px 14px;text-align:center}
+.kpi-card .kpi-val{font-size:20px;font-weight:800;color:var(--s800)}
+.kpi-card .kpi-lbl{font-size:10px;color:var(--s400);margin-top:2px}
+.kpi-card .kpi-sub{font-size:10px;margin-top:4px;font-weight:600}
+.kpi-card.highlight-bad{border-color:var(--ro-bd);background:var(--ro-bg)}
+.kpi-card.highlight-good{border-color:var(--em-bd);background:var(--em-bg)}
+
+/* ═══ CHART GRID ═══ */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+@media(max-width:1200px){.chart-grid{grid-template-columns:1fr}}
+.chart-box{background:var(--s0);border:1px solid var(--s100);border-radius:10px;padding:14px}
+.chart-box-title{font-size:11px;font-weight:600;color:var(--s600);margin-bottom:10px}
+.chart-box canvas{width:100%!important;height:240px!important}
+
+/* ═══ DETAIL TABLE ═══ */
+.detail-table-wrap{overflow-x:auto;margin-top:16px}
+.detail-table{width:100%;min-width:900px;border-collapse:collapse;font-size:11px}
+.detail-table thead{background:linear-gradient(135deg,var(--s50),#EEF2FF)}
+.detail-table th{padding:8px 6px;text-align:center;font-weight:600;color:var(--s500);border-bottom:2px solid var(--s200);white-space:nowrap}
+.detail-table td{padding:7px 6px;border-bottom:1px solid var(--s100);text-align:center;color:var(--s700)}
+.detail-table tr:hover{background:rgba(79,70,229,.02)}
+.status-tag{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;display:inline-block}
+.status-tag.over{background:var(--ro-bg);color:var(--ro)}
+.status-tag.ok{background:var(--em-bg);color:var(--em)}
+.status-tag.warn{background:var(--am-bg);color:var(--am)}
+
+/* ═══ FOOTER ═══ */
+.foot{padding:10px 20px;border-top:1px solid var(--s100);font-size:10px;color:var(--s300);display:flex;justify-content:space-between}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.93);backdrop-filter:blur(12px);color:#F8FAFC;padding:9px 18px;border-radius:10px;font-size:12px;font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;white-space:nowrap}
+
+@media(max-width:1200px){.dupont-grid{grid-template-columns:1fr}.chart-grid{grid-template-columns:1fr}}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--s200);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="bg-l"></div>
+<div id="toast"></div>
+<div class="shell">
+
+<!-- ═══ TOPBAR (Steel-style filter design) ═══ -->
+<nav class="topbar">
+  <div class="bc">
+    <a onclick="goBack()">成本管理</a><span class="sep">›</span>
+    <a onclick="goBack()">全景对标</a><span class="sep">›</span>
+    <span class="cur">量价归因·油漆</span>
+  </div>
+  <div class="tb-d"></div>
+  <div class="filters">
+    <div class="fi-g"><span class="fi-l">期间</span><select class="fi-s" id="f-period"><option>2024年6月</option><option>2024年5月</option><option>2024年4月</option><option>2024年Q2</option><option>2024年H1</option></select></div>
+    <div class="fi-dv"></div>
+    <div class="fi-g"><span class="fi-l">企业</span><select class="fi-s" id="f-enterprise"><option value="新会">新会</option><option value="漳州">漳州</option><option value="太仓">太仓</option><option value="青岛">青岛</option><option value="宁波">宁波</option><option value="天津">天津</option><option value="上海">上海</option><option value="东莞">东莞</option><option value="佛山">佛山</option><option value="武汉">武汉</option><option value="芜湖">芜湖</option><option value="大连">大连</option></select></div>
+    <div class="fi-dv"></div>
+    <div class="fi-g"><span class="fi-l">箱型</span><select class="fi-s" id="f-boxtype"><option>全部箱型</option><option>20GP</option><option>40GP</option><option>40HC</option><option>45HC</option></select></div>
+    <div class="fi-g"><span class="fi-l">产品</span><select class="fi-s" id="f-product"><option>全部产品</option><option>标准干箱</option><option>冷藏箱</option><option>特种箱</option></select></div>
+    <div class="fi-g"><span class="fi-l">客户</span><select class="fi-s" id="f-customer"><option>全部客户</option><option>MAERSK</option><option>MSC</option><option>COSCO</option><option>CMA CGM</option><option>Hapag-Lloyd</option></select></div>
+    <div class="fi-dv"></div>
+    <div class="fi-g"><span class="fi-l">供应商</span><select class="fi-s" id="f-supplier"><option>全部供应商</option><option>海虹老人</option><option>中涂化工</option><option>金鱼涂料</option><option>KCC</option><option>关西涂料</option></select></div>
+    <div class="fi-g"><span class="fi-l">漆种</span><select class="fi-s" id="f-painttype"><option>全部漆种</option><option>富锌漆</option><option>中间漆</option><option>内面漆</option><option>外面漆</option><option>沥青漆</option><option>稀释剂</option><option>助剂</option></select></div>
+  </div>
+  <div class="tb-d"></div>
+  <div class="tb-r">
+    <a class="back-link" onclick="goBack()" title="返回全景对标页">← 全景</a>
+    <div class="fi-dv"></div>
+    <button class="ib" title="重置筛选" onclick="resetFilters()">↺</button>
+    <button class="ib" title="导出PNG" onclick="exportPNG()">⬇</button>
+    <button class="ib" title="全屏" onclick="toggleFullscreen()">⛶</button>
+  </div>
+</nav>
+
+<!-- ═══ MAIN CONTENT ═══ -->
+<main class="main" id="main-content">
+
+  <!-- ═══ LAYER 1: Section heading (Steel-style) ═══ -->
+  <div class="sh">
+    <div class="sh-d" style="background:var(--i)"></div>
+    <div class="sh-t">第一层 · 油漆成本杜邦归因分解</div>
+    <div class="sh-l"></div>
+    <div class="sh-extra" id="layer1-subtitle">新会 · 2024年6月</div>
+  </div>
+
+  <!-- DuPont Tree + Rank Table -->
+  <div class="dupont-grid">
+    <!-- LEFT: Interactive DuPont Tree -->
+    <div class="card dupont-card" id="dupont-tree-card">
+      <div class="dupont-header">
+        <div class="dupont-title-row">
+          <span class="dupont-title">🎨 漆种贡献分解 · 点击漆种查看量价明细</span>
+          <div class="bm-switch" id="bm-switch">
+            <button class="bm-btn active" data-bench="star">恒星均值</button>
+            <button class="bm-btn" data-bench="avg">同类均值</button>
+            <button class="bm-btn" data-bench="bench">标杆企业</button>
+          </div>
+        </div>
+        <div class="dupont-subtitle">点击漆种节点 → 展开量价分解明细 ｜ 切换基准重新计算偏差</div>
+      </div>
+      <div class="tree-container" id="dupont-tree"></div>
+    </div>
+    <!-- RIGHT: Rank Table -->
+    <div class="card rank-card" id="rank-table-card">
+      <div class="rank-card-title">📊 因子排名 · <span id="rank-ent-name">新会</span> 在12家企业中的位置 · <span id="rank-bench-label">vs 恒星均值</span></div>
+      <table class="rank-tbl" id="rank-table">
+        <thead><tr><th style="text-align:left">指标</th><th>实际值</th><th>排名</th><th>恒星均值</th><th>同类均值</th><th>标杆企业</th><th>偏差</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ LAYER 2: Section heading (Steel-style) ═══ -->
+  <div class="sh" style="margin-top:6px">
+    <div class="sh-d" style="background:var(--v)"></div>
+    <div class="sh-t">第二层 · 专项分析</div>
+    <div class="sh-l"></div>
+    <div class="sh-extra">点击上方杜邦树漆种节点可联动分析</div>
+  </div>
+
+  <!-- TAB CARD (Steel-style tab design) -->
+  <div class="card tab-card">
+    <nav class="tab-nav" id="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-consumption">耗量分析</button>
+      <button class="tab-btn" data-tab="tab-price">出库价分析</button>
+      <button class="tab-btn" data-tab="tab-efficiency">涂料利用率与膜厚</button>
+      <button class="tab-btn" data-tab="tab-quality">质量与返修</button>
+      <button class="tab-btn" data-tab="tab-inventory">库存与周转</button>
+    </nav>
+
+    <!-- TAB 1: 耗量分析 -->
+    <div class="tab-content active" id="tab-consumption">
+      <div class="tab-approach">
+        <strong>分析思路：</strong>从总用量出发，按漆种结构拆解，定位用量异常漆种；结合企业横向排名、偏差贡献瀑布图和趋势分析，找出耗量偏高的根因（工艺参数/设备/操作规范），为改善提供方向。
+      </div>
+      <div class="kpi-row" id="kpi-consumption"></div>
+      <div class="chart-grid" id="charts-consumption"></div>
+      <div class="card" style="padding:16px;margin-top:0">
+        <div class="card-title">📋 各企业漆种耗量明细表</div>
+        <div class="detail-table-wrap" id="table-consumption"></div>
+      </div>
+    </div>
+
+    <!-- TAB 2: 出库价分析 -->
+    <div class="tab-content" id="tab-price">
+      <div class="tab-approach">
+        <strong>分析思路：</strong>以加权出库单价为核心指标，从供应商维度、漆种维度拆解价格差异来源；通过雷达图多基准比对和供应商均价排名，识别议价空间与采购策略优化点。
+      </div>
+      <div class="kpi-row" id="kpi-price"></div>
+      <div class="chart-grid" id="charts-price"></div>
+      <div class="card" style="padding:16px;margin-top:0">
+        <div class="card-title">📋 各企业漆种采购价明细表</div>
+        <div class="detail-table-wrap" id="table-price"></div>
+      </div>
+    </div>
+
+    <!-- TAB 3: 涂料利用率与膜厚 -->
+    <div class="tab-content" id="tab-efficiency">
+      <div class="tab-approach">
+        <strong>分析思路：</strong>涂料利用率直接影响耗量——利用率低意味着过喷浪费；DFT超厚则意味着涂料被"喷多了"。本Tab关联利用率、各部位DFT偏差、企业散点定位和趋势分析，找出工艺改善空间。
+      </div>
+      <div class="kpi-row" id="kpi-efficiency"></div>
+      <div class="chart-grid" id="charts-efficiency"></div>
+      <div class="card" style="padding:16px;margin-top:0">
+        <div class="card-title">📋 膜厚控制明细 · 各部位实测DFT vs 目标值</div>
+        <div class="detail-table-wrap" id="table-efficiency"></div>
+      </div>
+    </div>
+
+    <!-- TAB 4: 质量与返修 -->
+    <div class="tab-content" id="tab-quality">
+      <div class="tab-approach">
+        <strong>分析思路：</strong>返修导致额外油漆+人工+能耗消耗。通过一次合格率排名定位差距，帕累托图聚焦关键缺陷类型，工位分布锁定问题工段，驱动涂装质量持续改善，从源头降低材料浪费。
+      </div>
+      <div class="kpi-row" id="kpi-quality"></div>
+      <div class="chart-grid" id="charts-quality"></div>
+      <div class="card" style="padding:16px;margin-top:0">
+        <div class="card-title">📋 返修原因明细 · 工位 × 缺陷类型分布</div>
+        <div class="detail-table-wrap" id="table-quality"></div>
+      </div>
+    </div>
+
+    <!-- TAB 5: 库存与周转 -->
+    <div class="tab-content" id="tab-inventory">
+      <div class="tab-approach">
+        <strong>分析思路：</strong>库存周转效率影响资金占用和呆滞风险。分析各漆种库存量/月需求匹配、保质期预警、库存金额结构，结合企业横比周转天数和呆滞率，输出补货/清库建议，降低库存持有成本。
+      </div>
+      <div class="kpi-row" id="kpi-inventory"></div>
+      <div class="chart-grid" id="charts-inventory"></div>
+      <div class="card" style="padding:16px;margin-top:0">
+        <div class="card-title">📋 漆种库存明细 · 含保质期与呆滞预警</div>
+        <div class="detail-table-wrap" id="table-inventory"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="foot">
+  <span>材料成本数字化分析系统 · 油漆量价归因 · material-cost-vp-paint.html</span>
+  <span id="refresh-time"></span>
+</footer>
+</div>
+
+<script>
+// ==================== GLOBAL SETUP ====================
+Chart.register(ChartDataLabels);
+Chart.defaults.font.family="'Inter','Noto Sans SC',sans-serif";
+Chart.defaults.font.size=11;
+Chart.defaults.color='#64748B';
+Chart.defaults.plugins.datalabels.display=false;
+
+let _t;function toast(m){const e=document.getElementById('toast');e.textContent=m;e.style.opacity='1';clearTimeout(_t);_t=setTimeout(()=>e.style.opacity='0',2800)}
+
+// ==================== DATA MODEL ====================
+const ENTERPRISES=['新会','漳州','太仓','青岛','宁波','天津','上海','东莞','佛山','武汉','芜湖','大连'];
+const PAINT_TYPES=['中间漆','外面漆','富锌漆','内面漆','稀释剂','沥青漆','助剂'];
+
+const BENCHMARKS={
+  star:{label:'恒星均值',totalCost:268,
+    usage:{富锌漆:14.5,中间漆:18.2,内面漆:12.8,外面漆:20.5,沥青漆:10.2,稀释剂:16.0,助剂:3.8},
+    price:{富锌漆:22.0,中间漆:19.5,内面漆:24.0,外面漆:26.0,沥青漆:12.0,稀释剂:8.5,助剂:18.0},
+    transferEff:0.72,avgDFTDev:3.2,firstPassRate:0.935,reworkRate:0.065,turnoverDays:18,deadStockRate:0.04},
+  avg:{label:'同类均值',totalCost:275,
+    usage:{富锌漆:15.0,中间漆:19.0,内面漆:13.2,外面漆:21.2,沥青漆:10.8,稀释剂:16.8,助剂:4.0},
+    price:{富锌漆:22.5,中间漆:20.0,内面漆:24.5,外面漆:26.5,沥青漆:12.5,稀释剂:9.0,助剂:18.5},
+    transferEff:0.70,avgDFTDev:4.0,firstPassRate:0.925,reworkRate:0.075,turnoverDays:22,deadStockRate:0.06},
+  bench:{label:'标杆企业',totalCost:248,
+    usage:{富锌漆:13.2,中间漆:16.8,内面漆:11.5,外面漆:18.8,沥青漆:9.5,稀释剂:14.5,助剂:3.2},
+    price:{富锌漆:20.5,中间漆:18.0,内面漆:22.5,外面漆:24.0,沥青漆:11.0,稀释剂:7.8,助剂:16.5},
+    transferEff:0.78,avgDFTDev:1.8,firstPassRate:0.965,reworkRate:0.035,turnoverDays:14,deadStockRate:0.02}
+};
+
+const ENT_DATA={
+  '新会':{totalCost:285,
+    usage:{富锌漆:15.8,中间漆:20.5,内面漆:13.5,外面漆:22.0,沥青漆:11.0,稀释剂:17.5,助剂:4.2},
+    price:{富锌漆:23.0,中间漆:20.5,内面漆:25.0,外面漆:27.0,沥青漆:12.5,稀释剂:9.0,助剂:19.0},
+    transferEff:0.68,avgDFTDev:5.2,firstPassRate:0.91,reworkRate:0.09,
+    dftByArea:{top:48,side:52,bottom:58,door:45},targetDFT:{top:45,side:45,bottom:50,door:42},
+    reworkReasons:{流挂:28,针孔:22,漏喷:18,色差:15,膜厚不足:12,其他:5},
+    reworkByStation:{底漆工位:15,中涂工位:35,面漆工位:40,修补工位:10},
+    inventory:{富锌漆:8.5,中间漆:12.0,内面漆:6.5,外面漆:15.0,沥青漆:5.0,稀释剂:10.0,助剂:2.5},
+    monthlyDemand:{富锌漆:6.2,中间漆:8.0,内面漆:5.3,外面漆:8.6,沥青漆:4.3,稀释剂:6.8,助剂:1.6},
+    shelfLifeRemain:{富锌漆:85,中间漆:62,内面漆:120,外面漆:45,沥青漆:150,稀释剂:200,助剂:90},
+    turnoverDays:25,deadStockRate:0.08,
+    supplier:{富锌漆:'海虹老人',中间漆:'中涂化工',内面漆:'海虹老人',外面漆:'海虹老人',沥青漆:'金鱼涂料',稀释剂:'关西涂料',助剂:'KCC'},
+    trend:[278,282,280,285,283,285]},
+  '漳州':{totalCost:262,
+    usage:{富锌漆:14.0,中间漆:17.5,内面漆:12.2,外面漆:19.5,沥青漆:10.0,稀释剂:15.5,助剂:3.5},
+    price:{富锌漆:21.5,中间漆:19.0,内面漆:23.5,外面漆:25.5,沥青漆:11.8,稀释剂:8.2,助剂:17.5},
+    transferEff:0.74,avgDFTDev:2.8,firstPassRate:0.945,reworkRate:0.055,
+    dftByArea:{top:46,side:47,bottom:52,door:43},targetDFT:{top:45,side:45,bottom:50,door:42},
+    reworkReasons:{流挂:20,针孔:25,漏喷:22,色差:18,膜厚不足:10,其他:5},
+    reworkByStation:{底漆工位:12,中涂工位:30,面漆工位:45,修补工位:13},
+    inventory:{富锌漆:5.5,中间漆:7.0,内面漆:4.8,外面漆:9.0,沥青漆:3.8,稀释剂:7.5,助剂:1.8},
+    monthlyDemand:{富锌漆:5.5,中间漆:6.8,内面漆:4.8,外面漆:7.6,沥青漆:3.9,稀释剂:6.1,助剂:1.4},
+    shelfLifeRemain:{富锌漆:110,中间漆:95,内面漆:130,外面漆:80,沥青漆:160,稀释剂:220,助剂:105},
+    turnoverDays:16,deadStockRate:0.03,
+    supplier:{富锌漆:'海虹老人',中间漆:'海虹老人',内面漆:'中涂化工',外面漆:'海虹老人',沥青漆:'金鱼涂料',稀释剂:'中涂化工',助剂:'关西涂料'},
+    trend:[265,263,260,258,261,262]}
+};
+
+// Generate data for remaining enterprises
+ENTERPRISES.forEach(name=>{
+  if(ENT_DATA[name])return;
+  const base=248+Math.random()*50;
+  const u={},p={},inv={},dem={},shelf={},sup={};
+  PAINT_TYPES.forEach(pt=>{
+    const bu=BENCHMARKS.star.usage[pt]||10;const bp=BENCHMARKS.star.price[pt]||15;
+    u[pt]=+(bu*(0.9+Math.random()*0.25)).toFixed(1);
+    p[pt]=+(bp*(0.92+Math.random()*0.2)).toFixed(1);
+    inv[pt]=+(bu*0.4*(0.5+Math.random())).toFixed(1);
+    dem[pt]=+(bu*0.38*(0.8+Math.random()*0.4)).toFixed(1);
+    shelf[pt]=Math.round(40+Math.random()*180);
+    sup[pt]=['海虹老人','中涂化工','金鱼涂料','KCC','关西涂料'][Math.floor(Math.random()*5)];
+  });
+  ENT_DATA[name]={totalCost:+base.toFixed(0),usage:u,price:p,
+    transferEff:+(0.65+Math.random()*0.15).toFixed(2),
+    avgDFTDev:+(1.5+Math.random()*5).toFixed(1),
+    firstPassRate:+(0.88+Math.random()*0.1).toFixed(3),
+    reworkRate:+(0.03+Math.random()*0.08).toFixed(3),
+    dftByArea:{top:43+Math.round(Math.random()*8),side:44+Math.round(Math.random()*8),bottom:50+Math.round(Math.random()*10),door:41+Math.round(Math.random()*6)},
+    targetDFT:{top:45,side:45,bottom:50,door:42},
+    reworkReasons:{流挂:15+Math.round(Math.random()*20),针孔:15+Math.round(Math.random()*15),漏喷:10+Math.round(Math.random()*15),色差:8+Math.round(Math.random()*15),膜厚不足:5+Math.round(Math.random()*12),其他:3+Math.round(Math.random()*5)},
+    reworkByStation:{底漆工位:10+Math.round(Math.random()*10),中涂工位:25+Math.round(Math.random()*15),面漆工位:35+Math.round(Math.random()*15),修补工位:5+Math.round(Math.random()*10)},
+    inventory:inv,monthlyDemand:dem,shelfLifeRemain:shelf,
+    turnoverDays:Math.round(12+Math.random()*18),deadStockRate:+(0.02+Math.random()*0.08).toFixed(2),
+    supplier:sup,trend:Array.from({length:6},()=>Math.round(base-10+Math.random()*20))};
+});
+
+// ==================== STATE ====================
+let currentBenchmark='star';
+let currentEnterprise='新会';
+let selectedPaintType='中间漆';
+const charts={};
+
+// ==================== UTILITY ====================
+function fmt(v,d=1){return typeof v==='number'?v.toFixed(d):v}
+function fmtDev(v){return v>0?`+${fmt(v)}`:fmt(v)}
+function devClass(v){return v>0?'dev-pos':'dev-neg'}
+function pct(v){return(v*100).toFixed(1)+'%'}
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+// ==================== NAVIGATION ====================
+function goBack(){window.location.href='material-cost-panorama.html?enterprise='+currentEnterprise;}
+function resetFilters(){
+  document.querySelectorAll('.fi-s').forEach(s=>s.selectedIndex=0);
+  currentEnterprise='新会';selectedPaintType='中间漆';
+  document.getElementById('f-enterprise').value='新会';
+  renderAll();toast('✓ 已重置所有筛选');
+}
+function exportPNG(){
+  toast('⬇ 生成截图...');
+  html2canvas(document.getElementById('main-content'),{scale:2,backgroundColor:'#F8FAFC'}).then(canvas=>{
+    const link=document.createElement('a');
+    link.download='油漆量价归因_'+currentEnterprise+'.png';
+    link.href=canvas.toDataURL();link.click();toast('✓ 已导出PNG');
+  });
+}
+function toggleFullscreen(){if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen();}
+
+// ==================== RENDER: DUPONT TREE ====================
+function renderDupontTree(){
+  const ent=ENT_DATA[currentEnterprise];
+  const bm=BENCHMARKS[currentBenchmark];
+  const totalDev=ent.totalCost-bm.totalCost;
+  document.getElementById('layer1-subtitle').textContent=`${currentEnterprise} · ${document.getElementById('f-period').value} · 对标：${bm.label}`;
+
+  const contributions=PAINT_TYPES.map(pt=>{
+    const usageDev=ent.usage[pt]-bm.usage[pt];
+    const priceDev=ent.price[pt]-bm.price[pt];
+    const costDev=usageDev*bm.price[pt]+priceDev*ent.usage[pt];
+    return{name:pt,dev:+costDev.toFixed(1)};
+  }).sort((a,b)=>Math.abs(b.dev)-Math.abs(a.dev));
+
+  let html='';
+  html+=`<div class="tree-root">
+    <div class="lbl">单箱油漆成本</div>
+    <div class="val">${ent.totalCost}元</div>
+    <div class="dev">偏差 ${fmtDev(totalDev)}元 vs ${bm.label}</div>
+  </div>`;
+  html+=`<div class="tree-connector"></div>`;
+  html+=`<div class="tree-branches">`;
+  contributions.forEach(c=>{
+    const isActive=selectedPaintType===c.name;
+    html+=`<div class="tree-node${isActive?' active':''}" onclick="selectPaintType('${c.name}')">
+      <div class="node-lbl">${c.name}</div>
+      <div class="node-dev ${devClass(c.dev)}">${fmtDev(c.dev)}元</div>
+    </div>`;
+  });
+  html+=`</div>`;
+
+  if(selectedPaintType){
+    const entU=ent.usage[selectedPaintType];const entP=ent.price[selectedPaintType];
+    const bmU=bm.usage[selectedPaintType];const bmP=bm.price[selectedPaintType];
+    const usageDev=entU-bmU;const priceDev=entP-bmP;
+    const usageImpact=+(usageDev*bmP).toFixed(1);const priceImpact=+(priceDev*entU).toFixed(1);
+    html+=`<div class="detail-panel">
+      <div class="detail-panel-title">▼ ${selectedPaintType} · 量价分解</div>
+      <div class="detail-grid">
+        <div class="detail-box">
+          <div class="detail-box-title">📦 用量因素</div>
+          <div class="detail-row"><span class="label">实际用量</span><span class="value highlight">${entU} kg/箱</span></div>
+          <div class="detail-row"><span class="label">基准用量</span><span class="value">${bmU} kg/箱</span></div>
+          <div class="detail-row"><span class="label">用量偏差</span><span class="value ${devClass(usageDev)}">${fmtDev(usageDev)} kg</span></div>
+          <div class="detail-row"><span class="label">影响成本</span><span class="value ${devClass(usageImpact)}">${fmtDev(usageImpact)} 元/箱</span></div>
+        </div>
+        <div class="detail-box">
+          <div class="detail-box-title">💰 价格因素</div>
+          <div class="detail-row"><span class="label">实际单价</span><span class="value highlight">${entP} 元/kg</span></div>
+          <div class="detail-row"><span class="label">基准单价</span><span class="value">${bmP} 元/kg</span></div>
+          <div class="detail-row"><span class="label">价格偏差</span><span class="value ${devClass(priceDev)}">${fmtDev(priceDev)} 元/kg</span></div>
+          <div class="detail-row"><span class="label">影响成本</span><span class="value ${devClass(priceImpact)}">${fmtDev(priceImpact)} 元/箱</span></div>
+        </div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('dupont-tree').innerHTML=html;
+}
+
+function selectPaintType(pt){selectedPaintType=selectedPaintType===pt?null:pt;renderDupontTree();}
+
+// ==================== RENDER: RANK TABLE ====================
+function renderRankTable(){
+  const bm=BENCHMARKS[currentBenchmark];
+  const bmStar=BENCHMARKS.star,bmAvg=BENCHMARKS.avg,bmBench=BENCHMARKS.bench;
+  document.getElementById('rank-ent-name').textContent=currentEnterprise;
+  document.getElementById('rank-bench-label').textContent=`vs ${bm.label}`;
+
+  const indicators=[
+    {name:'单箱油漆总成本',unit:'元',get:d=>d.totalCost,sv:bmStar.totalCost,av:bmAvg.totalCost,bv:bmBench.totalCost,lower:true},
+    {name:'涂料利用率',unit:'%',get:d=>+(d.transferEff*100).toFixed(1),sv:+(bmStar.transferEff*100).toFixed(1),av:+(bmAvg.transferEff*100).toFixed(1),bv:+(bmBench.transferEff*100).toFixed(1),lower:false},
+    {name:'平均DFT偏差',unit:'μm',get:d=>d.avgDFTDev,sv:bmStar.avgDFTDev,av:bmAvg.avgDFTDev,bv:bmBench.avgDFTDev,lower:true},
+    {name:'一次合格率',unit:'%',get:d=>+(d.firstPassRate*100).toFixed(1),sv:+(bmStar.firstPassRate*100).toFixed(1),av:+(bmAvg.firstPassRate*100).toFixed(1),bv:+(bmBench.firstPassRate*100).toFixed(1),lower:false},
+    {name:'返修率',unit:'%',get:d=>+(d.reworkRate*100).toFixed(1),sv:+(bmStar.reworkRate*100).toFixed(1),av:+(bmAvg.reworkRate*100).toFixed(1),bv:+(bmBench.reworkRate*100).toFixed(1),lower:true},
+    {name:'库存周转天数',unit:'天',get:d=>d.turnoverDays,sv:bmStar.turnoverDays,av:bmAvg.turnoverDays,bv:bmBench.turnoverDays,lower:true},
+    {name:'呆滞率',unit:'%',get:d=>+(d.deadStockRate*100).toFixed(1),sv:+(bmStar.deadStockRate*100).toFixed(1),av:+(bmAvg.deadStockRate*100).toFixed(1),bv:+(bmBench.deadStockRate*100).toFixed(1),lower:true}
+  ];
+
+  const ent=ENT_DATA[currentEnterprise];
+  function rankCls(r){return r<=3?'top3':r<=8?'mid':'bot';}
+  let tbody='';
+  indicators.forEach(ind=>{
+    const myVal=+ind.get(ent);
+    const allVals=ENTERPRISES.map(e=>+ind.get(ENT_DATA[e]));
+    const sorted=[...allVals].sort((a,b)=>ind.lower?a-b:b-a);
+    let rank=sorted.indexOf(myVal)+1;if(rank===0)rank=Math.ceil(ENTERPRISES.length/2);
+    const bmVal=currentBenchmark==='star'?+ind.sv:currentBenchmark==='avg'?+ind.av:+ind.bv;
+    const dev=myVal-bmVal;
+    const isGood=ind.lower?(dev<=0):(dev>=0);
+    const devColor=isGood?'good':'bad';
+    tbody+=`<tr>
+      <td>${ind.name}</td>
+      <td style="text-align:center"><span class="rank-val">${fmt(myVal)} ${ind.unit}</span></td>
+      <td style="text-align:center"><span class="rank-pos ${rankCls(rank)}">${rank}</span></td>
+      <td style="text-align:center"><span class="rank-bm">${ind.sv} ${ind.unit}</span></td>
+      <td style="text-align:center"><span class="rank-bm">${ind.av} ${ind.unit}</span></td>
+      <td style="text-align:center"><span class="rank-bm">${ind.bv} ${ind.unit}</span></td>
+      <td style="text-align:center"><span class="rank-dev ${devColor}">${fmtDev(+dev.toFixed(1))} ${ind.unit}</span></td>
+    </tr>`;
+  });
+  document.querySelector('#rank-table tbody').innerHTML=tbody;
+}
+
+// ==================== TAB RENDER FUNCTIONS ====================
+
+// TAB 1: 耗量分析
+function renderConsumption(){
+  const ent=ENT_DATA[currentEnterprise];const bm=BENCHMARKS[currentBenchmark];
+  const totalU=Object.values(ent.usage).reduce((a,b)=>a+b,0);
+  const bmTotalU=Object.values(bm.usage).reduce((a,b)=>a+b,0);
+
+  document.getElementById('kpi-consumption').innerHTML=`
+    <div class="kpi-card highlight-bad"><div class="kpi-val">${fmt(totalU)}</div><div class="kpi-lbl">单箱总用漆量(kg)</div><div class="kpi-sub ${devClass(totalU-bmTotalU)}">${fmtDev(totalU-bmTotalU)}kg vs ${bm.label}</div></div>
+    <div class="kpi-card"><div class="kpi-val">${ent.usage['中间漆']}</div><div class="kpi-lbl">中间漆用量(kg)</div><div class="kpi-sub ${devClass(ent.usage['中间漆']-bm.usage['中间漆'])}">${fmtDev(ent.usage['中间漆']-bm.usage['中间漆'])}kg</div></div>
+    <div class="kpi-card"><div class="kpi-val">${ent.usage['外面漆']}</div><div class="kpi-lbl">外面漆用量(kg)</div><div class="kpi-sub ${devClass(ent.usage['外面漆']-bm.usage['外面漆'])}">${fmtDev(ent.usage['外面漆']-bm.usage['外面漆'])}kg</div></div>
+    <div class="kpi-card"><div class="kpi-val">${pct(ent.transferEff)}</div><div class="kpi-lbl">涂料利用率</div><div class="kpi-sub ${devClass(ent.transferEff-bm.transferEff)}">${fmtDev(((ent.transferEff-bm.transferEff)*100).toFixed(1))}%</div></div>`;
+
+  document.getElementById('charts-consumption').innerHTML=`
+    <div class="chart-box"><div class="chart-box-title">各企业单箱总用漆量排名</div><canvas id="c-cons-rank"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">漆种用量结构(堆叠) · ${currentEnterprise} vs ${bm.label}</div><canvas id="c-cons-stack"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">各漆种用量偏差(元/箱) · 按影响额排序</div><canvas id="c-cons-waterfall"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">单箱成本趋势(近6月)</div><canvas id="c-cons-trend"></canvas></div>`;
+
+  requestAnimationFrame(()=>{
+    const colors=['#4F46E5','#7C3AED','#0284C7','#059669','#D97706','#E11D48','#6B7280'];
+    destroyChart('c-cons-rank');
+    const sorted=[...ENTERPRISES].sort((a,b)=>Object.values(ENT_DATA[a].usage).reduce((s,v)=>s+v,0)-Object.values(ENT_DATA[b].usage).reduce((s,v)=>s+v,0));
+    charts['c-cons-rank']=new Chart(document.getElementById('c-cons-rank'),{
+      type:'bar',data:{labels:sorted,datasets:[{data:sorted.map(e=>+Object.values(ENT_DATA[e].usage).reduce((s,v)=>s+v,0).toFixed(1)),backgroundColor:sorted.map(e=>e===currentEnterprise?'rgba(79,70,229,.8)':'rgba(79,70,229,.25)'),borderRadius:4}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'right',font:{size:10},formatter:v=>fmt(v)+'kg'}},scales:{x:{grid:{display:false}},y:{grid:{display:false},ticks:{font:{size:10}}}}}
+    });
+
+    destroyChart('c-cons-stack');
+    charts['c-cons-stack']=new Chart(document.getElementById('c-cons-stack'),{
+      type:'bar',data:{labels:[currentEnterprise,bm.label],datasets:PAINT_TYPES.map((pt,i)=>({label:pt,data:[ent.usage[pt],bm.usage[pt]],backgroundColor:colors[i],borderRadius:2}))},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10}}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,title:{display:true,text:'kg/箱'}}}}
+    });
+
+    destroyChart('c-cons-waterfall');
+    const wData=PAINT_TYPES.map(pt=>({name:pt,val:+((ent.usage[pt]-bm.usage[pt])*bm.price[pt]).toFixed(1)})).sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
+    charts['c-cons-waterfall']=new Chart(document.getElementById('c-cons-waterfall'),{
+      type:'bar',data:{labels:wData.map(x=>x.name),datasets:[{data:wData.map(x=>x.val),backgroundColor:wData.map(x=>x.val>0?'rgba(225,29,72,.55)':'rgba(5,150,105,.55)'),borderRadius:4}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'top',font:{size:10,weight:600},formatter:v=>v>0?'+'+v:v}},scales:{x:{grid:{display:false}},y:{title:{display:true,text:'元/箱'}}}}
+    });
+
+    destroyChart('c-cons-trend');
+    const months=['1月','2月','3月','4月','5月','6月'];
+    charts['c-cons-trend']=new Chart(document.getElementById('c-cons-trend'),{
+      type:'line',data:{labels:months,datasets:[{label:currentEnterprise,data:ent.trend||Array(6).fill(ent.totalCost),borderColor:'#4F46E5',backgroundColor:'rgba(79,70,229,.08)',fill:true,tension:.3,pointRadius:4},{label:bm.label,data:Array(6).fill(bm.totalCost),borderColor:'#D97706',borderDash:[4,4],pointRadius:0,fill:false}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10}}}},scales:{x:{grid:{display:false}},y:{title:{display:true,text:'元/箱'}}}}
+    });
+  });
+
+  let t=`<table class="detail-table"><thead><tr><th>企业</th>`;
+  PAINT_TYPES.forEach(pt=>t+=`<th>${pt}(kg)</th>`);
+  t+=`<th>合计</th><th>vs${bm.label}</th></tr></thead><tbody>`;
+  ENTERPRISES.forEach(e=>{
+    const d=ENT_DATA[e];const tot=Object.values(d.usage).reduce((s,v)=>s+v,0);const dev=tot-bmTotalU;
+    t+=`<tr style="${e===currentEnterprise?'background:rgba(79,70,229,.05);font-weight:600':''}"><td>${e}</td>`;
+    PAINT_TYPES.forEach(pt=>{const v=d.usage[pt];const bv=bm.usage[pt];t+=`<td style="${v>bv?'color:var(--ro)':v<bv?'color:var(--em)':''}">${fmt(v)}</td>`;});
+    t+=`<td>${fmt(tot)}</td><td class="${devClass(dev)}">${fmtDev(dev)}</td></tr>`;
+  });
+  t+=`</tbody></table>`;
+  document.getElementById('table-consumption').innerHTML=t;
+}
+
+// TAB 2: 出库价分析
+function renderPrice(){
+  const ent=ENT_DATA[currentEnterprise];const bm=BENCHMARKS[currentBenchmark];
+  const totalU=Object.values(ent.usage).reduce((s,v)=>s+v,0);
+  const wp=+(PAINT_TYPES.reduce((s,pt)=>s+ent.price[pt]*ent.usage[pt],0)/totalU).toFixed(1);
+  const bmTotalU=Object.values(bm.usage).reduce((s,v)=>s+v,0);
+  const bmWp=+(PAINT_TYPES.reduce((s,pt)=>s+bm.price[pt]*bm.usage[pt],0)/bmTotalU).toFixed(1);
+
+  document.getElementById('kpi-price').innerHTML=`
+    <div class="kpi-card highlight-bad"><div class="kpi-val">${wp}</div><div class="kpi-lbl">加权出库单价(元/kg)</div><div class="kpi-sub ${devClass(wp-bmWp)}">${fmtDev(wp-bmWp)} vs ${bm.label}</div></div>
+    <div class="kpi-card"><div class="kpi-val">${ent.price['外面漆']}</div><div class="kpi-lbl">外面漆单价(元/kg)</div><div class="kpi-sub ${devClass(ent.price['外面漆']-bm.price['外面漆'])}">${fmtDev(ent.price['外面漆']-bm.price['外面漆'])}</div></div>
+    <div class="kpi-card"><div class="kpi-val">${ent.price['中间漆']}</div><div class="kpi-lbl">中间漆单价(元/kg)</div><div class="kpi-sub ${devClass(ent.price['中间漆']-bm.price['中间漆'])}">${fmtDev(ent.price['中间漆']-bm.price['中间漆'])}</div></div>
+    <div class="kpi-card"><div class="kpi-val">${ent.supplier?Object.values(ent.supplier).filter((v,i,a)=>a.indexOf(v)===i).length:'-'}</div><div class="kpi-lbl">供应商数量</div><div class="kpi-sub" style="color:var(--s400)">覆盖${PAINT_TYPES.length}漆种</div></div>`;
+
+  document.getElementById('charts-price').innerHTML=`
+    <div class="chart-box"><div class="chart-box-title">各企业加权出库单价排名</div><canvas id="c-price-rank"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">按漆种单价对比(雷达) · 多基准</div><canvas id="c-price-radar"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">各漆种价格偏差贡献(元/箱)</div><canvas id="c-price-waterfall"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">供应商均价对比</div><canvas id="c-price-supplier"></canvas></div>`;
+
+  requestAnimationFrame(()=>{
+    destroyChart('c-price-rank');
+    const sorted=[...ENTERPRISES].sort((a,b)=>{
+      const aW=PAINT_TYPES.reduce((s,pt)=>s+ENT_DATA[a].price[pt]*ENT_DATA[a].usage[pt],0)/Object.values(ENT_DATA[a].usage).reduce((s,v)=>s+v,0);
+      const bW=PAINT_TYPES.reduce((s,pt)=>s+ENT_DATA[b].price[pt]*ENT_DATA[b].usage[pt],0)/Object.values(ENT_DATA[b].usage).reduce((s,v)=>s+v,0);
+      return aW-bW;
+    });
+    charts['c-price-rank']=new Chart(document.getElementById('c-price-rank'),{
+      type:'bar',data:{labels:sorted,datasets:[{data:sorted.map(e=>+(PAINT_TYPES.reduce((s,pt)=>s+ENT_DATA[e].price[pt]*ENT_DATA[e].usage[pt],0)/Object.values(ENT_DATA[e].usage).reduce((s,v)=>s+v,0)).toFixed(1)),backgroundColor:sorted.map(e=>e===currentEnterprise?'rgba(79,70,229,.8)':'rgba(79,70,229,.25)'),borderRadius:4}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'right',font:{size:10},formatter:v=>v+'元/kg'}},scales:{x:{grid:{display:false}},y:{grid:{display:false},ticks:{font:{size:10}}}}}
+    });
+
+    destroyChart('c-price-radar');
+    charts['c-price-radar']=new Chart(document.getElementById('c-price-radar'),{
+      type:'radar',data:{labels:PAINT_TYPES,datasets:[
+        {label:currentEnterprise,data:PAINT_TYPES.map(pt=>ent.price[pt]),borderColor:'#4F46E5',backgroundColor:'rgba(79,70,229,.08)',pointRadius:3},
+        {label:bm.label,data:PAINT_TYPES.map(pt=>bm.price[pt]),borderColor:'#D97706',backgroundColor:'rgba(217,119,6,.05)',borderDash:[3,3],pointRadius:3},
+        {label:'标杆企业',data:PAINT_TYPES.map(pt=>BENCHMARKS.bench.price[pt]),borderColor:'#059669',backgroundColor:'rgba(5,150,105,.05)',borderDash:[2,2],pointRadius:3}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10}}}},scales:{r:{ticks:{font:{size:9}},pointLabels:{font:{size:10}}}}}
+    });
+
+    destroyChart('c-price-waterfall');
+    const pc=PAINT_TYPES.map(pt=>({name:pt,val:+((ent.price[pt]-bm.price[pt])*ent.usage[pt]).toFixed(1)})).sort((a,b)=>Math.abs(b.val)-Math.abs(a.val));
+    charts['c-price-waterfall']=new Chart(document.getElementById('c-price-waterfall'),{
+      type:'bar',data:{labels:pc.map(x=>x.name),datasets:[{data:pc.map(x=>x.val),backgroundColor:pc.map(x=>x.val>0?'rgba(225,29,72,.55)':'rgba(5,150,105,.55)'),borderRadius:4}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'top',font:{size:10,weight:600},formatter:v=>v>0?'+'+v:v}},scales:{x:{grid:{display:false}},y:{title:{display:true,text:'元/箱'}}}}
+    });
+
+    destroyChart('c-price-supplier');
+    const supMap={};
+    ENTERPRISES.forEach(e=>{const d=ENT_DATA[e];if(d.supplier){PAINT_TYPES.forEach(pt=>{const s=d.supplier[pt];if(!supMap[s])supMap[s]=[];supMap[s].push(d.price[pt]);});}});
+    const topSup=Object.entries(supMap).sort((a,b)=>b[1].length-a[1].length).slice(0,5);
+    const sc=['#4F46E5','#7C3AED','#0284C7','#059669','#D97706'];
+    charts['c-price-supplier']=new Chart(document.getElementById('c-price-supplier'),{
+      type:'bar',data:{labels:topSup.map(s=>s[0]),datasets:[{data:topSup.map(s=>+(s[1].reduce((a,b)=>a+b,0)/s[1].length).toFixed(1)),backgroundColor:sc.map(c=>c+'99'),borderRadius:4}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'top',font:{size:10,weight:600},formatter:v=>v+'元/kg'}},scales:{x:{grid:{display:false}},y:{title:{display:true,text:'元/kg'}}}}
+    });
+  });
+
+  let t=`<table class="detail-table"><thead><tr><th>企业</th>`;
+  PAINT_TYPES.forEach(pt=>t+=`<th>${pt}(元/kg)</th>`);
+  t+=`<th>加权均价</th><th>供应商</th><th>偏差</th></tr></thead><tbody>`;
+  ENTERPRISES.forEach(e=>{
+    const d=ENT_DATA[e];const u=Object.values(d.usage).reduce((s,v)=>s+v,0);
+    const ewp=+(PAINT_TYPES.reduce((s,pt)=>s+d.price[pt]*d.usage[pt],0)/u).toFixed(1);const dev=ewp-bmWp;
+    t+=`<tr style="${e===currentEnterprise?'background:rgba(79,70,229,.05);font-weight:600':''}"><td>${e}</td>`;
+    PAINT_TYPES.forEach(pt=>{const v=d.price[pt];const bv=bm.price[pt];t+=`<td style="${v>bv?'color:var(--ro)':v<bv?'color:var(--em)':''}">${fmt(v)}</td>`;});
+    t+=`<td>${ewp}</td><td style="font-size:10px">${d.supplier?Object.values(d.supplier).filter((v,i,a)=>a.indexOf(v)===i).join('/'):'-'}</td>`;
+    t+=`<td class="${devClass(dev)}">${fmtDev(dev)}</td></tr>`;
+  });
+  t+=`</tbody></table>`;
+  document.getElementById('table-price').innerHTML=t;
+}
+
+// TAB 3: 涂料利用率与膜厚
+function renderEfficiency(){
+  const ent=ENT_DATA[currentEnterprise];const bm=BENCHMARKS[currentBenchmark];
+  const totalU=Object.values(ent.usage).reduce((s,v)=>s+v,0);
+
+  document.getElementById('kpi-efficiency').innerHTML=`
+    <div class="kpi-card highlight-bad"><div class="kpi-val">${pct(ent.transferEff)}</div><div class="kpi-lbl">涂料利用率</div><div class="kpi-sub ${devClass(ent.transferEff-bm.transferEff)}">${fmtDev(((ent.transferEff-bm.transferEff)*100).toFixed(1))}%</div></div>
+    <div class="kpi-card"><div class="kpi-val">${ent.avgDFTDev}μm</div><div class="kpi-lbl">平均DFT超厚偏差</div><div class="kpi-sub ${devClass(-(ent.avgDFTDev-bm.avgDFTDev))}">${fmtDev(ent.avgDFTDev-bm.avgDFTDev)}μm</div></div>
+    <div class="kpi-card"><div class="kpi-val">${ent.dftByArea?Math.max(...Object.values(ent.dftByArea))-Math.min(...Object.values(ent.dftByArea)):'-'}μm</div><div class="kpi-lbl">部位膜厚极差</div><div class="kpi-sub" style="color:var(--s400)">均匀性指标</div></div>
+    <div class="kpi-card"><div class="kpi-val">${((1-ent.transferEff)*totalU).toFixed(1)}kg</div><div class="kpi-lbl">单箱过喷浪费量</div><div class="kpi-sub" style="color:var(--am)">=(1-利用率)×总用量</div></div>`;
+
+  document.getElementById('charts-efficiency').innerHTML=`
+    <div class="chart-box"><div class="chart-box-title">各企业涂料利用率排名</div><canvas id="c-eff-rank"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">各部位DFT · 实测 vs 目标 · ${currentEnterprise}</div><canvas id="c-eff-dft"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">利用率 vs DFT偏差(散点) · 各企业</div><canvas id="c-eff-scatter"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">利用率月度趋势 · ${currentEnterprise}</div><canvas id="c-eff-trend"></canvas></div>`;
+
+  requestAnimationFrame(()=>{
+    destroyChart('c-eff-rank');
+    const sorted=[...ENTERPRISES].sort((a,b)=>ENT_DATA[b].transferEff-ENT_DATA[a].transferEff);
+    charts['c-eff-rank']=new Chart(document.getElementById('c-eff-rank'),{
+      type:'bar',data:{labels:sorted,datasets:[{data:sorted.map(e=>+(ENT_DATA[e].transferEff*100).toFixed(1)),backgroundColor:sorted.map(e=>e===currentEnterprise?'rgba(79,70,229,.8)':'rgba(79,70,229,.25)'),borderRadius:4}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'right',font:{size:10},formatter:v=>v+'%'}},scales:{x:{min:55,max:85,grid:{display:false}},y:{grid:{display:false},ticks:{font:{size:10}}}}}
+    });
+
+    destroyChart('c-eff-dft');
+    const areas=['top','side','bottom','door'];const areaL=['顶板','侧板','底架','门端'];
+    charts['c-eff-dft']=new Chart(document.getElementById('c-eff-dft'),{
+      type:'bar',data:{labels:areaL,datasets:[
+        {label:'实测DFT',data:areas.map(a=>ent.dftByArea?ent.dftByArea[a]:45),backgroundColor:'rgba(79,70,229,.55)',borderRadius:4},
+        {label:'目标DFT',data:areas.map(a=>ent.targetDFT?ent.targetDFT[a]:45),backgroundColor:'rgba(217,119,6,.35)',borderRadius:4}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10}}},datalabels:{display:true,anchor:'end',align:'top',font:{size:10},formatter:v=>v+'μm'}},scales:{x:{grid:{display:false}},y:{title:{display:true,text:'μm'},min:30,max:70}}}
+    });
+
+    destroyChart('c-eff-scatter');
+    charts['c-eff-scatter']=new Chart(document.getElementById('c-eff-scatter'),{
+      type:'scatter',data:{datasets:[{label:'各企业',data:ENTERPRISES.map(e=>({x:+(ENT_DATA[e].transferEff*100).toFixed(1),y:+ENT_DATA[e].avgDFTDev,label:e})),backgroundColor:ENTERPRISES.map(e=>e===currentEnterprise?'rgba(79,70,229,.9)':'rgba(79,70,229,.25)'),pointRadius:ENTERPRISES.map(e=>e===currentEnterprise?9:5)}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,align:'top',font:{size:9},formatter:(v,ctx)=>ctx.dataset.data[ctx.dataIndex].label}},scales:{x:{title:{display:true,text:'涂料利用率(%)'},min:60,max:85},y:{title:{display:true,text:'DFT偏差(μm)'},min:0,max:8}}}
+    });
+
+    destroyChart('c-eff-trend');
+    const months=['1月','2月','3月','4月','5月','6月'];
+    charts['c-eff-trend']=new Chart(document.getElementById('c-eff-trend'),{
+      type:'line',data:{labels:months,datasets:[{label:currentEnterprise,data:Array.from({length:6},()=>+(ent.transferEff*100-2+Math.random()*4).toFixed(1)),borderColor:'#4F46E5',backgroundColor:'rgba(79,70,229,.08)',fill:true,tension:.3,pointRadius:4},{label:bm.label,data:Array(6).fill(+(bm.transferEff*100).toFixed(1)),borderColor:'#D97706',borderDash:[4,4],pointRadius:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10}}}},scales:{x:{grid:{display:false}},y:{title:{display:true,text:'%'},min:60,max:85}}}
+    });
+  });
+
+  let t=`<table class="detail-table"><thead><tr><th>企业</th><th>利用率(%)</th><th>DFT偏差(μm)</th><th>顶板</th><th>侧板</th><th>底架</th><th>门端</th><th>过喷浪费(kg)</th><th>潜在节约(元/箱)</th></tr></thead><tbody>`;
+  ENTERPRISES.forEach(e=>{
+    const d=ENT_DATA[e];const waste=(1-d.transferEff)*Object.values(d.usage).reduce((s,v)=>s+v,0);
+    const benchWaste=(1-BENCHMARKS.bench.transferEff)*Object.values(BENCHMARKS.bench.usage).reduce((s,v)=>s+v,0);
+    const saving=(waste-benchWaste)*18;
+    t+=`<tr style="${e===currentEnterprise?'background:rgba(79,70,229,.05);font-weight:600':''}">`;
+    t+=`<td>${e}</td><td>${(d.transferEff*100).toFixed(1)}</td><td>${d.avgDFTDev}</td>`;
+    t+=`<td>${d.dftByArea?d.dftByArea.top:'-'}</td><td>${d.dftByArea?d.dftByArea.side:'-'}</td><td>${d.dftByArea?d.dftByArea.bottom:'-'}</td><td>${d.dftByArea?d.dftByArea.door:'-'}</td>`;
+    t+=`<td>${waste.toFixed(1)}</td><td class="${saving>0?'dev-pos':'dev-neg'}">${saving>0?'+':''}${saving.toFixed(1)}</td></tr>`;
+  });
+  t+=`</tbody></table>`;
+  document.getElementById('table-efficiency').innerHTML=t;
+}
+
+// TAB 4: 质量与返修
+function renderQuality(){
+  const ent=ENT_DATA[currentEnterprise];const bm=BENCHMARKS[currentBenchmark];
+  const totalU=Object.values(ent.usage).reduce((s,v)=>s+v,0);
+  const extraCost=ent.reworkRate*totalU*18*0.6;
+
+  document.getElementById('kpi-quality').innerHTML=`
+    <div class="kpi-card highlight-bad"><div class="kpi-val">${pct(ent.firstPassRate)}</div><div class="kpi-lbl">一次合格率</div><div class="kpi-sub ${devClass(ent.firstPassRate-bm.firstPassRate)}">${fmtDev(((ent.firstPassRate-bm.firstPassRate)*100).toFixed(1))}%</div></div>
+    <div class="kpi-card"><div class="kpi-val">${pct(ent.reworkRate)}</div><div class="kpi-lbl">返修率</div><div class="kpi-sub ${devClass(-(ent.reworkRate-bm.reworkRate))}">${fmtDev(((ent.reworkRate-bm.reworkRate)*100).toFixed(1))}%</div></div>
+    <div class="kpi-card"><div class="kpi-val">${extraCost.toFixed(1)}元</div><div class="kpi-lbl">返修额外成本(元/箱)</div><div class="kpi-sub" style="color:var(--ro)">含油漆+人工+能耗</div></div>
+    <div class="kpi-card"><div class="kpi-val">${ent.reworkReasons?Object.entries(ent.reworkReasons).sort((a,b)=>b[1]-a[1])[0][0]:'-'}</div><div class="kpi-lbl">首要缺陷类型</div><div class="kpi-sub" style="color:var(--am)">占比${ent.reworkReasons?Object.entries(ent.reworkReasons).sort((a,b)=>b[1]-a[1])[0][1]:0}%</div></div>`;
+
+  document.getElementById('charts-quality').innerHTML=`
+    <div class="chart-box"><div class="chart-box-title">各企业一次合格率排名</div><canvas id="c-qual-rank"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">返修原因帕累托图 · ${currentEnterprise}</div><canvas id="c-qual-pareto"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">返修工位分布(环形) · ${currentEnterprise}</div><canvas id="c-qual-station"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">返修率 vs 额外成本(散点)</div><canvas id="c-qual-scatter"></canvas></div>`;
+
+  requestAnimationFrame(()=>{
+    destroyChart('c-qual-rank');
+    const sorted=[...ENTERPRISES].sort((a,b)=>ENT_DATA[b].firstPassRate-ENT_DATA[a].firstPassRate);
+    charts['c-qual-rank']=new Chart(document.getElementById('c-qual-rank'),{
+      type:'bar',data:{labels:sorted,datasets:[{data:sorted.map(e=>+(ENT_DATA[e].firstPassRate*100).toFixed(1)),backgroundColor:sorted.map(e=>e===currentEnterprise?'rgba(79,70,229,.8)':'rgba(79,70,229,.25)'),borderRadius:4}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'right',font:{size:10},formatter:v=>v+'%'}},scales:{x:{min:85,max:100,grid:{display:false}},y:{grid:{display:false},ticks:{font:{size:10}}}}}
+    });
+
+    destroyChart('c-qual-pareto');
+    if(ent.reworkReasons){
+      const sorted2=Object.entries(ent.reworkReasons).sort((a,b)=>b[1]-a[1]);
+      const total=sorted2.reduce((s,x)=>s+x[1],0);let cum=0;
+      const cumLine=sorted2.map(x=>{cum+=x[1]/total*100;return +cum.toFixed(1);});
+      charts['c-qual-pareto']=new Chart(document.getElementById('c-qual-pareto'),{
+        type:'bar',data:{labels:sorted2.map(x=>x[0]),datasets:[
+          {type:'bar',label:'占比(%)',data:sorted2.map(x=>+(x[1]/total*100).toFixed(1)),backgroundColor:'rgba(225,29,72,.45)',borderRadius:4,yAxisID:'y'},
+          {type:'line',label:'累计(%)',data:cumLine,borderColor:'#4F46E5',pointRadius:3,yAxisID:'y1',fill:false}
+        ]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10}}}},scales:{x:{grid:{display:false}},y:{position:'left',title:{display:true,text:'%'},min:0,max:50},y1:{position:'right',min:0,max:110,grid:{display:false},title:{display:true,text:'累计%'}}}}
+      });
+    }
+
+    destroyChart('c-qual-station');
+    if(ent.reworkByStation){
+      const st=Object.keys(ent.reworkByStation);const sv=Object.values(ent.reworkByStation);
+      charts['c-qual-station']=new Chart(document.getElementById('c-qual-station'),{
+        type:'doughnut',data:{labels:st,datasets:[{data:sv,backgroundColor:['#4F46E5','#7C3AED','#E11D48','#D97706'],borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10}}},datalabels:{display:true,font:{size:11,weight:600},color:'#fff',formatter:(v,ctx)=>{const t2=ctx.dataset.data.reduce((a,b)=>a+b,0);return Math.round(v/t2*100)+'%';}}},cutout:'50%'}
+      });
+    }
+
+    destroyChart('c-qual-scatter');
+    charts['c-qual-scatter']=new Chart(document.getElementById('c-qual-scatter'),{
+      type:'scatter',data:{datasets:[{data:ENTERPRISES.map(e=>{const d=ENT_DATA[e];return{x:+(d.reworkRate*100).toFixed(1),y:+(d.reworkRate*Object.values(d.usage).reduce((s,v)=>s+v,0)*18*0.6).toFixed(1),label:e};}),backgroundColor:ENTERPRISES.map(e=>e===currentEnterprise?'rgba(225,29,72,.85)':'rgba(225,29,72,.25)'),pointRadius:ENTERPRISES.map(e=>e===currentEnterprise?9:5)}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,align:'top',font:{size:9},formatter:(v,ctx)=>ctx.dataset.data[ctx.dataIndex].label}},scales:{x:{title:{display:true,text:'返修率(%)'},min:2,max:12},y:{title:{display:true,text:'额外成本(元/箱)'},min:0}}}
+    });
+  });
+
+  let t=`<table class="detail-table"><thead><tr><th>企业</th><th>一次合格率(%)</th><th>返修率(%)</th><th>主要缺陷</th><th>流挂</th><th>针孔</th><th>漏喷</th><th>色差</th><th>膜厚不足</th><th>额外成本</th><th>排名</th></tr></thead><tbody>`;
+  const sortedQ=[...ENTERPRISES].sort((a,b)=>ENT_DATA[b].firstPassRate-ENT_DATA[a].firstPassRate);
+  sortedQ.forEach((e,i)=>{
+    const d=ENT_DATA[e];const r=d.reworkReasons||{};
+    const top=Object.entries(r).sort((a,b)=>b[1]-a[1])[0];
+    const cost=d.reworkRate*Object.values(d.usage).reduce((s,v)=>s+v,0)*18*0.6;
+    t+=`<tr style="${e===currentEnterprise?'background:rgba(79,70,229,.05);font-weight:600':''}">`;
+    t+=`<td>${e}</td><td>${(d.firstPassRate*100).toFixed(1)}</td><td style="color:var(--ro)">${(d.reworkRate*100).toFixed(1)}</td>`;
+    t+=`<td>${top?top[0]:'-'}</td><td>${r['流挂']||'-'}</td><td>${r['针孔']||'-'}</td><td>${r['漏喷']||'-'}</td><td>${r['色差']||'-'}</td><td>${r['膜厚不足']||'-'}</td>`;
+    t+=`<td>${cost.toFixed(1)}</td><td><span class="rank-pos ${i<3?'top3':i<8?'mid':'bot'}">${i+1}</span></td></tr>`;
+  });
+  t+=`</tbody></table>`;
+  document.getElementById('table-quality').innerHTML=t;
+}
+
+// TAB 5: 库存与周转
+function renderInventory(){
+  const ent=ENT_DATA[currentEnterprise];const bm=BENCHMARKS[currentBenchmark];
+  const totalInv=Object.values(ent.inventory).reduce((s,v)=>s+v,0);
+  const totalDem=Object.values(ent.monthlyDemand).reduce((s,v)=>s+v,0);
+
+  document.getElementById('kpi-inventory').innerHTML=`
+    <div class="kpi-card highlight-bad"><div class="kpi-val">${ent.turnoverDays}天</div><div class="kpi-lbl">库存周转天数</div><div class="kpi-sub ${devClass(-(ent.turnoverDays-bm.turnoverDays))}">${fmtDev(ent.turnoverDays-bm.turnoverDays)}天 vs ${bm.label}</div></div>
+    <div class="kpi-card"><div class="kpi-val">${fmt(totalInv)}吨</div><div class="kpi-lbl">当前总库存</div><div class="kpi-sub" style="color:var(--s400)">覆盖${(totalInv/totalDem*30).toFixed(0)}天用量</div></div>
+    <div class="kpi-card"><div class="kpi-val">${pct(ent.deadStockRate)}</div><div class="kpi-lbl">呆滞率</div><div class="kpi-sub ${devClass(-(ent.deadStockRate-bm.deadStockRate))}">${fmtDev(((ent.deadStockRate-bm.deadStockRate)*100).toFixed(1))}%</div></div>
+    <div class="kpi-card"><div class="kpi-val">${ent.shelfLifeRemain?Math.min(...Object.values(ent.shelfLifeRemain)):'-'}天</div><div class="kpi-lbl">最短剩余保质期</div><div class="kpi-sub" style="color:${Math.min(...Object.values(ent.shelfLifeRemain||{a:999}))<60?'var(--ro)':'var(--em)'}">关注&lt;60天品项</div></div>`;
+
+  document.getElementById('charts-inventory').innerHTML=`
+    <div class="chart-box"><div class="chart-box-title">各企业周转天数(柱) & 呆滞率(线)</div><canvas id="c-inv-rank"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">各漆种库存 vs 月需求量 · ${currentEnterprise}</div><canvas id="c-inv-supply"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">保质期预警(剩余天数)</div><canvas id="c-inv-shelf"></canvas></div>
+    <div class="chart-box"><div class="chart-box-title">库存金额结构</div><canvas id="c-inv-pie"></canvas></div>`;
+
+  requestAnimationFrame(()=>{
+    destroyChart('c-inv-rank');
+    const sorted=[...ENTERPRISES].sort((a,b)=>ENT_DATA[a].turnoverDays-ENT_DATA[b].turnoverDays);
+    charts['c-inv-rank']=new Chart(document.getElementById('c-inv-rank'),{
+      type:'bar',data:{labels:sorted,datasets:[
+        {type:'bar',label:'周转天数',data:sorted.map(e=>ENT_DATA[e].turnoverDays),backgroundColor:sorted.map(e=>e===currentEnterprise?'rgba(79,70,229,.8)':'rgba(79,70,229,.25)'),borderRadius:4,yAxisID:'y'},
+        {type:'line',label:'呆滞率(%)',data:sorted.map(e=>+(ENT_DATA[e].deadStockRate*100).toFixed(1)),borderColor:'#E11D48',pointRadius:4,yAxisID:'y1',fill:false}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10}}}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{position:'left',title:{display:true,text:'天'}},y1:{position:'right',min:0,max:15,grid:{display:false},title:{display:true,text:'%'}}}}
+    });
+
+    destroyChart('c-inv-supply');
+    charts['c-inv-supply']=new Chart(document.getElementById('c-inv-supply'),{
+      type:'bar',data:{labels:PAINT_TYPES,datasets:[
+        {label:'当前库存(吨)',data:PAINT_TYPES.map(pt=>ent.inventory[pt]),backgroundColor:'rgba(2,132,199,.45)',borderRadius:4},
+        {label:'月需求(吨)',data:PAINT_TYPES.map(pt=>ent.monthlyDemand[pt]),backgroundColor:'rgba(5,150,105,.45)',borderRadius:4}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10}}}},scales:{x:{grid:{display:false}},y:{title:{display:true,text:'吨'}}}}
+    });
+
+    destroyChart('c-inv-shelf');
+    if(ent.shelfLifeRemain){
+      const shData=PAINT_TYPES.map(pt=>ent.shelfLifeRemain[pt]);
+      charts['c-inv-shelf']=new Chart(document.getElementById('c-inv-shelf'),{
+        type:'bar',data:{labels:PAINT_TYPES,datasets:[{data:shData,backgroundColor:shData.map(v=>v<60?'rgba(225,29,72,.55)':v<90?'rgba(217,119,6,.45)':'rgba(5,150,105,.4)'),borderRadius:4}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'top',font:{size:10},formatter:v=>v+'天'}},scales:{x:{grid:{display:false}},y:{title:{display:true,text:'剩余天数'},min:0}}}
+      });
+    }
+
+    destroyChart('c-inv-pie');
+    const invV=PAINT_TYPES.map(pt=>+(ent.inventory[pt]*ent.price[pt]).toFixed(1));
+    charts['c-inv-pie']=new Chart(document.getElementById('c-inv-pie'),{
+      type:'doughnut',data:{labels:PAINT_TYPES,datasets:[{data:invV,backgroundColor:['#4F46E5','#7C3AED','#0284C7','#059669','#D97706','#E11D48','#6B7280'],borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10}}},datalabels:{display:true,font:{size:10,weight:600},color:'#fff',formatter:(v,ctx)=>{const t2=ctx.dataset.data.reduce((a,b)=>a+b,0);return t2>0?Math.round(v/t2*100)+'%':'';}}}}
+    });
+  });
+
+  let t=`<table class="detail-table"><thead><tr><th>漆种</th><th>供应商</th><th>库存(吨)</th><th>月需求(吨)</th><th>可用天数</th><th>剩余保质期</th><th>状态</th><th>库存金额(万元)</th><th>呆滞风险</th><th>建议动作</th></tr></thead><tbody>`;
+  PAINT_TYPES.forEach(pt=>{
+    const inv=ent.inventory[pt];const dem=ent.monthlyDemand[pt];
+    const avail=(inv/dem*30).toFixed(0);const shelf=ent.shelfLifeRemain[pt];
+    const shelfTag=shelf<60?'<span class="status-tag over">紧急</span>':shelf<90?'<span class="status-tag warn">关注</span>':'<span class="status-tag ok">正常</span>';
+    const invAmt=(inv*ent.price[pt]/10).toFixed(1);
+    const deadRisk=+avail>45?'<span class="status-tag over">高</span>':+avail>30?'<span class="status-tag warn">中</span>':'<span class="status-tag ok">低</span>';
+    let action='维持';
+    if(shelf<60)action='<b style="color:var(--ro)">优先消耗</b>';
+    else if(+avail>45)action='<b style="color:var(--am)">暂停采购</b>';
+    else if(+avail<15)action='<b style="color:var(--sk)">补货</b>';
+    t+=`<tr><td style="font-weight:600">${pt}</td><td>${ent.supplier?ent.supplier[pt]:'-'}</td>`;
+    t+=`<td>${inv}</td><td>${dem}</td><td>${avail}</td><td>${shelf}天</td><td>${shelfTag}</td>`;
+    t+=`<td>${invAmt}</td><td>${deadRisk}</td><td>${action}</td></tr>`;
+  });
+  t+=`</tbody></table>`;
+  document.getElementById('table-inventory').innerHTML=t;
+}
+
+// ==================== TAB SWITCHING ====================
+function switchTab(tabId){
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+  renderTabContent(tabId);
+}
+
+function renderTabContent(tabId){
+  requestAnimationFrame(()=>{
+    if(tabId==='tab-consumption')renderConsumption();
+    else if(tabId==='tab-price')renderPrice();
+    else if(tabId==='tab-efficiency')renderEfficiency();
+    else if(tabId==='tab-quality')renderQuality();
+    else if(tabId==='tab-inventory')renderInventory();
+  });
+}
+
+// ==================== RENDER ALL ====================
+function renderAll(){
+  renderDupontTree();
+  renderRankTable();
+  const activeTab=document.querySelector('.tab-btn.active');
+  if(activeTab)renderTabContent(activeTab.dataset.tab);
+}
+
+// ==================== EVENT HANDLERS ====================
+document.getElementById('bm-switch').addEventListener('click',function(e){
+  const btn=e.target.closest('.bm-btn');if(!btn||btn.classList.contains('active'))return;
+  this.querySelectorAll('.bm-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  currentBenchmark=btn.dataset.bench;renderAll();
+  toast('基准切换：'+BENCHMARKS[currentBenchmark].label);
+});
+
+document.getElementById('tabs-nav').addEventListener('click',function(e){
+  const btn=e.target.closest('.tab-btn');if(!btn||btn.classList.contains('active'))return;
+  switchTab(btn.dataset.tab);
+});
+
+document.getElementById('f-enterprise').addEventListener('change',function(){
+  currentEnterprise=this.value;selectedPaintType='中间漆';renderAll();
+  toast('已切换企业：'+currentEnterprise);
+});
+
+// URL param parsing
+(function(){
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('enterprise')&&ENTERPRISES.includes(params.get('enterprise'))){
+    currentEnterprise=params.get('enterprise');
+    document.getElementById('f-enterprise').value=currentEnterprise;
+  }
+})();
+
+// ==================== INIT ====================
+document.getElementById('refresh-time').textContent='数据刷新：'+new Date().toLocaleString('zh-CN');
+renderAll();
+</script>
+</body>
+</html>

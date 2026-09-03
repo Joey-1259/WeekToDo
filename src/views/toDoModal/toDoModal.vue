@@ -216,9 +216,9 @@ export default {
       options: { target: "_blank", defaultProtocol: "https" },
       clickhandler: new ClickHandler(),
       // 记录上一次的 spanId 和 endDate，用于日期区间变更时清理旧镜像
-      _prevSpanId: null,
-      _prevEndDate: null,
-      _prevSourceListId: null,
+      prevSpanId: null,
+      prevEndDate: null,
+      prevSourceListId: null,
     };
   },
   props: {
@@ -265,8 +265,8 @@ export default {
       if (!start.isValid() || !end.isValid()) return;
 
       // ★ 先清除基于旧 _spanId 和旧 endDate 的镜像
-      if (this._prevSpanId && this._prevEndDate) {
-        clearMirrorsBySpanId(this._prevSpanId, this._prevSourceListId || this.todo.listId, this._prevEndDate, this.$store);
+      if (this.prevSpanId && this.prevEndDate) {
+        clearMirrorsBySpanId(this.prevSpanId, this.prevSourceListId || this.todo.listId, this.prevEndDate, this.$store);
       }
 
       if (end.isSame(start, "day")) {
@@ -289,9 +289,9 @@ export default {
       }
 
       // 更新 prev 记录
-      this._prevSpanId = this.todo._spanId || null;
-      this._prevEndDate = this.todo.endDate || null;
-      this._prevSourceListId = this.todo.listId;
+      this.prevSpanId = this.todo._spanId || null;
+      this.prevEndDate = this.todo.endDate || null;
+      this.prevSourceListId = this.todo.listId;
     },
 
     // ============ 更新方法 ============
@@ -475,9 +475,9 @@ export default {
           // 更新 _spanSourceId for mirrors
           createMirrorsForTask(this.todo, this.$store);
         }
-        this._prevSpanId = this.todo._spanId || null;
-        this._prevEndDate = this.todo.endDate || null;
-        this._prevSourceListId = this.todo.listId;
+        this.prevSpanId = this.todo._spanId || null;
+        this.prevEndDate = this.todo.endDate || null;
+        this.prevSourceListId = this.todo.listId;
       });
     },
     loadToDoFormDB: function (newListID) {
@@ -671,9 +671,9 @@ export default {
       ensureSpanId(this.todo);
 
       // 记录当前状态，用于后续日期变更时清理
-      this._prevSpanId = this.todo._spanId || null;
-      this._prevEndDate = this.todo.endDate || null;
-      this._prevSourceListId = this.todo._isSpanMirror ? this.todo._spanSourceId : this.todo.listId;
+      this.prevSpanId = this.todo._spanId || null;
+      this.prevEndDate = this.todo.endDate || null;
+      this.prevSourceListId = this.todo._isSpanMirror ? this.todo._spanSourceId : this.todo.listId;
 
       this.showingCalendar = moment(this.todo.listId, "YYYYMMDD", true).isValid();
       this.getCListOptions();

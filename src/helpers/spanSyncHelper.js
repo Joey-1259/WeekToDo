@@ -1,39 +1,59 @@
 /**
  * spanSyncHelper.js
- * 跨天任务状态同步工具
+ * 跨天任务状态同步工具 v2
  *
- * 设计思路：
- * - 源任务存储在 startDate 对应的列表中，通过 endDate 字段标识跨天
- * - 镜像任务存储在 startDate+1 ~ endDate 的列表中，带有 _isSpanMirror / _spanSourceId 标记
- * - 任何一端的 checked 状态变化，都要同步到源和所有镜像
- * - 同时同步 text / desc / subTaskList / color / tags / time / alarm / reminders 等字段
+ * 核心设计：
+ * 1. 每个跨天源任务都有一个唯一 _spanId（创建时生成）
+ * 2. 所有镜像通过 _spanId + _spanSourceId 双字段关联到源任务
+ * 3. 同步分两种：
+ *    - syncSpanningChecked: 只同步 checked（用于列表勾选，轻量快速）
+ *    - syncSpanningState: 同步全部可变字段（用于详情页编辑、行内编辑后）
+ * 4. 查找使用 _spanId 精确匹配，支持同一日期有多个跨天任务
+ * 5. 镜像遍历不依赖 selectedDates，而是根据 startDate~endDate 自行计算
+ *
+ * 数据结构约定：
+ *   源任务: { ..., endDate: "YYYYMMDD", _spanId: "uuid-xxx" }
+ *   镜像:   { ..., endDate: "YYYYMMDD", _spanId: "uuid-xxx", _isSpanMirror: true, _spanSourceId: "YYYYMMDD" }
  */
 
 import moment from "moment";
 import toDoListRepository from "../repositories/toDoListRepository";
 
+// ---------- 工具函数 ----------
+
+let _counter = 0;
+
+/**
+ * 生成简单的唯一 ID
+ */
+export function generateSpanId() {
+  _counter++;
+  return "span_" + Date.now().toString(36) + "_" + _counter.toString(36) + "_" + Math.random().toString(36).slice(2, 6);
+}
+
 /**
  * 判断一个任务是否属于跨天任务体系（源任务或镜像）
  */
 export function isSpanningTask(todo) {
+  if (!todo) return false;
   return !!(todo._isSpanMirror || todo.endDate);
 }
 
 /**
  * 获取跨天任务的源信息
- * @returns { sourceListId, startDate, endDate } 或 null
  */
 export function getSpanInfo(todo) {
-  if (todo._isSpanMirror) {
-    // 是镜像，源在 _spanSourceId
+  if (!todo) return null;
+  if (todo._isSpanMirror && todo._spanSourceId) {
     return {
+      spanId: todo._spanId,
       sourceListId: todo._spanSourceId,
       startDate: todo._spanSourceId,
       endDate: todo.endDate,
     };
-  } else if (todo.endDate) {
-    // 是源任务
+  } else if (todo.endDate && todo._spanId) {
     return {
+      spanId: todo._spanId,
       sourceListId: todo.listId,
       startDate: todo.listId,
       endDate: todo.endDate,
@@ -47,8 +67,10 @@ export function getSpanInfo(todo) {
  */
 export function getAllSpanDates(startDate, endDate) {
   let dates = [];
+  if (!startDate || !endDate) return dates;
   let start = moment(startDate, "YYYYMMDD");
   let end = moment(endDate, "YYYYMMDD");
+  if (!start.isValid() || !end.isValid()) return dates;
   let current = start.clone();
   while (current.isSameOrBefore(end, "day")) {
     dates.push(current.format("YYYYMMDD"));
@@ -57,105 +79,106 @@ export function getAllSpanDates(startDate, endDate) {
   return dates;
 }
 
-/**
- * 需要同步的字段列表
- */
-const SYNC_FIELDS = ["checked", "text", "desc", "subTaskList", "color", "tags", "time", "alarm", "reminders"];
+// ---------- 同步字段定义 ----------
+
+const SYNC_FIELDS = [
+  "checked", "text", "desc", "subTaskList",
+  "color", "tags", "time", "alarm", "reminders",
+  "priority", "endDate"
+];
 
 /**
- * 将源任务的关键字段同步到一个镜像任务
+ * 深拷贝一个字段值
  */
-function syncFieldsToMirror(source, mirror) {
-  SYNC_FIELDS.forEach((field) => {
-    if (field === "subTaskList") {
-      mirror[field] = JSON.parse(JSON.stringify(source[field] || []));
-    } else if (field === "tags" || field === "reminders") {
-      mirror[field] = source[field] ? [...source[field]] : [];
-    } else {
-      mirror[field] = source[field];
-    }
-  });
+function cloneField(field, value) {
+  if (value == null || value === undefined) return value;
+  if (field === "subTaskList") {
+    return JSON.parse(JSON.stringify(value));
+  }
+  if (field === "tags" || field === "reminders") {
+    return Array.isArray(value) ? [...value] : [];
+  }
+  return value;
 }
 
 /**
- * 将镜像任务的变更同步回源任务
+ * 将源任务的字段拷贝到目标任务
  */
-function syncFieldsToSource(mirror, source) {
+function copyFields(source, target) {
   SYNC_FIELDS.forEach((field) => {
-    if (field === "subTaskList") {
-      source[field] = JSON.parse(JSON.stringify(mirror[field] || []));
-    } else if (field === "tags" || field === "reminders") {
-      source[field] = mirror[field] ? [...mirror[field]] : [];
-    } else {
-      source[field] = mirror[field];
-    }
+    target[field] = cloneField(field, source[field]);
   });
 }
 
+// ---------- 核心：查找函数 ----------
+
 /**
- * 核心同步函数：当一个跨天任务（源或镜像）发生变更后调用
+ * 在指定日期列表中找到 _spanId 匹配的任务
+ */
+function findBySpanId(list, spanId, isMirror) {
+  if (!list || !spanId) return null;
+  if (isMirror) {
+    return list.find((t) => t._isSpanMirror && t._spanId === spanId) || null;
+  } else {
+    return list.find((t) => !t._isSpanMirror && t._spanId === spanId) || null;
+  }
+}
+
+// ---------- 核心同步 ----------
+
+/**
+ * 全字段同步：当跨天任务的任何内容变更后调用
+ * 会同步 text/desc/checked/subTasks/color/tags/time/alarm/reminders/priority/endDate
  *
- * @param {Object} changedTodo - 发生变更的任务对象
- * @param {Object} store - Vuex store 实例
+ * @param {Object} changedTodo - 发生变更的任务（可以是源或镜像）
+ * @param {Object} store - Vuex store
  */
 export function syncSpanningState(changedTodo, store) {
   let spanInfo = getSpanInfo(changedTodo);
-  if (!spanInfo) return;
+  if (!spanInfo || !spanInfo.spanId) return;
 
-  let allDates = getAllSpanDates(spanInfo.startDate, spanInfo.endDate);
-  let sourceListId = spanInfo.sourceListId;
+  let { spanId, sourceListId, endDate } = spanInfo;
+  let allDates = getAllSpanDates(sourceListId, endDate);
+  if (allDates.length <= 1) return; // 不跨天
 
-  // 第一步：找到源任务
-  let sourceList = store.getters.todoLists[sourceListId];
-  if (!sourceList) return;
+  // 确定"真相来源"：谁的字段是最新的
+  let canonicalData = changedTodo;
 
-  let sourceTask = null;
+  // 如果变更来自镜像，也要把改动写回源
   if (changedTodo._isSpanMirror) {
-    // 变更来自镜像，需要找到源任务并更新
-    sourceTask = sourceList.find(
-      (t) => !t._isSpanMirror && t.endDate === spanInfo.endDate && t.text !== undefined
-    );
-    // 如果按 text 找不准（可能 text 也变了），用更稳妥的方式：
-    // 源任务是该列表中 endDate 匹配且不是镜像的那个
-    if (!sourceTask) {
-      sourceTask = sourceList.find((t) => !t._isSpanMirror && t.endDate);
+    let sourceList = store.getters.todoLists[sourceListId];
+    if (sourceList) {
+      let sourceTask = findBySpanId(sourceList, spanId, false);
+      if (sourceTask) {
+        copyFields(canonicalData, sourceTask);
+        toDoListRepository.update(sourceListId, sourceList);
+      }
     }
-    if (sourceTask) {
-      syncFieldsToSource(changedTodo, sourceTask);
-      toDoListRepository.update(sourceListId, sourceList);
-    }
-  } else {
-    // 变更来自源任务本身
-    sourceTask = changedTodo;
   }
 
-  if (!sourceTask) return;
-
-  // 第二步：同步到所有镜像
+  // 同步到所有日期的镜像
   allDates.forEach((dateId) => {
-    if (dateId === sourceListId) return; // 源列表已处理
+    if (dateId === sourceListId) return;
     let list = store.getters.todoLists[dateId];
     if (!list) return;
 
-    let mirror = list.find(
-      (t) => t._isSpanMirror && t._spanSourceId === sourceListId
-    );
-    if (mirror) {
-      syncFieldsToMirror(sourceTask, mirror);
+    let mirror = findBySpanId(list, spanId, true);
+    if (mirror && mirror !== changedTodo) {
+      copyFields(canonicalData, mirror);
       toDoListRepository.update(dateId, list);
     }
   });
 }
 
 /**
- * 仅同步 checked 状态（轻量级，用于列表中勾选操作）
+ * 仅同步 checked 状态（轻量级，用于列表中的勾选操作）
  */
 export function syncSpanningChecked(changedTodo, store) {
   let spanInfo = getSpanInfo(changedTodo);
-  if (!spanInfo) return;
+  if (!spanInfo || !spanInfo.spanId) return;
 
-  let allDates = getAllSpanDates(spanInfo.startDate, spanInfo.endDate);
-  let sourceListId = spanInfo.sourceListId;
+  let { spanId, sourceListId, endDate } = spanInfo;
+  let allDates = getAllSpanDates(sourceListId, endDate);
   let newChecked = changedTodo.checked;
 
   allDates.forEach((dateId) => {
@@ -164,9 +187,9 @@ export function syncSpanningChecked(changedTodo, store) {
 
     let target;
     if (dateId === sourceListId) {
-      target = list.find((t) => !t._isSpanMirror && t.endDate === spanInfo.endDate);
+      target = findBySpanId(list, spanId, false);
     } else {
-      target = list.find((t) => t._isSpanMirror && t._spanSourceId === sourceListId);
+      target = findBySpanId(list, spanId, true);
     }
 
     if (target && target !== changedTodo) {
@@ -176,10 +199,91 @@ export function syncSpanningChecked(changedTodo, store) {
   });
 }
 
+/**
+ * 清除指定 _spanId 在所有涉及日期上的镜像
+ * 用于：删除源任务、修改日期区间、拖拽移动任务时
+ */
+export function clearMirrorsBySpanId(spanId, sourceListId, endDate, store) {
+  if (!spanId || !endDate) return;
+  let allDates = getAllSpanDates(sourceListId, endDate);
+  allDates.forEach((dateId) => {
+    if (dateId === sourceListId) return;
+    let list = store.getters.todoLists[dateId];
+    if (!list) return;
+    let filtered = list.filter((t) => !(t._isSpanMirror && t._spanId === spanId));
+    if (filtered.length !== list.length) {
+      store.commit("loadTodoLists", { todoListId: dateId, todoList: filtered });
+      toDoListRepository.update(dateId, filtered);
+    }
+  });
+}
+
+/**
+ * 为源任务创建镜像到所有涉及日期
+ * 用于：设定/修改日期区间、撤销删除时
+ */
+export function createMirrorsForTask(sourceTodo, store) {
+  if (!sourceTodo || !sourceTodo.endDate || !sourceTodo._spanId) return;
+  let start = moment(sourceTodo.listId, "YYYYMMDD");
+  let end = moment(sourceTodo.endDate, "YYYYMMDD");
+  let current = start.clone().add(1, "d");
+
+  while (current.isSameOrBefore(end, "day")) {
+    let dateId = current.format("YYYYMMDD");
+    let list = store.getters.todoLists[dateId];
+    if (list) {
+      // 避免重复
+      let exists = list.some((t) => t._isSpanMirror && t._spanId === sourceTodo._spanId);
+      if (!exists) {
+        let mirror = {
+          text: sourceTodo.text,
+          checked: sourceTodo.checked,
+          listId: dateId,
+          desc: sourceTodo.desc,
+          subTaskList: JSON.parse(JSON.stringify(sourceTodo.subTaskList || [])),
+          color: sourceTodo.color,
+          priority: sourceTodo.priority || 0,
+          tags: sourceTodo.tags ? [...sourceTodo.tags] : [],
+          time: sourceTodo.time,
+          alarm: sourceTodo.alarm,
+          reminders: sourceTodo.reminders ? [...sourceTodo.reminders] : [],
+          repeatingEvent: null,
+          endDate: sourceTodo.endDate,
+          _isSpanMirror: true,
+          _spanSourceId: sourceTodo.listId,
+          _spanId: sourceTodo._spanId,
+        };
+        list.push(mirror);
+        store.commit("loadTodoLists", { todoListId: dateId, todoList: list });
+        toDoListRepository.update(dateId, list);
+      }
+    }
+    current.add(1, "d");
+  }
+}
+
+/**
+ * 确保源任务有 _spanId（兼容旧数据迁移）
+ * 在 toDoModal watch 初始化时调用
+ */
+export function ensureSpanId(todo) {
+  if (todo.endDate && !todo._spanId) {
+    todo._spanId = generateSpanId();
+  }
+  if (todo._isSpanMirror && !todo._spanId) {
+    // 旧版镜像没有 _spanId，尝试从 _spanSourceId 生成
+    todo._spanId = generateSpanId();
+  }
+}
+
 export default {
+  generateSpanId,
   isSpanningTask,
   getSpanInfo,
   getAllSpanDates,
   syncSpanningState,
   syncSpanningChecked,
+  clearMirrorsBySpanId,
+  createMirrorsForTask,
+  ensureSpanId,
 };

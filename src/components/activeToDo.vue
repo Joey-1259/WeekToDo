@@ -45,7 +45,7 @@ import moment from "moment";
 import notifications from "../helpers/notifications";
 import linkifyStr from 'linkify-string';
 import tasksHelper from "../helpers/tasksHelper";
-import { isSpanningTask, syncSpanningChecked } from "../helpers/spanSyncHelper";
+import { isSpanningTask, syncSpanningChecked, syncSpanningState } from "../helpers/spanSyncHelper";
 
 export default {
   components: {},
@@ -63,7 +63,25 @@ export default {
   },
   methods: {
     removeTodo: function () {
-      this.$store.commit("setUndoElement", { type: 'task', todo: this.activeTodo.toDo, index: this.activeTodo.index });
+      let todo = this.activeTodo.toDo;
+      // ★ 删除跨天任务时，清除所有镜像
+      if (isSpanningTask(todo) && todo._spanId) {
+        let sourceId = todo._isSpanMirror ? todo._spanSourceId : todo.listId;
+        let { clearMirrorsBySpanId } = require("../helpers/spanSyncHelper");
+        clearMirrorsBySpanId(todo._spanId, sourceId, todo.endDate, this.$store);
+        // 如果删除的是镜像，也要删除源
+        if (todo._isSpanMirror && todo._spanSourceId) {
+          let sourceList = this.$store.getters.todoLists[todo._spanSourceId];
+          if (sourceList) {
+            let idx = sourceList.findIndex((t) => !t._isSpanMirror && t._spanId === todo._spanId);
+            if (idx !== -1) {
+              sourceList.splice(idx, 1);
+              toDoListRepository.update(todo._spanSourceId, sourceList);
+            }
+          }
+        }
+      }
+      this.$store.commit("setUndoElement", { type: 'task', todo: todo, index: this.activeTodo.index });
       this.$store.commit("removeTodo", { toDoListId: this.activeTodo.toDoListId, index: this.activeTodo.index, });
       notifications.refreshDayNotifications(this, this.activeTodo.toDoListId);
       toDoListRepository.update(this.activeTodo.toDoListId, this.$store.getters.todoLists[this.activeTodo.toDoListId]);
@@ -138,6 +156,12 @@ export default {
       var todoList = this.activeTodo.toDo.subTaskList;
       if (subTask.checked && this.moveSubtaskToBotttom) { todoList.push(todoList.splice(index, 1)[0]); }
       toDoListRepository.update(this.activeTodo.toDoListId, this.$store.getters.todoLists[this.activeTodo.toDoListId]);
+
+      // ★ 跨天任务：子任务变更也同步
+      let todo = this.activeTodo.toDo;
+      if (isSpanningTask(todo)) {
+        syncSpanningState(todo, this.$store);
+      }
     },
     timeFormat: function (date) {
       if (date) {

@@ -1,6 +1,6 @@
 <template>
-  <div class="weekly-to-do-header d-flex">
-    <i v-show="!editing" class="bi-info header-menu-icons align-self-center dropdown-toggle-split "
+  <div class="weekly-to-do-header d-flex" :class="{ 'custom-header': customTodoList }">
+    <i v-show="!editing" class="bi-info header-menu-icons align-self-center dropdown-toggle-split"
       style="visibility: hidden"></i>
     <div style="flex-grow: 1" class="noselect">
       <div v-if="!customTodoList">
@@ -28,18 +28,19 @@
         <h4 v-show="!editing" @dblclick="editToDoListName"> {{ todo_list_name }} </h4>
         <input class="custom-todo-input" v-show="editing" type="text" v-model="name" ref="cTodoInput" @blur="doneEdit()"
           @keyup.enter="doneEdit()" @keyup.esc="cancelEdit()" />
-        <!-- ★ 列表切换器：放在标题下方，类似日期 subheader -->
-        <div v-if="totalCustomLists > 1" class="custom-list-pager">
-          <i class="bi-chevron-left" @click.stop="$emit('cycleCustomList', -1)"></i>
-          <span>{{ cTodoListIndex + 1 }}/{{ totalCustomLists }}</span>
-          <i class="bi-chevron-right" @click.stop="$emit('cycleCustomList', 1)"></i>
-        </div>
+        <!-- ★ 列表切换器：标题下方，对齐日期 subheader -->
+        <span v-if="totalCustomLists > 1" class="weekly-to-do-subheader custom-list-pager">
+          <i class="bi-chevron-left pager-arrow" @click.stop="$emit('cycleCustomList', -1)"></i>
+          {{ cTodoListIndex + 1 }}/{{ totalCustomLists }}
+          <i class="bi-chevron-right pager-arrow" @click.stop="$emit('cycleCustomList', 1)"></i>
+        </span>
+        <!-- 没有多个列表时，放一个占位 span 保持高度对齐 -->
+        <span v-else class="weekly-to-do-subheader">&nbsp;</span>
       </div>
     </div>
     <i v-show="!editing" class="bi-three-dots-vertical header-menu-icons dropdown-toggle-split align-self-center"
       type="button" data-bs-toggle="dropdown"></i>
     <ul class="dropdown-menu" aria-labelledby="btnTaskOptionMenu">
-      <!-- ===== 日历列表专属菜单项 ===== -->
       <li v-show="!customTodoList">
         <button class="dropdown-item" type="button" @click="newTask">
           <i class="bi-plus-lg"></i> <span>{{ $t('ui.newTask') }}</span>
@@ -65,17 +66,12 @@
           <i class="bi-clipboard"></i> <span>{{ $t('ui.copyTasks') }}</span>
         </button>
       </li>
-
-      <!-- ===== 自定义列表专属菜单项 ===== -->
       <li v-show="customTodoList">
         <button class="dropdown-item" type="button" @click="addNewCustomList">
           <i class="bi-plus-circle"></i> <span>{{ $t('ui.newList') }}</span>
         </button>
       </li>
-
-      <li>
-        <hr class="dropdown-divider" />
-      </li>
+      <li><hr class="dropdown-divider" /></li>
       <li>
         <button class="dropdown-item" type="button" @click="clearList" data-bs-toggle="modal"
           data-bs-target="#clearListModal">
@@ -113,11 +109,7 @@ export default {
   },
   emits: ["reorderCustomList", "addCustomList", "cycleCustomList"],
   data() {
-    return {
-      editing: false,
-      name: "",
-      listDragHover: false,
-    };
+    return { editing: false, name: "", listDragHover: false };
   },
   mounted() {
     if (this.customTodoList) {
@@ -138,48 +130,32 @@ export default {
     },
     moveUndoneItems: function () {
       let towmorrow_id = this.moments(this.id).add(1, "d").format("YYYYMMDD");
-      this.$store.commit("moveUndoneItems", {
-        origenId: this.id,
-        destinyId: towmorrow_id,
-      });
+      this.$store.commit("moveUndoneItems", { origenId: this.id, destinyId: towmorrow_id });
       this.updateTodoList(this.id, this.$store.getters.todoLists[this.id]);
-
       if (this.$store.getters.config.autoReorderTasks) {
         this.updateTodoList(towmorrow_id, tasksHelper.reorderTasksList(this.$store.getters.todoLists[towmorrow_id]));
       } else {
         this.updateTodoList(towmorrow_id, this.$store.getters.todoLists[towmorrow_id]);
       }
     },
-    moments: function (date) {
-      return moment(date);
-    },
+    moments: function (date) { return moment(date); },
     updateTodoList: function (todoListId, TodoList) {
       notifications.refreshDayNotifications(this, todoListId);
       toDoListRepository.update(todoListId, TodoList);
     },
     allTodoChecked: function () {
       let allChecked = true;
-      this.toDoList.forEach(function (todo) {
-        if (!todo.checked) {
-          allChecked = false;
-          return;
-        }
-      });
+      this.toDoList.forEach(function (todo) { if (!todo.checked) { allChecked = false; return; } });
       return allChecked;
     },
     editToDoListName: function () {
       this.name = this.$store.getters.cTodoListIds[this.cTodoListIndex].listName;
       this.editing = true;
-      this.$nextTick(function () {
-        this.$refs.cTodoInput.focus();
-        this.$refs.cTodoInput.select();
-      });
+      this.$nextTick(function () { this.$refs.cTodoInput.focus(); this.$refs.cTodoInput.select(); });
     },
     doneEdit: function () {
       this.editing = false;
-      this.$store.commit("updateCustomTodoList", {
-        index: this.cTodoListIndex, name: this.name,
-      });
+      this.$store.commit("updateCustomTodoList", { index: this.cTodoListIndex, name: this.name });
       customToDoListIdsRepository.update(this.$store.getters.cTodoListIds);
     },
     cancelEdit: function () {
@@ -188,48 +164,32 @@ export default {
     },
     removeList: function () {
       this.$store.commit("actionsCListToRmvUpdate", {
-        id: this.id,
-        index: this.cTodoListIndex,
+        id: this.id, index: this.cTodoListIndex,
         name: this.$store.getters.cTodoListIds[this.cTodoListIndex].listName,
       });
     },
-    sortItems: function () {
-      toDoListRepository.update(this.id, tasksHelper.reorderTasksList(this.toDoList));
-    },
+    sortItems: function () { toDoListRepository.update(this.id, tasksHelper.reorderTasksList(this.toDoList)); },
     openReorderListsModal: function () {
-      let modalEl = document.getElementById("ReorderCustomListsModal");
-      let modal = Modal.getOrCreateInstance(modalEl);
+      let modal = Modal.getOrCreateInstance(document.getElementById("ReorderCustomListsModal"));
       modal.show();
     },
-    clearList: function () {
-      this.$store.commit("setListToClear", this.id);
-    },
+    clearList: function () { this.$store.commit("setListToClear", this.id); },
     copyListTasksToClipboard: async function () {
       await navigator.clipboard.writeText(this.todoListToString());
       let toast = new Toast(document.getElementById("copiedTaskToClipboard"));
       toast.show();
     },
     todoListToString: function () {
-      return this.toDoList.map((x) => {
-        let task = `- ${x.text}`;
-        if (x.time) task += ` [${x.time}]`;
-        return task;
-      }).join('\n')
+      return this.toDoList.map((x) => { let task = `- ${x.text}`; if (x.time) task += ` [${x.time}]`; return task; }).join('\n');
     },
     newTask: function () {
       this.$nextTick(function () {
-        document
-          .getElementById("list" + this.id)
-          .getElementsByClassName("new-todo-input")[0]
-          .focus();
+        document.getElementById("list" + this.id).getElementsByClassName("new-todo-input")[0].focus();
       });
     },
     addNewCustomList: function () {
       const newId = moment().format("YYYYMMDDTHHmmssS");
-      const newListObj = {
-        listId: newId,
-        listName: this.$t("ui.defaultCustomListName"),
-      };
+      const newListObj = { listId: newId, listName: this.$t("ui.defaultCustomListName") };
       this.$store.commit("newCustomTodoList", newListObj);
       customToDoListIdsRepository.update(this.$store.getters.cTodoListIds);
       toDoListRepository.update(newId, []);
@@ -240,18 +200,13 @@ export default {
       event.dataTransfer.setData("customListIndex", String(this.cTodoListIndex));
       event.dataTransfer.effectAllowed = "move";
     },
-    onListDragEnter: function () {
-      this.listDragHover = true;
-    },
-    onListDragLeave: function () {
-      this.listDragHover = false;
-    },
+    onListDragEnter: function () { this.listDragHover = true; },
+    onListDragLeave: function () { this.listDragHover = false; },
     onListDrop: function (event) {
       this.listDragHover = false;
       let fromIndex = parseInt(event.dataTransfer.getData("customListIndex"));
       let toIndex = this.cTodoListIndex;
       if (isNaN(fromIndex) || fromIndex === toIndex) return;
-
       let customLists = this.$store.getters.cTodoListIds;
       let moved = customLists.splice(fromIndex, 1)[0];
       customLists.splice(toIndex, 0, moved);
@@ -260,22 +215,11 @@ export default {
     },
   },
   computed: {
-    is_today: function () {
-      return moment().format("YYYYMMDD") == this.id;
-    },
-    is_picked: function () {
-      return !this.customTodoList && !!this.pickedDate && this.pickedDate == this.id;
-    },
-    holidayInfo: function () {
-      if (this.customTodoList) return null;
-      return holidayHelper.getDayInfo(this.id);
-    },
-    todo_list_name: function () {
-      return this.$store.getters.cTodoListIds[this.cTodoListIndex].listName;
-    },
-    language: function () {
-      return this.$store.getters.config.language;
-    },
+    is_today: function () { return moment().format("YYYYMMDD") == this.id; },
+    is_picked: function () { return !this.customTodoList && !!this.pickedDate && this.pickedDate == this.id; },
+    holidayInfo: function () { if (this.customTodoList) return null; return holidayHelper.getDayInfo(this.id); },
+    todo_list_name: function () { return this.$store.getters.cTodoListIds[this.cTodoListIndex].listName; },
+    language: function () { return this.$store.getters.config.language; },
   },
 };
 </script>
@@ -287,7 +231,6 @@ export default {
   margin-top: 10px;
   display: flex;
   font-size: 0.8rem;
-  display: flex;
   align-items: center;
   justify-content: center;
 }
@@ -337,10 +280,21 @@ export default {
   margin-top: 0px;
   font-size: 12px;
   color: grey;
+  /* ★ 固定行高，确保日历列和自定义列表列的 subheader 高度一致 */
+  display: inline-block;
+  line-height: 16px;
+  min-height: 16px;
 }
 
 .weekly-to-do-header .header-menu-icons {
   color: grey;
+  font-size: 20px;
+  flex-grow: 0;
+  align-self: start;
+  cursor: pointer;
+  visibility: hidden;
+  opacity: 0;
+  transition: 0.4s cubic-bezier(0.2, 1, 0.1, 1);
 }
 
 .dark-theme .weekly-to-do-header .header-menu-icons {
@@ -353,16 +307,6 @@ export default {
 
 .dark-theme .weekly-to-do-header .header-menu-icons:hover {
   color: white;
-}
-
-.weekly-to-do-header .header-menu-icons {
-  font-size: 20px;
-  flex-grow: 0;
-  align-self: start;
-  cursor: pointer;
-  visibility: hidden;
-  opacity: 0;
-  transition: 0.4s cubic-bezier(0.2, 1, 0.1, 1);
 }
 
 .custom-list-title {
@@ -391,43 +335,28 @@ export default {
   background-color: #0c0d14;
 }
 
-/* ★ 列表切换器样式 */
+/* ★ 列表翻页器样式 */
 .custom-list-pager {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 2px;
-  font-size: 12px;
-  color: grey;
   user-select: none;
-
-  i {
-    cursor: pointer;
-    padding: 1px 4px;
-    border-radius: 4px;
-    font-size: 11px;
-    transition: background-color 0.2s;
-
-    &:hover {
-      background-color: #eaecef;
-      color: #333;
-    }
-  }
-
-  span {
-    min-width: 24px;
-    text-align: center;
-  }
 }
 
-.dark-theme .custom-list-pager {
-  color: #9aa0a8;
+.pager-arrow {
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  transition: background-color 0.2s;
+  vertical-align: middle;
+}
 
-  i:hover {
-    background-color: #21262d;
-    color: #dedede;
-  }
+.pager-arrow:hover {
+  background-color: #eaecef;
+  color: #333;
+}
+
+.dark-theme .pager-arrow:hover {
+  background-color: #21262d;
+  color: #dedede;
 }
 
 .custom-todo-input {
@@ -458,24 +387,12 @@ export default {
   border: none;
   color: #3c3c3c;
 
-  .dropdown-item {
-    padding: .4rem 1.9rem .4rem .65rem;
-  }
-
-  .dropdown-divider {
-    margin: .3rem;
-  }
-
-  i {
-    font-size: 0.99rem;
-    margin-right: 11px;
-    display: inline-block;
-  }
+  .dropdown-item { padding: .4rem 1.9rem .4rem .65rem; }
+  .dropdown-divider { margin: .3rem; }
+  i { font-size: 0.99rem; margin-right: 11px; display: inline-block; }
 }
 
-.dropdown-toggle-split {
-  padding: 0px;
-}
+.dropdown-toggle-split { padding: 0px; }
 
 .bi-reply-all,
 .bi-files {

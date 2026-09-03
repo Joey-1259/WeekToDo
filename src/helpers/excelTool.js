@@ -7,7 +7,10 @@ import anniversaryTagRepository from "../repositories/anniversaryTagRepository";
 import archiveRepository from "../repositories/archiveRepository";
 
 // ==================== Sheet1: 事项 ====================
-const TASK_COLUMNS = ["清单类型", "清单名称", "日期", "事件", "是否完成", "时间", "备注", "子任务"];
+const TASK_COLUMNS = [
+  "清单类型", "清单名称", "日期", "结束日期", "事件", "是否完成",
+  "时间", "颜色", "标签", "备注", "子任务",
+];
 
 // ==================== Sheet2: 纪念日 ====================
 const ANNIVERSARY_COLUMNS = [
@@ -44,7 +47,6 @@ export default {
                     appendTaskRows(taskRows, cursor.key, cursor.value, customListMap);
                     cursor.continue();
                   } else {
-                    // 所有 todo_list 遍历完毕，开始组装多 Sheet
                     let anniversaryRows = buildAnniversaryRows();
                     let archiveRows = buildArchiveRows();
                     writeMultiSheetWorkbook(XLSX, taskRows, anniversaryRows, archiveRows);
@@ -94,18 +96,15 @@ export default {
             let workbook = XLSX.read(data, { type: "array" });
             let sheetNames = workbook.SheetNames;
 
-            // Sheet1: 事项（必须存在）
             let taskSheet = workbook.Sheets[sheetNames[0]];
             let taskRows = XLSX.utils.sheet_to_json(taskSheet, { defval: "" });
 
-            // Sheet2: 纪念日（可选）
             let anniversaryRows = [];
             if (sheetNames.length >= 2) {
               let sheet2 = workbook.Sheets[sheetNames[1]];
               anniversaryRows = XLSX.utils.sheet_to_json(sheet2, { defval: "" });
             }
 
-            // Sheet3: 归档历史（可选）
             let archiveRows = [];
             if (sheetNames.length >= 3) {
               let sheet3 = workbook.Sheets[sheetNames[2]];
@@ -118,7 +117,6 @@ export default {
               return;
             }
 
-            // 先导入纪念日和归档（同步写 localStorage）
             if (anniversaryRows.length > 0) {
               importAnniversaryRows(anniversaryRows);
             }
@@ -126,7 +124,6 @@ export default {
               importArchiveRows(archiveRows);
             }
 
-            // 再导入事项（异步写 IndexedDB）
             if (taskRows.length > 0) {
               processImportTaskRows(taskRows);
             } else {
@@ -160,13 +157,24 @@ function appendTaskRows(rows, listId, tasks, customListMap) {
   let listLabel = isDateList ? dateStr : customListMap[listId] || listId;
 
   (tasks || []).forEach((task) => {
+    // 跳过跨天镜像任务，只导出源任务
+    if (task._isSpanMirror) return;
+
+    let endDateStr = "";
+    if (task.endDate) {
+      endDateStr = moment(task.endDate, "YYYYMMDD").format("YYYY-MM-DD");
+    }
+
     rows.push({
       "清单类型": isDateList ? "日历" : "自定义",
       "清单名称": listLabel,
       "日期": dateStr,
+      "结束日期": endDateStr,
       "事件": task.text || "",
       "是否完成": task.checked ? "是" : "否",
       "时间": task.time || "",
+      "颜色": task.color || "none",
+      "标签": (task.tags || []).join("，"),
       "备注": task.desc || "",
       "子任务": (task.subTaskList || [])
         .map((st) => (st.checked ? "[x] " : "[ ] ") + st.text)
@@ -205,7 +213,6 @@ function buildArchiveRows() {
 
 function writeMultiSheetWorkbook(XLSX, taskRows, anniversaryRows, archiveRows) {
   try {
-    // 排序事项行
     taskRows.sort((a, b) => {
       if (a["清单类型"] !== b["清单类型"]) return a["清单类型"] === "日历" ? -1 : 1;
       return a["日期"] > b["日期"] ? 1 : a["日期"] < b["日期"] ? -1 : 0;
@@ -213,18 +220,15 @@ function writeMultiSheetWorkbook(XLSX, taskRows, anniversaryRows, archiveRows) {
 
     let wb = XLSX.utils.book_new();
 
-    // Sheet1: 事项
     let ws1 = XLSX.utils.json_to_sheet(taskRows, { header: TASK_COLUMNS });
     XLSX.utils.book_append_sheet(wb, ws1, "事项");
 
-    // Sheet2: 纪念日
     let ws2 = XLSX.utils.json_to_sheet(
       anniversaryRows.length > 0 ? anniversaryRows : [{}],
       { header: ANNIVERSARY_COLUMNS }
     );
     XLSX.utils.book_append_sheet(wb, ws2, "纪念日");
 
-    // Sheet3: 归档历史
     let ws3 = XLSX.utils.json_to_sheet(
       archiveRows.length > 0 ? archiveRows : [{}],
       { header: ARCHIVE_COLUMNS }
@@ -264,7 +268,7 @@ function importAnniversaryRows(rows) {
 
   rows.forEach((row) => {
     let name = row["名称"];
-    if (!name || existingNames.has(name)) return; // 跳过重名，避免重复
+    if (!name || existingNames.has(name)) return;
 
     let item = {
       id: "anv_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
@@ -318,19 +322,38 @@ function parseSubTasks(text) {
     });
 }
 
+function parseTags(text) {
+  if (!text) return [];
+  return text
+    .split(/[,，]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 function rowToTask(row, listId) {
+  let endDate = null;
+  if (row["结束日期"]) {
+    let m = moment(row["结束日期"], ["YYYY-MM-DD", "YYYY/MM/DD", "YYYYMMDD"], true);
+    if (m.isValid()) endDate = m.format("YYYYMMDD");
+  }
+
+  let color = row["颜色"] || "none";
+  if (color === "none" || color === "") color = "none";
+
   return {
     text: row["事件"] || "",
     checked: row["是否完成"] === "是",
     listId: listId,
     desc: row["备注"] || "",
     subTaskList: parseSubTasks(row["子任务"]),
-    color: "none",
+    color: color,
     priority: 0,
-    tags: [],
+    tags: parseTags(row["标签"]),
     time: row["时间"] || null,
     alarm: false,
+    reminders: [],
     repeatingEvent: null,
+    endDate: endDate,
   };
 }
 
@@ -444,8 +467,6 @@ function showInvalidFileToast() {
     toast.show();
   }
 }
-
-// ================== 弹窗关闭辅助 ==================
 
 function hideExportingModal() {
   closeModalSafely("exportingModal");

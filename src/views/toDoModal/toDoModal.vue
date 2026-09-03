@@ -4,13 +4,29 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header d-flex">
+          <!-- 左侧：日期区间 / 自定义列表选择 -->
           <div class="todo-list-selector">
             <div class="d-flex align-items-center">
-              <div v-show="showingCalendar" class="align-items-center date-picker-btn" @click="showCalendar()">
-                <i class="bi-calendar-event mx-2"></i>
-                <datepicker id="todo-date-picker-input" class="py-2" v-model="pickedDate" :locale="language"
-                  :input-format='"dd/MM/yyyy"' :weekStartsOn="weekStartOnMonday" />
+              <!-- 日历列表：双日期选择器 -->
+              <div v-show="showingCalendar" class="align-items-center date-range-row">
+                <div class="date-range-picker d-flex align-items-center">
+                  <i class="bi-calendar-event date-range-icon"></i>
+                  <input
+                    type="date"
+                    class="date-range-input"
+                    v-model="startDateStr"
+                    @change="onStartDateChange"
+                  />
+                  <span class="date-range-separator">—</span>
+                  <input
+                    type="date"
+                    class="date-range-input"
+                    v-model="endDateStr"
+                    @change="onEndDateChange"
+                  />
+                </div>
               </div>
+              <!-- 自定义列表选择器 -->
               <div v-show="!showingCalendar" class="align-items-center date-picker-btn">
                 <div class="align-items-center date-picker-btn py-2" id="customListDropDown" data-bs-toggle="dropdown">
                   <i class="bi-view-list mx-2"></i>
@@ -27,6 +43,7 @@
                   </li>
                 </ul>
               </div>
+              <!-- 日历/列表切换 -->
               <div v-if="showCL && showCal" class="d-flex align-items-center">
                 <div class="selector-divider"></div>
                 <i id="btnGroupDrop1" class="bi-chevron-down p-2" type="button" data-bs-toggle="dropdown"></i>
@@ -47,43 +64,38 @@
               </div>
             </div>
           </div>
+
+          <!-- 右侧：更多操作 + 关闭 -->
           <div class="d-flex ms-auto align-items-center">
-            <div class="header-tools d-flex align-items-center">
-              <time-picker :time="todo.time" @time-selected="changeTime"></time-picker>
-              <reminder-picker :model-value="todo.reminders || []" @update:modelValue="changeReminders"></reminder-picker>
-              <repeating-event v-if="showingCalendar" :repeatingEvent="todo.repeatingEvent" :todo="todo"
-                @repeatingEventSelected="changeRepeatingEvent"></repeating-event>
-              <color-picker :color="todo.color" @color-selected="changeColor"></color-picker>
-              <i id="btnTaskOptionMenu" class="bi-three-dots-vertical header-menu-icons" type="button"
-                data-bs-toggle="dropdown" :title="$t('todoDetails.actions')"></i>
-              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="btnTaskOptionMenu">
-                <li>
-                  <button class="dropdown-item" type="button" @click="copyTodo">
-                    <i class="bi-clipboard"></i>
-                    <span>{{ $t("donate.copy") }}</span>
-                  </button>
-                </li>
-                <li>
-                  <button class="dropdown-item" type="button" @click="duplicateTodo" data-bs-dismiss="modal">
-                    <i class="bi-back"></i>
-                    <span>{{ $t("todoDetails.duplicate") }}</span>
-                  </button>
-                </li>
-                <li>
-                  <hr class="dropdown-divider" />
-                </li>
-                <li>
-                  <button class="dropdown-item" type="button" @click="removeTodo" data-bs-dismiss="modal">
-                    <i class="bi-trash"></i> <span>{{ $t("ui.remove") }}</span>
-                  </button>
-                </li>
-                <li v-if="todo.repeatingEvent">
-                  <button class="dropdown-item" type="button" @click="removeAll" data-bs-dismiss="modal">
-                    <i class="bi-trash"></i> <span>{{ $t("ui.removeAll") }}</span>
-                  </button>
-                </li>
-              </ul>
-            </div>
+            <i id="btnTaskOptionMenu" class="bi-three-dots-vertical header-menu-icons" type="button"
+              data-bs-toggle="dropdown" :title="$t('todoDetails.actions')"></i>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="btnTaskOptionMenu">
+              <li>
+                <button class="dropdown-item" type="button" @click="copyTodo">
+                  <i class="bi-clipboard"></i>
+                  <span>{{ $t("donate.copy") }}</span>
+                </button>
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" @click="duplicateTodo" data-bs-dismiss="modal">
+                  <i class="bi-back"></i>
+                  <span>{{ $t("todoDetails.duplicate") }}</span>
+                </button>
+              </li>
+              <li>
+                <hr class="dropdown-divider" />
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" @click="removeTodo" data-bs-dismiss="modal">
+                  <i class="bi-trash"></i> <span>{{ $t("ui.remove") }}</span>
+                </button>
+              </li>
+              <li v-if="todo.repeatingEvent">
+                <button class="dropdown-item" type="button" @click="removeAll" data-bs-dismiss="modal">
+                  <i class="bi-trash"></i> <span>{{ $t("ui.removeAll") }}</span>
+                </button>
+              </li>
+            </ul>
             <div class="header-divider"></div>
             <i class="bi-x close-modal header-menu-icons" ref="closeModal" data-bs-dismiss="modal"
               :title="$t('todoDetails.close')"></i>
@@ -91,6 +103,7 @@
         </div>
         <div class="modal-body">
           <div class="modal-content-inner">
+            <!-- 标题区域 -->
             <div class="form-check">
               <input class="form-check-input" type="checkbox" value="" id="todo-header" v-model="todo.checked"
                 @change="checkTodoClickhandler(false)" />
@@ -107,13 +120,25 @@
                   :placeholder="$t('todoDetails.taskTitle')" @blur="doneEditTitle()" @keyup.enter="doneEditTitle()" />
                 <description-text-area :todoDesc="todo.desc"
                   @updated-description="changeDescription"></description-text-area>
-                <tag-picker class="mt-2" :model-value="todo.tags || []" :all-tags="allTags"
-                  @update:modelValue="changeTags"></tag-picker>
+
+                <!-- 属性工具条：标签 + 时间/提醒/重复/颜色 -->
+                <div class="attribute-toolbar mt-2">
+                  <tag-picker :model-value="todo.tags || []" :all-tags="allTags"
+                    @update:modelValue="changeTags"></tag-picker>
+                  <div class="attribute-tools">
+                    <time-picker :time="todo.time" @time-selected="changeTime"></time-picker>
+                    <reminder-picker :model-value="todo.reminders || []" @update:modelValue="changeReminders"></reminder-picker>
+                    <repeating-event v-if="showingCalendar" :repeatingEvent="todo.repeatingEvent" :todo="todo"
+                      @repeatingEventSelected="changeRepeatingEvent"></repeating-event>
+                    <color-picker :color="todo.color" @color-selected="changeColor"></color-picker>
+                  </div>
+                </div>
               </div>
             </div>
 
             <div class="section-divider"></div>
 
+            <!-- 子任务区域 -->
             <div class="section-label">
               <i class="bi-list-check"></i>
               <span>{{ $t("todoDetails.subtasks") }}</span>
@@ -160,7 +185,6 @@
 </template>
 
 <script>
-import Datepicker from "vue3-datepicker";
 import toDoListRepository from "../../repositories/toDoListRepository";
 import moment from "moment";
 import dbRepository from "../../repositories/dbRepository";
@@ -171,22 +195,23 @@ import timePicker from "./timePicker";
 import repeatingEvent from "./repeatingEvent";
 import notifications from "../../helpers/notifications";
 import repeatingEventHelper from "../../helpers/repeatingEvents.js";
-import languageHelper from "../../helpers/languageHelper.js"
+import languageHelper from "../../helpers/languageHelper.js";
 import repeatingEventRepository from "../../repositories/repeatingEventRepository";
 import comfirmModal from "../../components/comfirmModal.vue";
-import linkifyStr from 'linkify-string';
+import linkifyStr from "linkify-string";
 import ClickHandler from "@manuelernestog/click-handler";
 import tasksHelper from "../../helpers/tasksHelper";
-import descriptionTextArea from './descriptionTextArea.vue'
-import tagPicker from './tagPicker.vue'
-import reminderPicker from './reminderPicker.vue'
-import defaultTaskTags from '../../data/defaultTaskTags.js'
+import descriptionTextArea from "./descriptionTextArea.vue";
+import tagPicker from "./tagPicker.vue";
+import reminderPicker from "./reminderPicker.vue";
+import defaultTaskTags from "../../data/defaultTaskTags.js";
 
 export default {
   name: "toDoModal",
   data() {
     return {
-      pickedDate: new Date(),
+      startDateStr: "",
+      endDateStr: "",
       pickedCList: "",
       pickedCListName: "",
       cListOptions: [],
@@ -207,16 +232,15 @@ export default {
       editingTitle: false,
       showingCalendar: true,
       loadingView: false,
-      options: { target: '_blank', defaultProtocol: 'https' },
+      options: { target: "_blank", defaultProtocol: "https" },
       clickhandler: new ClickHandler(),
-    }
+    };
   },
   props: {
     selectedTodo: { required: true, type: Object },
   },
   components: {
     colorPicker,
-    Datepicker,
     toastMessage,
     timePicker,
     repeatingEvent,
@@ -226,6 +250,119 @@ export default {
     reminderPicker,
   },
   methods: {
+    // ============ 日期区间处理 ============
+    onStartDateChange: function () {
+      if (this.loadingView) return;
+      let newStart = moment(this.startDateStr, "YYYY-MM-DD", true);
+      if (!newStart.isValid()) return;
+
+      let newListId = newStart.format("YYYYMMDD");
+
+      // 如果结束日期早于开始日期，自动修正
+      if (this.endDateStr && moment(this.endDateStr).isBefore(newStart, "day")) {
+        this.endDateStr = this.startDateStr;
+      }
+
+      // 更新 endDate 字段
+      this.syncEndDateToTodo();
+
+      // 移动任务到新列表
+      if (newListId !== this.todo.listId) {
+        this.moveToTodoList(newListId);
+      }
+    },
+    onEndDateChange: function () {
+      if (this.loadingView) return;
+      let end = moment(this.endDateStr, "YYYY-MM-DD", true);
+      let start = moment(this.startDateStr, "YYYY-MM-DD", true);
+      if (!end.isValid()) return;
+
+      // 结束日期不能早于开始日期
+      if (end.isBefore(start, "day")) {
+        this.endDateStr = this.startDateStr;
+      }
+
+      this.syncEndDateToTodo();
+    },
+    syncEndDateToTodo: function () {
+      let start = moment(this.startDateStr, "YYYY-MM-DD", true);
+      let end = moment(this.endDateStr, "YYYY-MM-DD", true);
+      if (!start.isValid() || !end.isValid()) return;
+
+      if (end.isSame(start, "day")) {
+        // 单日任务，清除 endDate
+        this.todo.endDate = null;
+      } else {
+        this.todo.endDate = end.format("YYYYMMDD");
+      }
+      this.updateTodo();
+
+      // 同步镜像：需要在 startDate+1 到 endDate 的列表中都添加/移除引用
+      this.syncSpanningMirrors();
+    },
+    syncSpanningMirrors: function () {
+      // 先清除旧的跨天镜像
+      this.clearOldMirrors();
+      // 再添加新的镜像
+      if (!this.todo.endDate) return;
+      let start = moment(this.todo.listId, "YYYYMMDD");
+      let end = moment(this.todo.endDate, "YYYYMMDD");
+      let current = start.clone().add(1, "d");
+      while (current.isSameOrBefore(end, "day")) {
+        let dateId = current.format("YYYYMMDD");
+        this.addMirrorToDate(dateId);
+        current.add(1, "d");
+      }
+    },
+    clearOldMirrors: function () {
+      // 根据 selectedDates 检查每个日期列表中的 spanning 标记
+      let selectedDates = this.$store.getters.selectedDates || [];
+      let selfListId = this.todo.listId;
+      selectedDates.forEach((dateId) => {
+        if (dateId === selfListId) return;
+        let list = this.$store.getters.todoLists[dateId];
+        if (!list) return;
+        let filtered = list.filter(
+          (t) => !(t._spanSourceId === selfListId && t._spanSourceText === this.todo.text && t._isSpanMirror)
+        );
+        if (filtered.length !== list.length) {
+          this.$store.commit("loadTodoLists", { todoListId: dateId, todoList: filtered });
+          toDoListRepository.update(dateId, filtered);
+        }
+      });
+    },
+    addMirrorToDate: function (dateId) {
+      let list = this.$store.getters.todoLists[dateId];
+      if (!list) return;
+      // 避免重复添加
+      let alreadyExists = list.some(
+        (t) => t._spanSourceId === this.todo.listId && t._spanSourceText === this.todo.text && t._isSpanMirror
+      );
+      if (alreadyExists) return;
+
+      let mirror = {
+        text: this.todo.text,
+        checked: this.todo.checked,
+        listId: dateId,
+        desc: this.todo.desc,
+        subTaskList: this.todo.subTaskList,
+        color: this.todo.color,
+        priority: this.todo.priority || 0,
+        tags: this.todo.tags || [],
+        time: this.todo.time,
+        alarm: this.todo.alarm,
+        reminders: this.todo.reminders || [],
+        repeatingEvent: null,
+        endDate: this.todo.endDate,
+        _isSpanMirror: true,
+        _spanSourceId: this.todo.listId,
+        _spanSourceText: this.todo.text,
+      };
+      list.push(mirror);
+      this.$store.commit("loadTodoLists", { todoListId: dateId, todoList: list });
+      toDoListRepository.update(dateId, list);
+    },
+    // ============ 原有方法 ============
     removeSubTask: function (index) {
       this.todo.subTaskList.splice(index, 1);
       this.updateTodo();
@@ -294,11 +431,13 @@ export default {
       event.target.parentElement.classList.remove("drag-hover");
       this.updateTodo();
     },
-    showCalendar: function () {
-      document.getElementById("todo-date-picker-input").focus();
-    },
     checkTodoClickhandler: function (resetRepeatinEvent = true) {
-      this.clickhandler.handle(function () { this.checkTodo(resetRepeatinEvent) }.bind(this), function () { })
+      this.clickhandler.handle(
+        function () {
+          this.checkTodo(resetRepeatinEvent);
+        }.bind(this),
+        function () {}
+      );
     },
     checkTodo: function (resetRepeatinEvent = true) {
       if (this.todo.checked) {
@@ -319,7 +458,6 @@ export default {
       if (resetRepeatinEvent) {
         this.todo.repeatingEvent = null;
       }
-
       if (this.$store.getters.config.autoReorderTasks) {
         this.updateTodoList(this.todo.listId, tasksHelper.reorderTasksList(this.todoList));
       } else {
@@ -347,6 +485,9 @@ export default {
         });
       }
 
+      // 先清除旧的跨天镜像
+      this.clearOldMirrors();
+
       let oldListId = this.todo.listId;
       this.todoList.splice(this.index, 1);
       this.updateTodoList(oldListId, this.todoList);
@@ -363,10 +504,14 @@ export default {
         } else {
           this.updateTodoList(newListID, this.todoList);
         }
-
       } else {
         this.loadToDoFormDB(newListID);
       }
+
+      // 如果有跨天，重新创建镜像
+      this.$nextTick(() => {
+        this.syncSpanningMirrors();
+      });
     },
     loadToDoFormDB: function (newListID) {
       let db_req = dbRepository.open();
@@ -384,7 +529,8 @@ export default {
       }.bind(this);
     },
     removeTodo: function () {
-      this.$store.commit("setUndoElement", { type: 'task', todo: this.todo, index: this.index });
+      this.clearOldMirrors();
+      this.$store.commit("setUndoElement", { type: "task", todo: this.todo, index: this.index });
       this.$store.commit("removeTodo", { toDoListId: this.todo.listId, index: this.index });
       this.updateTodoList(this.todo.listId, this.$store.getters.todoLists[this.todo.listId]);
       let toast = new Toast(document.getElementById("taskRemoved"));
@@ -394,11 +540,17 @@ export default {
       let obj = this.$store.getters.undoElement;
       this.$store.commit("insertTodo", { toDoListId: obj.todo.listId, index: obj.index, toDo: obj.todo });
       this.updateTodoList(obj.todo.listId, this.$store.getters.todoLists[obj.todo.listId]);
+      // 恢复镜像
+      this.$nextTick(() => {
+        if (obj.todo.endDate) {
+          this.syncSpanningMirrors();
+        }
+      });
       let toast = new Toast(document.getElementById("taskRemoved"));
       toast.hide();
     },
     removeAll: function () {
-      let modal = new Modal(document.getElementById("removeReModalToDoDetails"), { backdrop: "static", });
+      let modal = new Modal(document.getElementById("removeReModalToDoDetails"), { backdrop: "static" });
       modal.show();
     },
     removeAllComfirmed() {
@@ -422,14 +574,15 @@ export default {
         checked: this.todo.checked,
         listId: this.todo.listId,
         desc: this.todo.desc,
-        subTaskList: this.todo.subTaskList,
+        subTaskList: JSON.parse(JSON.stringify(this.todo.subTaskList)),
         color: this.todo.color,
         priority: 0,
-        tags: this.todo.tags || [],
+        tags: this.todo.tags ? [...this.todo.tags] : [],
         time: this.todo.time,
         alarm: this.todo.alarm,
-        reminders: this.todo.reminders || [],
+        reminders: this.todo.reminders ? [...this.todo.reminders] : [],
         repeatingEvent: null,
+        endDate: this.todo.endDate || null,
       };
       this.$store.commit("addTodo", newTodo);
 
@@ -494,7 +647,15 @@ export default {
       this.updateTodo(false);
     },
     changeSubTaskClickhandler: function (index) {
-      this.clickhandler.handle(function () { this.changeSubTask(index) }.bind(this), function () { this.editSubTask(index) }.bind(this), index);
+      this.clickhandler.handle(
+        function () {
+          this.changeSubTask(index);
+        }.bind(this),
+        function () {
+          this.editSubTask(index);
+        }.bind(this),
+        index
+      );
     },
     changeSubTask: function (index) {
       if (this.todo.subTaskList[index].checked && this.moveSubtaskToBotttom) {
@@ -509,7 +670,7 @@ export default {
       if (document.activeElement.id == "toDoModal") {
         this.$refs.closeModal.click();
       }
-    }
+    },
   },
   watch: {
     selectedTodo: function (newVal) {
@@ -526,20 +687,22 @@ export default {
         this.todo["alarm"] = false;
         this.todo["reminders"] = [];
         this.todo["repeatingEvent"] = null;
+        this.todo["endDate"] = null;
       } else {
-        // "" desc/tags 
-        //  reminders  alarm:true 
-        //  reminders:[0]
         if (this.todo["tags"] == undefined) this.todo["tags"] = [];
         if (this.todo["reminders"] == undefined) {
           this.todo["reminders"] = this.todo.alarm ? [0] : [];
         }
+        if (this.todo["endDate"] == undefined) this.todo["endDate"] = null;
       }
       this.showingCalendar = moment(this.todo.listId, "YYYYMMDD", true).isValid();
       this.getCListOptions();
       this.loadingView = true;
       if (this.showingCalendar) {
-        this.pickedDate = moment(this.todo.listId).toDate();
+        this.startDateStr = moment(this.todo.listId, "YYYYMMDD").format("YYYY-MM-DD");
+        this.endDateStr = this.todo.endDate
+          ? moment(this.todo.endDate, "YYYYMMDD").format("YYYY-MM-DD")
+          : this.startDateStr;
         this.pickedCList = "";
         this.pickedCListName = "";
       } else {
@@ -549,25 +712,17 @@ export default {
           }
         });
         this.pickedCList = this.todo.listId;
-        this.pickedDate = null;
+        this.startDateStr = "";
+        this.endDateStr = "";
       }
       this.$nextTick(function () {
         this.loadingView = false;
       });
     },
-    pickedDate: function (newVal) {
-      if (this.loadingView) return;
-
-      var newListId = moment(newVal).format("YYYYMMDD");
-      if (newListId != this.todo.listId) {
-        this.moveToTodoList(newListId);
-      }
-    },
     pickedCList: function (newVal) {
       if (this.loadingView) return;
-
       this.moveToTodoList(newVal);
-    }
+    },
   },
   computed: {
     language: function () {
@@ -645,7 +800,7 @@ export default {
 }
 
 .modal-header {
-  padding: 18px 20px 14px 24px;
+  padding: 14px 20px 12px 20px;
   border-bottom: 1px solid #eff1f4;
 
   .dark-theme & {
@@ -653,17 +808,87 @@ export default {
   }
 }
 
-.header-tools {
-  gap: 2px;
+/* ====== 日期区间选择器 ====== */
+.date-range-row {
+  display: flex;
+  align-items: center;
+}
+
+.date-range-picker {
   background-color: #f4f5f7;
-  padding: 4px 6px;
-  border-radius: 10px;
+  border-radius: 8px;
+  padding: 4px 10px;
+  gap: 4px;
 
   .dark-theme & {
     background-color: #1a1e24;
   }
 }
 
+.date-range-icon {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-right: 4px;
+
+  .dark-theme & {
+    color: #9aa0a8;
+  }
+}
+
+.date-range-input {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: #374151;
+  outline: none;
+  width: 120px;
+  padding: 4px 2px;
+  font-family: inherit;
+
+  .dark-theme & {
+    color: #c9d1d9;
+  }
+
+  &::-webkit-calendar-picker-indicator {
+    opacity: 0.4;
+    cursor: pointer;
+
+    .dark-theme & {
+      filter: invert(0.7);
+    }
+  }
+}
+
+.date-range-separator {
+  color: #9ca3af;
+  font-size: 13px;
+  margin: 0 2px;
+  user-select: none;
+}
+
+/* ====== 属性工具条 ====== */
+.attribute-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.attribute-tools {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-left: 4px;
+  background-color: #f4f5f7;
+  padding: 2px 4px;
+  border-radius: 8px;
+
+  .dark-theme & {
+    background-color: #1a1e24;
+  }
+}
+
+/* ====== 其它原有样式 ====== */
 .header-divider {
   width: 1px;
   height: 20px;
@@ -767,7 +992,7 @@ export default {
   padding: 0px 10px 10px 10px;
   margin: 0px;
 
-  li>div {
+  li > div {
     -webkit-user-drag: element;
   }
 
@@ -856,7 +1081,6 @@ export default {
       width: 100%;
       height: 38px;
       outline: unset;
-
       border: 2px solid transparent;
 
       .dark-theme & {

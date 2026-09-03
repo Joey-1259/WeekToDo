@@ -140,6 +140,7 @@
     "themeText": "您可以根据自己的喜好在浅色和深色主题之间进行选择。"
   },
   "ui": {
+    "spanningTask": "跨天任务",
     "rmList": "删除列表",
     "rmListConfirm": "您确定要删除列表吗",
     "repeatingTaskRemoveConfirm": "您确定要删除此重复任务吗？",
@@ -202,6 +203,8 @@
     "archiveClearConfirm": "确定要清空所有归档历史吗？此操作不可恢复。"
   },
   "todoDetails": {
+    "startDate": "开始日期",
+    "endDate": "结束日期",
     "taskTitle": "任务标题",
     "notes": "任务细节",
     "markdown": "支持 Markdown 样式",

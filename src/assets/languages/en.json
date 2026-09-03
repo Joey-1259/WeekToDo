@@ -140,6 +140,7 @@
     "themeText": "You can choose between a light and dark theme according to your preferences."
   },
   "ui": {
+    "spanningTask": "Spanning task",
     "rmList": "Remove list",
     "rmListConfirm": "Are you sure you want to remove the list",
     "repeatingTaskRemoveConfirm": "Are you sure you want to delete this repeating task?",
@@ -202,6 +203,8 @@
     "archiveClearConfirm": "Are you sure you want to clear all archived history? This cannot be undone."
   },
   "todoDetails": {
+    "startDate": "Start date",
+    "endDate": "End date",
     "taskTitle": "Task title",
     "notes": "Task Details",
     "markdown": "Markdown style supported",

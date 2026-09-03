@@ -3,216 +3,194 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>储能工序工时与工费率对标</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<title>储能工序费用精准对标 · 成本管理数字化</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
---i:#6366f1;--i2:#818cf8;--em:#10b981;--am:#f59e0b;--ro:#ef4444;
---bk:#0f172a;--s0:#020617;--s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;
---s300:#cbd5e1;--s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;
---s800:#1e293b;--s900:#0f172a;
---glass:rgba(255,255,255,.62);--glass-b:rgba(255,255,255,.18);
---radius:14px;--shadow:0 4px 24px rgba(0,0,0,.06);
---topH:52px;
+  --i:#4F46E5;--il:#6366F1;--i-bg:rgba(79,70,229,.08);--i-bd:rgba(79,70,229,.20);
+  --v:#7C3AED;--v-bg:rgba(124,58,237,.08);
+  --em:#059669;--em-bg:rgba(5,150,105,.09);--em-bd:rgba(5,150,105,.22);
+  --am:#D97706;--am-bg:rgba(217,119,6,.09);--am-bd:rgba(217,119,6,.22);
+  --ro:#E11D48;--ro-bg:rgba(225,29,72,.08);--ro-bd:rgba(225,29,72,.20);
+  --sk:#0284C7;--sk-bg:rgba(2,132,199,.08);
+  --tl:#0D9488;--tl-bg:rgba(13,148,136,.08);
+  --s0:#fff;--s50:#F8FAFC;--s100:#F1F5F9;--s200:#E2E8F0;--s300:#CBD5E1;--s400:#94A3B8;
+  --s500:#64748B;--s600:#475569;--s700:#334155;--s800:#1E293B;--s900:#0F172A;
+  --glass:rgba(255,255,255,.78);--glass-b:rgba(255,255,255,.55);
+  --sh-sm:0 1px 3px rgba(0,0,0,.04);
+  --sh-md:0 4px 16px rgba(79,70,229,.08),0 1px 4px rgba(0,0,0,.04);
+  --sh-lg:0 8px 28px rgba(79,70,229,.12),0 2px 8px rgba(0,0,0,.06);
+  --r:14px;--rs:8px;
 }
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter','Noto Sans SC',system-ui,sans-serif;background:linear-gradient(135deg,#f0f4ff 0%,#e8ecf9 40%,#f5f0ff 100%);min-height:100vh;color:var(--s800)}
-.topbar{position:sticky;top:0;z-index:100;height:var(--topH);display:flex;align-items:center;justify-content:space-between;padding:0 24px;
-background:rgba(255,255,255,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--s200)}
-.brand{font-weight:700;font-size:15px;color:var(--i);display:flex;align-items:center;gap:6px}
-.brand svg{width:22px;height:22px}
-.nav-links{display:flex;gap:4px}
-.nav-links a{font-size:12.5px;padding:5px 13px;border-radius:8px;text-decoration:none;color:var(--s600);font-weight:500;transition:.2s}
-.nav-links a:hover{background:var(--s100);color:var(--i)}
-.nav-links a.active{background:var(--i);color:#fff}
-.topbar-right{display:flex;align-items:center;gap:14px}
-.btn-export{font-size:12px;padding:5px 14px;border-radius:8px;border:1px solid var(--s200);background:#fff;cursor:pointer;font-weight:500;color:var(--s600);transition:.15s}
-.btn-export:hover{border-color:var(--i);color:var(--i)}
-.filter-bar{display:flex;align-items:center;gap:10px;padding:10px 24px;flex-wrap:wrap}
-.filter-bar label{font-size:12px;color:var(--s500);font-weight:500}
-.filter-bar select{font-size:12.5px;padding:5px 10px;border-radius:8px;border:1px solid var(--s200);background:#fff;color:var(--s700);font-family:inherit;outline:none;cursor:pointer}
-.filter-bar select:focus{border-color:var(--i)}
-.filter-sep{width:1px;height:22px;background:var(--s200);margin:0 4px}
-.main{padding:4px 24px 32px}
-.kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:16px}
-.kpi-card{background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-b);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow)}
-.kpi-card .kl{font-size:11.5px;color:var(--s500);font-weight:500}
-.kpi-card .kv{font-size:22px;font-weight:700;color:var(--s900)}
-.kpi-card .kt{font-size:11px;font-weight:500}
-.card{background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--glass-b);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
-.tab-nav{display:flex;gap:4px;padding:12px 20px 0}
-.tab-btn{font-size:12.5px;padding:6px 16px;border-radius:8px 8px 0 0;border:none;background:transparent;color:var(--s500);font-weight:500;cursor:pointer;transition:.15s;font-family:inherit;border-bottom:2px solid transparent}
-.tab-btn:hover{color:var(--i)}
-.tab-btn.on{color:var(--i);background:rgba(99,102,241,.06);border-bottom-color:var(--i);font-weight:600}
-.tab-pane{display:none;padding:16px 20px 20px}
-.tab-pane.show{display:block}
-.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.chart-box{position:relative;height:380px}
-.chart-box canvas{width:100%!important;height:100%!important}
-.insight-box{margin-top:14px;padding:12px 16px;border-radius:10px;background:linear-gradient(90deg,rgba(99,102,241,.06),rgba(16,185,129,.04));border-left:3px solid var(--i);font-size:12.5px;color:var(--s600);line-height:1.7}
-.insight-box strong{color:var(--s800)}
-.tbl-wrap{overflow-x:auto;margin-top:12px}
-table{width:100%;border-collapse:collapse;font-size:12.5px}
-th{background:var(--s50);position:sticky;top:0;font-weight:600;color:var(--s600);text-align:left;padding:9px 12px;border-bottom:2px solid var(--s200);white-space:nowrap}
-td{padding:8px 12px;border-bottom:1px solid var(--s100);color:var(--s700);white-space:nowrap}
-tr:hover td{background:rgba(99,102,241,.03)}
-.val-hi{color:var(--ro);font-weight:600}.val-lo{color:var(--em);font-weight:600}
-.link-drill{color:var(--i);text-decoration:none;font-weight:500;cursor:pointer;font-size:12px}
-.link-drill:hover{text-decoration:underline}
-.rank-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:700;color:#fff}
-.rank-1{background:linear-gradient(135deg,#f59e0b,#f97316)}.rank-2{background:linear-gradient(135deg,#94a3b8,#64748b)}.rank-3{background:linear-gradient(135deg,#d97706,#b45309)}.rank-n{background:var(--s300);color:var(--s600)}
-/* bottleneck tag */
-.tag-bottleneck{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;background:rgba(239,68,68,.1);color:#dc2626}
-.tag-ok{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;background:rgba(16,185,129,.1);color:#059669}
-.tag-warn{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;background:rgba(245,158,11,.1);color:#b45309}
-/* process flow */
-.process-flow{display:flex;align-items:center;gap:4px;overflow-x:auto;padding:16px 0 8px;margin-bottom:12px}
-.pf-step{flex-shrink:0;padding:10px 16px;border-radius:10px;text-align:center;border:1.5px solid var(--s200);background:#fff;cursor:pointer;transition:.2s;min-width:110px}
-.pf-step:hover,.pf-step.active{border-color:var(--i);background:rgba(99,102,241,.06);transform:translateY(-2px);box-shadow:0 3px 12px rgba(99,102,241,.12)}
-.pf-step .pf-name{font-size:12px;font-weight:600;color:var(--s800)}
-.pf-step .pf-time{font-size:18px;font-weight:700;color:var(--i);margin-top:4px}
-.pf-step .pf-unit{font-size:10px;color:var(--s400)}
-.pf-arrow{color:var(--s300);font-size:18px;flex-shrink:0}
-@media(max-width:1200px){.kpi-strip{grid-template-columns:repeat(3,1fr)}.chart-row{grid-template-columns:1fr}}
-@media(max-width:768px){.kpi-strip{grid-template-columns:repeat(2,1fr)}}
+html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','Noto Sans SC',sans-serif;background:var(--s50);color:var(--s700)}
+.bg-l{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.bg-l::before{content:'';position:absolute;top:-120px;right:-60px;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(79,70,229,.06) 0%,transparent 70%)}
+.bg-l::after{content:'';position:absolute;bottom:-60px;left:-40px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(5,150,105,.04) 0%,transparent 70%)}
+.shell{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:300;height:52px;padding:0 20px;display:flex;align-items:center;gap:12px;background:var(--glass);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-b);box-shadow:var(--sh-sm)}
+.bc{display:flex;align-items:center;gap:5px;font-size:11px;flex-shrink:0}.bc a{color:var(--s400);text-decoration:none;cursor:pointer}.bc a:hover{color:var(--i)}.bc .sep{color:var(--s300)}.bc .cur{color:var(--i);font-weight:700}
+.tb-d{width:1px;height:18px;background:var(--s200);flex-shrink:0}
+.filters{display:flex;align-items:center;gap:7px;flex:1;flex-wrap:wrap;justify-content:center}
+.fi-g{display:flex;align-items:center;gap:4px}.fi-l{font-size:10px;color:var(--s400);white-space:nowrap}
+.fi-s{appearance:none;padding:4px 20px 4px 8px;border-radius:var(--rs);background:var(--s0) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394A3B8'/%3E%3C/svg%3E") no-repeat right 6px center;border:1px solid var(--s200);font-size:11px;color:var(--s700);cursor:pointer;font-family:inherit;transition:all .15s}
+.fi-s:focus{outline:none;border-color:var(--il);box-shadow:0 0 0 3px rgba(99,102,241,.10)}
+.fi-dv{width:1px;height:14px;background:var(--s200)}
+.tb-r{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.ib{width:28px;height:28px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--s200);cursor:pointer;font-size:13px;color:var(--s500);transition:all .15s}.ib:hover{border-color:var(--il);color:var(--i);background:var(--i-bg)}
+.nav-link{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:var(--rs);border:1px solid var(--em-bd);font-size:10px;font-weight:600;color:var(--em);cursor:pointer;text-decoration:none;transition:all .15s;white-space:nowrap;background:var(--em-bg)}.nav-link:hover{background:rgba(5,150,105,.16)}
+.main{flex:1;padding:16px 20px 24px;display:flex;flex-direction:column;gap:14px}
+.sh{display:flex;align-items:center;gap:7px;margin-bottom:2px}.sh-d{width:7px;height:7px;border-radius:50%;flex-shrink:0}.sh-t{font-size:11px;font-weight:700;color:var(--s400);text-transform:uppercase;letter-spacing:.06em}.sh-l{flex:1;height:1px;background:var(--s100)}.sh-extra{font-size:10px;color:var(--s400)}
+.card{background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--glass-b);border-radius:var(--r);box-shadow:var(--sh-md)}
+/* Snap grid */
+.snap-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.snap-card{padding:14px 16px;border-radius:var(--r);display:flex;flex-direction:column;gap:6px;background:var(--s0);border:1px solid var(--s200)}
+.snap-card .snap-label{font-size:10px;font-weight:600;color:var(--s500)}
+.snap-card .snap-value{font-size:22px;font-weight:800;color:var(--s800);letter-spacing:-.02em;line-height:1.1}
+.snap-card .snap-sub{font-size:10px;color:var(--s400)}
+/* Process tabs */
+.proc-tabs{display:flex;gap:0;background:var(--s100);border-radius:var(--rs);padding:2px;flex-wrap:wrap}
+.proc-tab{padding:8px 14px;font-size:10.5px;font-weight:600;color:var(--s500);cursor:pointer;border-radius:6px;transition:all .15s;white-space:nowrap;border:none;background:none;font-family:inherit}
+.proc-tab.active{background:var(--s0);color:var(--i);box-shadow:var(--sh-sm);font-weight:700}
+.proc-tab:hover:not(.active){color:var(--s700)}
+/* Tab card */
+.tab-card{padding:0;overflow:hidden}
+.tab-nav{display:flex;border-bottom:2px solid var(--s100);background:var(--s50);overflow-x:auto}
+.tab-btn{padding:12px 18px;font-size:11px;font-weight:600;color:var(--s500);cursor:pointer;border:none;background:none;font-family:inherit;white-space:nowrap;position:relative;transition:all .15s}.tab-btn:hover{color:var(--i);background:var(--i-bg)}.tab-btn.active{color:var(--i);font-weight:700}.tab-btn.active::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;background:var(--i);border-radius:1px}
+.tab-content{padding:20px;display:none;min-height:380px}.tab-content.active{display:block}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:1100px){.g2{grid-template-columns:1fr}.snap-grid{grid-template-columns:repeat(3,1fr)}}
+.inner{background:var(--s50);border:1px solid var(--s100);border-radius:10px;padding:14px}
+.inner-ti{font-size:10px;font-weight:700;color:var(--s500);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.inner-ti .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.ch{position:relative;height:280px}
+.insight{padding:12px 16px;border-radius:10px;border-left:4px solid var(--am);background:var(--am-bg);margin-bottom:14px;font-size:11px;color:var(--s700);line-height:1.7}
+.insight b{color:var(--s800)}.insight .tag-r{color:var(--ro);font-weight:700}.insight .tag-g{color:var(--em);font-weight:700}
+/* Table */
+.sum-tbl{width:100%;border-collapse:collapse;font-size:10px;margin-top:8px}
+.sum-tbl th{padding:6px 8px;text-align:center;font-weight:600;color:var(--s400);font-size:9px;border-bottom:2px solid var(--s200);background:var(--s50);white-space:nowrap}
+.sum-tbl th:first-child{text-align:left}
+.sum-tbl td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--s100);font-size:10px;font-weight:600;white-space:nowrap}
+.sum-tbl td:first-child{text-align:left;color:var(--s600)}
+.sum-tbl tr:hover{background:rgba(79,70,229,.03)}
+.val-hi{color:var(--ro);font-weight:700}.val-lo{color:var(--em);font-weight:700}
+.mtag{display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700}
+.mtag-r{background:rgba(225,29,72,.1);color:var(--ro)}.mtag-g{background:rgba(5,150,105,.1);color:var(--em)}.mtag-a{background:rgba(217,119,6,.1);color:var(--am)}
+.foot{padding:10px 20px;border-top:1px solid var(--s100);font-size:10px;color:var(--s300);display:flex;justify-content:space-between}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.93);backdrop-filter:blur(12px);color:#F8FAFC;padding:9px 18px;border-radius:10px;font-size:12px;font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;white-space:nowrap}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--s200);border-radius:2px}
 </style>
 </head>
 <body>
+<div class="bg-l"></div>
+<div id="toast"></div>
+<div class="shell">
 
-<header class="topbar">
-  <div class="brand">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18M3 9h18"/></svg>
-    储能成本对标中心
+<nav class="topbar">
+  <div class="bc"><a onclick="go('es-cost-benchmark.html')">成本管理</a><span class="sep">›</span><a onclick="go('es-cost-benchmark.html')">储能全成本</a><span class="sep">›</span><span class="cur">工序费用精准对标</span></div>
+  <div class="tb-d"></div>
+  <div class="filters">
+    <div class="fi-g"><span class="fi-l">期间</span><select class="fi-s" id="f-period"><option selected>2026年8月</option><option>2026年7月</option><option>2026年6月</option></select></div>
+    <div class="fi-dv"></div>
+    <div class="fi-g"><span class="fi-l">企业</span><select class="fi-s" id="f-ent"><option value="all" selected>全部企业</option><option>东莞南方</option><option>新会</option><option>青岛</option><option>扬州</option><option>宁波</option><option>天津</option><option>太仓</option><option>南通</option><option>南通元能</option></select></div>
+    <div class="fi-dv"></div>
+    <div class="fi-g"><span class="fi-l">产线</span><select class="fi-s" id="f-line"><option selected>全部产线</option><option>储能柜线</option><option>储能集装箱线</option></select></div>
+    <div class="fi-g"><span class="fi-l">产品</span><select class="fi-s" id="f-prod"><option selected>全部产品</option><option>20尺标准储能柜</option><option>40尺标准储能柜</option></select></div>
   </div>
-  <nav class="nav-links">
-    <a href="es-cost-benchmark.html" id="lnk1">全成本对标总览</a>
-    <a href="es-material-drilldown.html" id="lnk2">材料量价穿透</a>
-    <a href="es-labor-process.html" class="active" id="lnk3">工序工时工费率</a>
+  <div class="tb-d"></div>
+  <div class="tb-r">
+    <a class="nav-link" onclick="go('es-cost-benchmark.html')">← 全成本总览</a>
+    <a class="nav-link" style="border-color:var(--i-bd);color:var(--i);background:var(--i-bg)" onclick="go('es-material-drilldown.html')">🔋 材料穿透</a>
+    <div class="fi-dv"></div>
+    <button class="ib" onclick="exportPNG()">⬇</button>
+  </div>
+</nav>
+
+<main class="main" id="capture-area">
+
+<!-- KPI Snap -->
+<div class="sh"><div class="sh-d" style="background:var(--i)"></div><div class="sh-t">工时 × 工费率 快照</div><div class="sh-l"></div><div class="sh-extra" id="snap-ctx">全部企业 · 2026年8月</div></div>
+<div class="snap-grid" id="snap-grid"></div>
+
+<!-- Process Tabs -->
+<div class="sh"><div class="sh-d" style="background:var(--v)"></div><div class="sh-t">储能产品制造工序选择</div><div class="sh-l"></div><div class="sh-extra">点击工序查看跨企业对标详情</div></div>
+<div class="proc-tabs" id="proc-tabs"></div>
+
+<!-- Analysis Tabs -->
+<div class="card tab-card" style="margin-top:10px">
+  <nav class="tab-nav" id="tnav">
+    <button class="tab-btn active" data-t="t-hours">工时对标排名</button>
+    <button class="tab-btn" data-t="t-rate">工费率对标分析</button>
+    <button class="tab-btn" data-t="t-bottleneck">瓶颈工序识别</button>
   </nav>
-  <div class="topbar-right">
-    <button class="btn-export" onclick="snapshot()">📸 导出快照</button>
-  </div>
-</header>
 
-<div class="filter-bar">
-  <label>期间</label>
-  <select id="fPeriod"><option>2026年8月</option><option>2026年7月</option><option>2026年6月</option><option>2026年5月</option></select>
-  <div class="filter-sep"></div>
-  <label>对标企业</label>
-  <select id="fEnterprise"><option value="all">全部企业</option><option>东莞南方</option><option>新会</option><option>青岛</option><option>扬州</option><option>宁波</option><option>天津</option><option>太仓</option><option>南通</option><option>南通元能</option></select>
-  <div class="filter-sep"></div>
-  <label>产线类型</label>
-  <select id="fLineType"><option value="all">全部产线</option><option>储能柜线</option><option>储能集装箱线</option></select>
-  <div class="filter-sep"></div>
-  <label>产品</label>
-  <select id="fProduct"><option value="all">全部产品</option><option>20尺标准储能柜</option><option>40尺标准储能柜</option><option>定制储能集装箱</option></select>
-</div>
-
-<div class="main">
-
-<!-- KPI -->
-<div class="kpi-strip" id="kpiStrip3"></div>
-
-<!-- 工序流程图 -->
-<div class="card">
-  <div style="padding:16px 20px 0">
-    <span style="font-size:14.5px;font-weight:700;color:var(--s800)">⚙️ 储能产品制造工序流程</span>
-    <span style="font-size:11.5px;color:var(--s400);margin-left:10px">点击工序查看跨企业对标详情 | 工时单位: 工时/台</span>
-  </div>
-  <div style="padding:0 20px 16px">
-    <div class="process-flow" id="processFlow"></div>
-  </div>
-</div>
-
-<!-- 分析主卡片 -->
-<div class="card">
-  <div class="tab-nav">
-    <button class="tab-btn on" data-t="lt1">工时对标排名</button>
-    <button class="tab-btn" data-t="lt2">工费率对标分析</button>
-    <button class="tab-btn" data-t="lt3">瓶颈工序识别</button>
-  </div>
-
-  <!-- Tab1: 工时排名 -->
-  <div class="tab-pane show" id="lt1">
-    <div class="chart-row">
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">各企业单台总工时排名（工时/台）</div>
-        <div class="chart-box"><canvas id="chartHourRank"></canvas></div>
-      </div>
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">工序工时堆叠对比</div>
-        <div class="chart-box"><canvas id="chartHourStack"></canvas></div>
-      </div>
+  <!-- Tab1: Hours -->
+  <div class="tab-content active" id="t-hours">
+    <div class="insight" id="ins-hours"></div>
+    <div class="g2">
+      <div class="inner"><div class="inner-ti"><span class="dot" style="background:var(--i)"></span>各企业单台总工时排名（h/台）</div><div class="ch"><canvas id="c-h-rank"></canvas></div></div>
+      <div class="inner"><div class="inner-ti"><span class="dot" style="background:var(--v)"></span>工序工时堆叠对比</div><div class="ch"><canvas id="c-h-stack"></canvas></div></div>
     </div>
-    <div class="insight-box" id="insightLt1"></div>
-    <div class="tbl-wrap"><table id="tblHourRank"></table></div>
-  </div>
-
-  <!-- Tab2: 工费率对标 -->
-  <div class="tab-pane" id="lt2">
-    <div class="chart-row">
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">各企业综合工费率（元/工时）</div>
-        <div class="chart-box"><canvas id="chartRateBar"></canvas></div>
-      </div>
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">工时 × 工费率散点（气泡 = 费用总额）</div>
-        <div class="chart-box"><canvas id="chartBubble"></canvas></div>
-      </div>
+    <div class="inner" style="margin-top:14px">
+      <div class="inner-ti"><span class="dot" style="background:var(--tl)"></span>工时明细 · 全工序对比</div>
+      <div style="overflow-x:auto"><table class="sum-tbl" id="tbl-hours"><thead><tr></tr></thead><tbody></tbody></table></div>
     </div>
-    <div class="insight-box" id="insightLt2"></div>
-    <div class="tbl-wrap"><table id="tblRate"></table></div>
   </div>
 
-  <!-- Tab3: 瓶颈识别 -->
-  <div class="tab-pane" id="lt3">
+  <!-- Tab2: Rate -->
+  <div class="tab-content" id="t-rate">
+    <div class="insight" id="ins-rate"></div>
+    <div class="g2">
+      <div class="inner"><div class="inner-ti"><span class="dot" style="background:var(--am)"></span>各企业综合工费率排名（元/h）</div><div class="ch"><canvas id="c-r-rank"></canvas></div></div>
+      <div class="inner"><div class="inner-ti"><span class="dot" style="background:var(--tl)"></span>工时 × 工费率 效率矩阵散点图</div><div class="ch"><canvas id="c-r-scatter"></canvas></div></div>
+    </div>
+    <div class="inner" style="margin-top:14px">
+      <div class="inner-ti"><span class="dot" style="background:var(--ro)"></span>工费率明细 · 全工序对比</div>
+      <div style="overflow-x:auto"><table class="sum-tbl" id="tbl-rate"><thead><tr></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- Tab3: Bottleneck -->
+  <div class="tab-content" id="t-bottleneck">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-      <label style="font-size:12px;color:var(--s500);font-weight:500">瓶颈阈值（超出均值百分比）</label>
-      <input id="bottleneckPct" type="number" value="15" min="5" max="50" step="5" style="width:70px;font-size:12.5px;padding:5px 10px;border-radius:8px;border:1px solid var(--s200);font-family:inherit">
-      <span style="font-size:12px;color:var(--s500)">%</span>
+      <div class="fi-g"><span class="fi-l">瓶颈阈值(超均值%)</span><select class="fi-s" id="bn-pct" onchange="renderBottleneck()"><option>10</option><option selected>15</option><option>20</option><option>25</option></select></div>
     </div>
-    <div class="chart-row">
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">工序级效率偏差热力图</div>
-        <div class="chart-box"><canvas id="chartBottleneck"></canvas></div>
-      </div>
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px">瓶颈工序改善潜力排序</div>
-        <div class="chart-box"><canvas id="chartPotential"></canvas></div>
-      </div>
+    <div class="insight" id="ins-bn"></div>
+    <div class="g2">
+      <div class="inner"><div class="inner-ti"><span class="dot" style="background:var(--ro)"></span>工序偏差热力气泡图</div><div class="ch"><canvas id="c-bn-heat"></canvas></div></div>
+      <div class="inner"><div class="inner-ti"><span class="dot" style="background:var(--em)"></span>瓶颈改善潜力排序（元/台）</div><div class="ch"><canvas id="c-bn-pot"></canvas></div></div>
     </div>
-    <div class="insight-box" id="insightLt3"></div>
-    <div class="tbl-wrap"><table id="tblBottleneck"></table></div>
+    <div class="inner" style="margin-top:14px">
+      <div class="inner-ti"><span class="dot" style="background:var(--am)"></span>瓶颈工序明细</div>
+      <div style="overflow-x:auto"><table class="sum-tbl" id="tbl-bn"><thead><tr></tr></thead><tbody></tbody></table></div>
+    </div>
   </div>
 </div>
+
+</main>
+<footer class="foot"><span>储能工序费用精准对标 · es-labor-process.html · 储能业务专项 3/3</span><span id="fdt"></span></footer>
 </div>
 
 <script>
-/* ═══════════════════════════════════════
-   DATA — 储能制造工序 + 工时 + 工费率
-   ═══════════════════════════════════════ */
-const ENTERPRISES=['东莞南方','新会','青岛','扬州','宁波','天津','太仓','南通','南通元能'];
+const $=id=>document.getElementById(id);
+$('fdt').textContent='数据刷新：2026-09-02 · 月结T+1';
+let _t;function toast(m){const e=$('toast');e.textContent=m;e.style.opacity='1';clearTimeout(_t);_t=setTimeout(()=>e.style.opacity='0',2800)}
+function go(u){window.location.href=u}
+function exportPNG(){toast('⬇ 截图...');html2canvas($('capture-area'),{scale:2,backgroundColor:'#F8FAFC'}).then(c=>{const a=document.createElement('a');a.download='储能工序对标.png';a.href=c.toDataURL('image/png');a.click();toast('✓ 已导出')})}
+Chart.defaults.font.family="'Inter','Noto Sans SC',sans-serif";Chart.defaults.font.size=11;Chart.defaults.color='#64748B';Chart.defaults.plugins.legend.display=false;Chart.register(ChartDataLabels);Chart.defaults.plugins.datalabels.display=false;
 
-// 储能产品核心工序定义
-const PROCESSES=[
-  {key:'cellTest',name:'电芯检测配组',icon:'🔋'},
-  {key:'modulePack',name:'模组PACK',icon:'📦'},
-  {key:'bmsInstall',name:'BMS安装调试',icon:'🧠'},
-  {key:'pcsMount',name:'PCS安装接线',icon:'⚡'},
-  {key:'thermalPipe',name:'温控管路安装',icon:'❄️'},
-  {key:'cabinetAsm',name:'柜体总装集成',icon:'🏗️'},
-  {key:'wiringHarness',name:'线束布线',icon:'🔌'},
-  {key:'systemTest',name:'系统联调测试',icon:'✅'},
-  {key:'aging',name:'老化充放电',icon:'🔄'},
-  {key:'finalQC',name:'终检包装',icon:'📋'}
+const ENTS=['东莞南方','新会','青岛','扬州','宁波','天津','太仓','南通','南通元能'];
+const PROCS=[
+  {key:'cellTest',name:'电芯检测配组'},{key:'modulePack',name:'模组PACK'},{key:'bmsInstall',name:'BMS安装调试'},
+  {key:'pcsMount',name:'PCS安装接线'},{key:'thermalPipe',name:'温控管路安装'},{key:'cabinetAsm',name:'柜体总装集成'},
+  {key:'wiringHarness',name:'线束布线'},{key:'systemTest',name:'系统联调测试'},{key:'aging',name:'老化充放电'},{key:'finalQC',name:'终检包装'}
 ];
-const procKeys=PROCESSES.map(p=>p.key);
+const procKeys=PROCS.map(p=>p.key);
+const COLORS_P=['#4F46E5','#7C3AED','#A78BFA','#0284C7','#0D9488','#D97706','#F97316','#059669','#94A3B8','#E879F9'];
 
-// 各企业各工序工时（工时/台）
 const HOURS={
   '东莞南方':{cellTest:3.2,modulePack:8.5,bmsInstall:2.8,pcsMount:3.5,thermalPipe:4.2,cabinetAsm:12.0,wiringHarness:5.5,systemTest:6.0,aging:8.0,finalQC:2.3},
   '新会':{cellTest:2.9,modulePack:7.8,bmsInstall:2.5,pcsMount:3.2,thermalPipe:3.8,cabinetAsm:11.0,wiringHarness:5.0,systemTest:5.5,aging:8.0,finalQC:2.1},
@@ -224,8 +202,6 @@ const HOURS={
   '南通':{cellTest:3.6,modulePack:9.2,bmsInstall:3.0,pcsMount:3.8,thermalPipe:4.5,cabinetAsm:13.0,wiringHarness:5.8,systemTest:6.5,aging:8.5,finalQC:2.6},
   '南通元能':{cellTest:2.7,modulePack:7.5,bmsInstall:2.4,pcsMount:3.0,thermalPipe:3.7,cabinetAsm:10.5,wiringHarness:4.8,systemTest:5.2,aging:7.5,finalQC:2.0}
 };
-
-// 各企业工费率（元/工时）— 包含人工+制造费用分摊
 const RATES={
   '东莞南方':{cellTest:135,modulePack:128,bmsInstall:145,pcsMount:140,thermalPipe:125,cabinetAsm:118,wiringHarness:122,systemTest:155,aging:85,finalQC:105},
   '新会':{cellTest:130,modulePack:125,bmsInstall:140,pcsMount:135,thermalPipe:120,cabinetAsm:115,wiringHarness:118,systemTest:150,aging:82,finalQC:100},
@@ -238,326 +214,111 @@ const RATES={
   '南通元能':{cellTest:126,modulePack:122,bmsInstall:136,pcsMount:131,thermalPipe:116,cabinetAsm:110,wiringHarness:114,systemTest:145,aging:78,finalQC:96}
 };
 
-/* ── helpers ── */
+function getTH(e){return procKeys.reduce((s,k)=>s+HOURS[e][k],0)}
+function getWR(e){return procKeys.reduce((s,k)=>s+HOURS[e][k]*RATES[e][k],0)/getTH(e)}
+function getTLC(e){return procKeys.reduce((s,k)=>s+HOURS[e][k]*RATES[e][k],0)}
 const fmt=n=>n>=10000?(n/10000).toFixed(2)+'万':n.toLocaleString();
-const params=new URLSearchParams(location.search);
-
-function buildParams(){
-  const p=new URLSearchParams();
-  p.set('period',document.getElementById('fPeriod').value);
-  p.set('enterprise',document.getElementById('fEnterprise').value);
-  p.set('lineType',document.getElementById('fLineType').value);
-  p.set('product',document.getElementById('fProduct').value);
-  return p.toString();
-}
-function navTo(page){location.href=page+'?'+buildParams()}
-function updateNavLinks(){
-  const q='?'+buildParams();
-  document.getElementById('lnk1').href='es-cost-benchmark.html'+q;
-  document.getElementById('lnk2').href='es-material-drilldown.html'+q;
-  document.getElementById('lnk3').href='es-labor-process.html'+q;
-}
-document.querySelectorAll('.filter-bar select').forEach(s=>s.addEventListener('change',()=>{updateNavLinks();renderAll()}));
-
-['fPeriod','fEnterprise','fLineType','fProduct'].forEach(k=>{
-  const v=params.get(k.replace('f','').toLowerCase())||params.get(k);
-  if(v){const el=document.getElementById(k);if(el){for(let o of el.options){if(o.value===v||o.text===v){el.value=o.value;break}}}}
-});
-
-document.querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
-    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('show'));
-    btn.classList.add('on');
-    document.getElementById(btn.dataset.t).classList.add('show');
-  });
-});
-
-function snapshot(){html2canvas(document.body,{scale:2,useCORS:true}).then(c=>{const a=document.createElement('a');a.download='储能工序工费率_'+new Date().toISOString().slice(0,10)+'.png';a.href=c.toDataURL();a.click()})}
-
-let chartInstances={};
-function destroyChart(id){if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id]}}
-
-function getTotalHours(ent){return procKeys.reduce((s,k)=>s+HOURS[ent][k],0)}
-function getWeightedRate(ent){
-  const totalCost=procKeys.reduce((s,k)=>s+HOURS[ent][k]*RATES[ent][k],0);
-  return totalCost/getTotalHours(ent);
-}
-function getTotalLaborCost(ent){return procKeys.reduce((s,k)=>s+HOURS[ent][k]*RATES[ent][k],0)}
-
-/* ═══ RENDER ═══ */
-
-/* KPI */
-function renderKPI(){
-  const sorted=ENTERPRISES.map(e=>({name:e,hours:getTotalHours(e),rate:getWeightedRate(e),cost:getTotalLaborCost(e)})).sort((a,b)=>a.hours-b.hours);
-  const avgH=(sorted.reduce((s,e)=>s+e.hours,0)/sorted.length).toFixed(1);
-  const avgR=(sorted.reduce((s,e)=>s+e.rate,0)/sorted.length).toFixed(0);
-  const avgC=Math.round(sorted.reduce((s,e)=>s+e.cost,0)/sorted.length);
-  const best=sorted[0],worst=sorted[sorted.length-1];
-
-  const kpis=[
-    {l:'最优单台工时',v:best.hours.toFixed(1)+'h',sub:best.name},
-    {l:'最高单台工时',v:worst.hours.toFixed(1)+'h',sub:worst.name},
-    {l:'平均单台工时',v:avgH+'h',sub:'全企业'},
-    {l:'平均工费率',v:avgR+'元/h',sub:'加权平均'},
-    {l:'平均费用成本',v:fmt(avgC),sub:'工时×工费率'},
-    {l:'工时极差',v:(worst.hours-best.hours).toFixed(1)+'h',sub:((worst.hours-best.hours)/best.hours*100).toFixed(1)+'%'}
-  ];
-  document.getElementById('kpiStrip3').innerHTML=kpis.map(k=>`
-    <div class="kpi-card"><div class="kl">${k.l}</div><div class="kv">${k.v}</div><div class="kt">${k.sub}</div></div>`).join('');
-}
-
-/* Process Flow */
 let selectedProc='cabinetAsm';
-function renderProcessFlow(){
-  const avgHours={};
-  procKeys.forEach(k=>{avgHours[k]=(ENTERPRISES.reduce((s,e)=>s+HOURS[e][k],0)/ENTERPRISES.length).toFixed(1)});
+const charts={};function kill(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
 
-  document.getElementById('processFlow').innerHTML=PROCESSES.map((p,i)=>{
-    const isActive=p.key===selectedProc;
-    return (i>0?'<div class="pf-arrow">→</div>':'')+
-    `<div class="pf-step ${isActive?'active':''}" onclick="selectProc('${p.key}')">
-      <div style="font-size:18px">${p.icon}</div>
-      <div class="pf-name">${p.name}</div>
-      <div class="pf-time">${avgHours[p.key]}</div>
-      <div class="pf-unit">工时/台(均值)</div>
-    </div>`;
-  }).join('');
+/* Tabs */
+$('tnav').addEventListener('click',e=>{const b=e.target.closest('.tab-btn');if(!b||b.classList.contains('active'))return;$('tnav').querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));$(b.dataset.t).classList.add('active')});
+
+/* Process tabs */
+function renderProcTabs(){
+  const avgH={};procKeys.forEach(k=>{avgH[k]=(ENTS.reduce((s,e)=>s+HOURS[e][k],0)/ENTS.length).toFixed(1)});
+  $('proc-tabs').innerHTML=PROCS.map(p=>`<button class="proc-tab ${p.key===selectedProc?'active':''}" data-p="${p.key}">${p.name} (${avgH[p.key]}h)</button>`).join('');
 }
-function selectProc(key){selectedProc=key;renderProcessFlow();renderBottleneck()}
+$('proc-tabs').addEventListener('click',e=>{const b=e.target.closest('.proc-tab');if(!b||b.classList.contains('active'))return;$('proc-tabs').querySelectorAll('.proc-tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');selectedProc=b.dataset.p;renderBottleneck()});
 
-/* Tab1: Hour Rank */
-function renderHourRank(){
-  destroyChart('chartHourRank');
-  const sorted=ENTERPRISES.map(e=>({name:e,hours:getTotalHours(e)})).sort((a,b)=>a.hours-b.hours);
-
-  chartInstances.chartHourRank=new Chart(document.getElementById('chartHourRank'),{
-    type:'bar',
-    data:{labels:sorted.map(e=>e.name),datasets:[{data:sorted.map(e=>e.hours),backgroundColor:sorted.map((_,i)=>i===0?'#10b981':'#6366f1'),borderRadius:6,barThickness:26}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},datalabels:{anchor:'end',align:'end',font:{size:11,weight:600},color:'#334155',formatter:v=>v.toFixed(1)+'h'}},
-      scales:{x:{grid:{display:false},title:{display:true,text:'工时/台',font:{size:11}}},y:{grid:{display:false}}}
-    },
-    plugins:[ChartDataLabels]
-  });
-
-  // stacked
-  destroyChart('chartHourStack');
-  const PROC_COLORS=['#6366f1','#818cf8','#a78bfa','#38bdf8','#14b8a6','#f59e0b','#fb923c','#10b981','#94a3b8','#e879f9'];
-  const sortedEnts=sorted.map(e=>e.name);
-
-  chartInstances.chartHourStack=new Chart(document.getElementById('chartHourStack'),{
-    type:'bar',
-    data:{labels:sortedEnts,
-      datasets:PROCESSES.map((p,i)=>({
-        label:p.name,data:sortedEnts.map(e=>HOURS[e][p.key]),backgroundColor:PROC_COLORS[i],borderRadius:1
-      }))},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9.5}}},datalabels:{display:false}},
-      scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:'rgba(0,0,0,.04)'},title:{display:true,text:'工时/台'}}}
-    }
-  });
-
-  // insight
+/* Snap KPI */
+function renderSnap(){
+  const sorted=ENTS.map(e=>({name:e,h:getTH(e),r:getWR(e),c:getTLC(e)})).sort((a,b)=>a.h-b.h);
+  const avgH=(sorted.reduce((s,e)=>s+e.h,0)/sorted.length).toFixed(1);
+  const avgR=Math.round(sorted.reduce((s,e)=>s+e.r,0)/sorted.length);
+  const avgC=Math.round(sorted.reduce((s,e)=>s+e.c,0)/sorted.length);
   const best=sorted[0],worst=sorted[sorted.length-1];
-  document.getElementById('insightLt1').innerHTML=`<strong>💡 工时对标洞察：</strong>南通元能以单台 <strong>${best.hours.toFixed(1)}h</strong> 排名工时最优，天津 <strong>${worst.hours.toFixed(1)}h</strong> 最高，极差 <strong>${(worst.hours-best.hours).toFixed(1)}h</strong>（${((worst.hours-best.hours)/best.hours*100).toFixed(1)}%）。柜体总装集成工序占总工时比重最大（约22%），是工时优化的首要目标——<a class="link-drill" onclick="document.querySelector('[data-t=lt3]').click()">前往瓶颈识别 →</a>`;
+  $('snap-grid').innerHTML=`
+    <div class="snap-card"><div class="snap-label">🏆 最优工时</div><div class="snap-value">${best.h.toFixed(1)}h</div><div class="snap-sub">${best.name}</div></div>
+    <div class="snap-card"><div class="snap-label">⚠ 最高工时</div><div class="snap-value">${worst.h.toFixed(1)}h</div><div class="snap-sub">${worst.name}</div></div>
+    <div class="snap-card"><div class="snap-label">📊 平均工时</div><div class="snap-value">${avgH}h</div><div class="snap-sub">全企业</div></div>
+    <div class="snap-card"><div class="snap-label">💰 平均工费率</div><div class="snap-value">${avgR}元/h</div><div class="snap-sub">加权平均</div></div>
+    <div class="snap-card"><div class="snap-label">⚙ 平均费用</div><div class="snap-value">${fmt(avgC)}</div><div class="snap-sub">工时×工费率</div></div>
+    <div class="snap-card"><div class="snap-label">📏 工时极差</div><div class="snap-value">${(worst.h-best.h).toFixed(1)}h</div><div class="snap-sub">${((worst.h-best.h)/best.h*100).toFixed(1)}%</div></div>`;
+}
 
-  // table
-  let html='<thead><tr><th>排名</th><th>企业</th><th>总工时</th>';
-  PROCESSES.forEach(p=>{html+=`<th>${p.name}</th>`});
-  html+='<th>vs标杆</th></tr></thead><tbody>';
-  sorted.forEach((e,i)=>{
-    const rc=i<3?`rank-${i+1}`:'rank-n';
-    html+=`<tr><td><span class="rank-badge ${rc}">${i+1}</span></td><td style="font-weight:600">${e.name}</td><td style="font-weight:700">${e.hours.toFixed(1)}h</td>`;
-    procKeys.forEach(k=>{
-      const avg=ENTERPRISES.reduce((s,ent)=>s+HOURS[ent][k],0)/ENTERPRISES.length;
-      const val=HOURS[e.name][k];
-      const cls=val>avg*1.1?'val-hi':val<avg*0.9?'val-lo':'';
-      html+=`<td class="${cls}">${val.toFixed(1)}</td>`;
-    });
-    const vsBest=((e.hours-sorted[0].hours)/sorted[0].hours*100).toFixed(1);
-    html+=`<td class="${vsBest>0?'val-hi':''}">${vsBest>0?'+':''}${vsBest}%</td></tr>`;
-  });
-  html+='</tbody>';
-  document.getElementById('tblHourRank').innerHTML=html;
+/* Tab1: Hours */
+function renderHours(){
+  kill('cHR');
+  const sorted=ENTS.map(e=>({name:e,h:getTH(e)})).sort((a,b)=>a.h-b.h);
+  charts.cHR=new Chart($('c-h-rank'),{type:'bar',data:{labels:sorted.map(e=>e.name),datasets:[{data:sorted.map(e=>e.h),backgroundColor:sorted.map((_,i)=>i===0?'#059669':'#4F46E5'),borderRadius:6,barThickness:24}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'end',font:{size:10,weight:600},color:'#334155',formatter:v=>v.toFixed(1)+'h'}},scales:{x:{grid:{display:false},title:{display:true,text:'h/台'}},y:{grid:{display:false}}}}});
+
+  kill('cHS');
+  const sortedNames=sorted.map(e=>e.name);
+  charts.cHS=new Chart($('c-h-stack'),{type:'bar',data:{labels:sortedNames,datasets:PROCS.map((p,i)=>({label:p.name,data:sortedNames.map(e=>HOURS[e][p.key]),backgroundColor:COLORS_P[i],borderRadius:1}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:8,font:{size:9}}},datalabels:{display:false}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,title:{display:true,text:'h/台'},grid:{color:'rgba(0,0,0,.04)'}}}}});
+
+  const best=sorted[0],worst=sorted[sorted.length-1];
+  $('ins-hours').innerHTML=`<b>💡 工时对标洞察：</b>${best.name}单台 <b class="tag-g">${best.h.toFixed(1)}h</b> 排名最优，${worst.name} <b class="tag-r">${worst.h.toFixed(1)}h</b> 最高，极差 <b>${(worst.h-best.h).toFixed(1)}h</b>（${((worst.h-best.h)/best.h*100).toFixed(1)}%）。柜体总装集成工序占总工时约22%，是工时优化首要目标。建议切换到「瓶颈工序识别」Tab精准定位改善点。`;
+
+  // Table
+  const tbl=$('tbl-hours');
+  tbl.querySelector('thead tr').innerHTML='<th style="text-align:left">企业</th><th>总工时</th>'+PROCS.map(p=>`<th>${p.name}</th>`).join('')+'<th>vs标杆</th>';
+  const avgH={};procKeys.forEach(k=>{avgH[k]=ENTS.reduce((s,e)=>s+HOURS[e][k],0)/ENTS.length});
+  tbl.querySelector('tbody').innerHTML=sorted.map((e,i)=>{
+    const vs=((e.h-sorted[0].h)/sorted[0].h*100).toFixed(1);
+    return `<tr><td style="font-weight:700">${e.name}</td><td style="font-weight:800">${e.h.toFixed(1)}h</td>`+procKeys.map(k=>{const v=HOURS[e.name][k];const cls=v>avgH[k]*1.1?'val-hi':v<avgH[k]*0.9?'val-lo':'';return `<td class="${cls}">${v.toFixed(1)}</td>`}).join('')+`<td class="${vs>0?'val-hi':''}">${vs>0?'+':''}${vs}%</td></tr>`;
+  }).join('');
 }
 
 /* Tab2: Rate */
-function renderRateAnalysis(){
-  destroyChart('chartRateBar');
-  const sorted=ENTERPRISES.map(e=>({name:e,rate:getWeightedRate(e)})).sort((a,b)=>a.rate-b.rate);
+function renderRate(){
+  kill('cRR');
+  const sorted=ENTS.map(e=>({name:e,r:getWR(e)})).sort((a,b)=>a.r-b.r);
+  charts.cRR=new Chart($('c-r-rank'),{type:'bar',data:{labels:sorted.map(e=>e.name),datasets:[{data:sorted.map(e=>e.r),backgroundColor:sorted.map((_,i)=>i===0?'#059669':'#D97706'),borderRadius:6,barThickness:24}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'end',font:{size:10,weight:600},color:'#334155',formatter:v=>v.toFixed(0)+'元/h'}},scales:{x:{grid:{display:false},title:{display:true,text:'元/h'}},y:{grid:{display:false}}}}});
 
-  chartInstances.chartRateBar=new Chart(document.getElementById('chartRateBar'),{
-    type:'bar',
-    data:{labels:sorted.map(e=>e.name),datasets:[{data:sorted.map(e=>e.rate),backgroundColor:sorted.map((_,i)=>i===0?'#10b981':'#f59e0b'),borderRadius:6,barThickness:26}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},datalabels:{anchor:'end',align:'end',font:{size:11,weight:600},color:'#334155',formatter:v=>v.toFixed(0)+'元/h'}},
-      scales:{x:{grid:{display:false},title:{display:true,text:'元/工时'}},y:{grid:{display:false}}}
-    },
-    plugins:[ChartDataLabels]
-  });
+  kill('cRS');
+  const BCOLORS=['#4F46E5','#059669','#D97706','#E11D48','#0284C7','#7C3AED','#F97316','#0D9488','#E879F9'];
+  const scatterData=ENTS.map((e,i)=>({x:getTH(e),y:getWR(e),r:Math.sqrt(getTLC(e))/10,name:e}));
+  charts.cRS=new Chart($('c-r-scatter'),{type:'bubble',data:{datasets:ENTS.map((e,i)=>({label:e,data:[scatterData[i]],backgroundColor:BCOLORS[i]+'88',borderColor:BCOLORS[i],borderWidth:2}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:9},boxWidth:8}},datalabels:{display:true,align:'top',font:{size:8,weight:600},color:'#475569',formatter:(_,ctx)=>ENTS[ctx.datasetIndex]}},scales:{x:{title:{display:true,text:'总工时(h/台)'},grid:{color:'rgba(0,0,0,.04)'}},y:{title:{display:true,text:'工费率(元/h)'},grid:{color:'rgba(0,0,0,.04)'}}}}});
 
-  // bubble
-  destroyChart('chartBubble');
-  const bubbleData=ENTERPRISES.map(e=>{
-    const h=getTotalHours(e);
-    const r=getWeightedRate(e);
-    const c=getTotalLaborCost(e);
-    return {x:h,y:r,r:Math.sqrt(c)/8,name:e,cost:c};
-  });
-  const BCOLORS=['#6366f1','#10b981','#f59e0b','#ef4444','#38bdf8','#a78bfa','#fb923c','#14b8a6','#e879f9'];
+  const bestR=sorted[0],worstR=sorted[sorted.length-1];
+  $('ins-rate').innerHTML=`<b>💡 工费率洞察：</b>${bestR.name}综合工费率最优（<b class="tag-g">${bestR.r.toFixed(0)}元/h</b>），${worstR.name}最高（<b class="tag-r">${worstR.r.toFixed(0)}元/h</b>）。散点图中右上象限企业（高工时+高工费率）费用成本最高，应双管齐下——工艺优化降工时 + 产能利用率提升降单位分摊费率。`;
 
-  chartInstances.chartBubble=new Chart(document.getElementById('chartBubble'),{
-    type:'bubble',
-    data:{datasets:ENTERPRISES.map((e,i)=>({
-      label:e,data:[bubbleData[i]],backgroundColor:BCOLORS[i]+'88',borderColor:BCOLORS[i],borderWidth:2
-    }))},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}},
-        datalabels:{display:true,align:'top',font:{size:9,weight:600},color:'#475569',
-          formatter:(_,ctx)=>ENTERPRISES[ctx.datasetIndex]}
-      },
-      scales:{
-        x:{title:{display:true,text:'总工时（h/台）',font:{size:11}},grid:{color:'rgba(0,0,0,.04)'}},
-        y:{title:{display:true,text:'工费率（元/h）',font:{size:11}},grid:{color:'rgba(0,0,0,.04)'}}
-      }
-    },
-    plugins:[ChartDataLabels]
-  });
-
-  // insight
-  const bestRate=sorted[0],worstRate=sorted[sorted.length-1];
-  document.getElementById('insightLt2').innerHTML=`<strong>💡 工费率洞察：</strong>${bestRate.name} 综合工费率最优（<strong>${bestRate.rate.toFixed(0)}元/h</strong>），${worstRate.name} 最高（<strong>${worstRate.rate.toFixed(0)}元/h</strong>）。散点图中，右上象限的企业（高工时+高工费率）费用成本最高，应双管齐下——工艺优化降工时 + 产能利用率提升降单位分摊费率。`;
-
-  // table
-  let html='<thead><tr><th>排名</th><th>企业</th><th>综合工费率</th>';
-  PROCESSES.forEach(p=>{html+=`<th>${p.name}</th>`});
-  html+='<th>费用成本</th></tr></thead><tbody>';
-  sorted.forEach((e,i)=>{
-    const rc=i<3?`rank-${i+1}`:'rank-n';
-    html+=`<tr><td><span class="rank-badge ${rc}">${i+1}</span></td><td style="font-weight:600">${e.name}</td><td style="font-weight:700">${e.rate.toFixed(0)}元/h</td>`;
-    procKeys.forEach(k=>{
-      const avg=ENTERPRISES.reduce((s,ent)=>s+RATES[ent][k],0)/ENTERPRISES.length;
-      const val=RATES[e.name][k];
-      const cls=val>avg*1.05?'val-hi':val<avg*0.95?'val-lo':'';
-      html+=`<td class="${cls}">${val}</td>`;
-    });
-    html+=`<td style="font-weight:700">${fmt(getTotalLaborCost(e.name))}</td></tr>`;
-  });
-  html+='</tbody>';
-  document.getElementById('tblRate').innerHTML=html;
+  // Table
+  const tbl=$('tbl-rate');
+  const avgR={};procKeys.forEach(k=>{avgR[k]=ENTS.reduce((s,e)=>s+RATES[e][k],0)/ENTS.length});
+  tbl.querySelector('thead tr').innerHTML='<th style="text-align:left">企业</th><th>综合工费率</th>'+PROCS.map(p=>`<th>${p.name}</th>`).join('')+'<th>费用成本</th>';
+  tbl.querySelector('tbody').innerHTML=sorted.map(e=>`<tr><td style="font-weight:700">${e.name}</td><td style="font-weight:800">${e.r.toFixed(0)}元/h</td>`+procKeys.map(k=>{const v=RATES[e.name][k];const cls=v>avgR[k]*1.05?'val-hi':v<avgR[k]*0.95?'val-lo':'';return `<td class="${cls}">${v}</td>`}).join('')+`<td style="font-weight:800">${fmt(getTLC(e.name))}</td></tr>`).join('');
 }
 
 /* Tab3: Bottleneck */
 function renderBottleneck(){
-  const threshold=parseFloat(document.getElementById('bottleneckPct').value)||15;
+  const threshold=parseFloat($('bn-pct').value)||15;
+  const avgH={},avgR={};procKeys.forEach(k=>{avgH[k]=ENTS.reduce((s,e)=>s+HOURS[e][k],0)/ENTS.length;avgR[k]=ENTS.reduce((s,e)=>s+RATES[e][k],0)/ENTS.length});
 
-  // compute avg for each process
-  const avgHours={},avgRates={};
-  procKeys.forEach(k=>{
-    avgHours[k]=ENTERPRISES.reduce((s,e)=>s+HOURS[e][k],0)/ENTERPRISES.length;
-    avgRates[k]=ENTERPRISES.reduce((s,e)=>s+RATES[e][k],0)/ENTERPRISES.length;
-  });
+  kill('cBH');
+  const heatData=[];ENTS.forEach((ent,ei)=>{procKeys.forEach((k,pi)=>{const dev=(HOURS[ent][k]-avgH[k])/avgH[k]*100;heatData.push({x:pi,y:ei,v:dev})})});
+  charts.cBH=new Chart($('c-bn-heat'),{type:'bubble',data:{datasets:[{data:heatData.map(d=>({x:d.x,y:d.y,r:Math.min(Math.abs(d.v)/3+3,15),v:d.v})),backgroundColor:heatData.map(d=>d.v>threshold?'rgba(225,29,72,0.6)':d.v>0?'rgba(217,119,6,0.4)':'rgba(5,150,105,0.4)'),borderColor:heatData.map(d=>d.v>threshold?'#E11D48':d.v>0?'#D97706':'#059669'),borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:true,font:{size:8,weight:600},color:ctx=>{const v=ctx.dataset.data[ctx.dataIndex].v;return v>threshold?'#9F1239':v>0?'#92400E':'#065F46'},formatter:(_,ctx)=>{const v=ctx.dataset.data[ctx.dataIndex].v;return(v>0?'+':'')+v.toFixed(0)+'%'}}},scales:{x:{type:'linear',min:-.5,max:procKeys.length-.5,ticks:{callback:v=>PROCS[v]?PROCS[v].name:'',stepSize:1,font:{size:8},maxRotation:45},grid:{display:false}},y:{type:'linear',min:-.5,max:ENTS.length-.5,ticks:{callback:v=>ENTS[v]||'',stepSize:1,font:{size:9}},grid:{color:'rgba(0,0,0,.03)'}}}}});
 
-  // heatmap data (deviation %)
-  destroyChart('chartBottleneck');
-  const heatData=[];
-  ENTERPRISES.forEach((ent,ei)=>{
-    procKeys.forEach((k,pi)=>{
-      const dev=((HOURS[ent][k]-avgHours[k])/avgHours[k]*100);
-      heatData.push({x:pi,y:ei,v:dev});
-    });
-  });
+  kill('cBP');
+  const potentials=[];ENTS.forEach(ent=>{procKeys.forEach(k=>{const hd=HOURS[ent][k]-avgH[k];const rd=RATES[ent][k]-avgR[k];if(hd>0||rd>0){const sH=Math.max(0,hd)*RATES[ent][k];const sR=Math.max(0,rd)*HOURS[ent][k];potentials.push({ent,proc:PROCS.find(p=>p.key===k).name,sH,sR,total:sH+sR})}})});
+  potentials.sort((a,b)=>b.total-a.total);const top10=potentials.slice(0,10);
+  charts.cBP=new Chart($('c-bn-pot'),{type:'bar',data:{labels:top10.map(p=>`${p.ent}-${p.proc}`),datasets:[{label:'工时潜力',data:top10.map(p=>p.sH),backgroundColor:'#4F46E5',borderRadius:3},{label:'工费率潜力',data:top10.map(p=>p.sR),backgroundColor:'#D97706',borderRadius:3}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:10}},datalabels:{display:false}},scales:{x:{stacked:true,grid:{display:false},title:{display:true,text:'元/台'}},y:{stacked:true,grid:{display:false},ticks:{font:{size:9}}}}}});
 
-  chartInstances.chartBottleneck=new Chart(document.getElementById('chartBottleneck'),{
-    type:'bubble',
-    data:{datasets:[{
-      data:heatData.map(d=>({x:d.x,y:d.y,r:Math.min(Math.abs(d.v)/3+3,15),v:d.v})),
-      backgroundColor:heatData.map(d=>d.v>threshold?'rgba(239,68,68,0.6)':d.v>0?'rgba(245,158,11,0.4)':'rgba(16,185,129,0.4)'),
-      borderColor:heatData.map(d=>d.v>threshold?'#ef4444':d.v>0?'#f59e0b':'#10b981'),
-      borderWidth:1.5
-    }]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},
-        datalabels:{display:true,font:{size:8.5,weight:600},
-          color:ctx=>{const v=ctx.dataset.data[ctx.dataIndex].v;return v>threshold?'#dc2626':v>0?'#b45309':'#059669'},
-          formatter:(_,ctx)=>{const v=ctx.dataset.data[ctx.dataIndex].v;return (v>0?'+':'')+v.toFixed(0)+'%'}}
-      },
-      scales:{
-        x:{type:'linear',min:-0.5,max:procKeys.length-0.5,
-          ticks:{callback:(v)=>PROCESSES[v]?PROCESSES[v].name:'',stepSize:1,font:{size:9},maxRotation:45},
-          grid:{display:false}},
-        y:{type:'linear',min:-0.5,max:ENTERPRISES.length-0.5,
-          ticks:{callback:(v)=>ENTERPRISES[v]||'',stepSize:1,font:{size:10}},
-          grid:{color:'rgba(0,0,0,.03)'}}
-      }
-    },
-    plugins:[ChartDataLabels]
-  });
+  const bns=[];ENTS.forEach(ent=>{procKeys.forEach(k=>{const d=(HOURS[ent][k]-avgH[k])/avgH[k]*100;if(d>threshold)bns.push({ent,proc:PROCS.find(p=>p.key===k).name,dev:d.toFixed(1)})})});
+  $('ins-bn').innerHTML=`<b>💡 瓶颈识别（阈值 >${threshold}%）：</b>共识别出 <b class="tag-r">${bns.length}</b> 个瓶颈点。Top改善项：<b>${top10[0]?.ent}-${top10[0]?.proc}</b>（潜在节约 <b class="tag-g">${fmt(Math.round(top10[0]?.total||0))}</b>/台）。红色气泡越大表示偏差越严重，建议优先关注柜体总装集成与系统联调测试工序。`;
 
-  // improvement potential
-  destroyChart('chartPotential');
-  const potentials=[];
-  ENTERPRISES.forEach(ent=>{
-    procKeys.forEach(k=>{
-      const hourDev=HOURS[ent][k]-avgHours[k];
-      const rateDev=RATES[ent][k]-avgRates[k];
-      if(hourDev>0||rateDev>0){
-        const savingH=Math.max(0,hourDev)*RATES[ent][k];
-        const savingR=Math.max(0,rateDev)*HOURS[ent][k];
-        potentials.push({ent,proc:PROCESSES.find(p=>p.key===k).name,key:k,hourDev,savingH,savingR,totalSaving:savingH+savingR});
-      }
-    });
-  });
-  potentials.sort((a,b)=>b.totalSaving-a.totalSaving);
-  const top10=potentials.slice(0,10);
-
-  chartInstances.chartPotential=new Chart(document.getElementById('chartPotential'),{
-    type:'bar',
-    data:{labels:top10.map(p=>`${p.ent}-${p.proc}`),
-      datasets:[
-        {label:'工时改善潜力',data:top10.map(p=>p.savingH),backgroundColor:'#6366f1',borderRadius:3},
-        {label:'工费率改善潜力',data:top10.map(p=>p.savingR),backgroundColor:'#f59e0b',borderRadius:3}
-      ]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:12}},datalabels:{display:false}},
-      scales:{x:{stacked:true,grid:{display:false},title:{display:true,text:'改善潜力（元/台）'}},y:{stacked:true,grid:{display:false},ticks:{font:{size:10}}}}
-    }
-  });
-
-  // insight
-  const bottlenecks=[];
-  ENTERPRISES.forEach(ent=>{
-    procKeys.forEach(k=>{
-      const dev=(HOURS[ent][k]-avgHours[k])/avgHours[k]*100;
-      if(dev>threshold) bottlenecks.push({ent,proc:PROCESSES.find(p=>p.key===k).name,dev:dev.toFixed(1)});
-    });
-  });
-  document.getElementById('insightLt3').innerHTML=`<strong>💡 瓶颈识别（阈值 >${threshold}%）：</strong>共识别出 <strong>${bottlenecks.length}</strong> 个瓶颈点。Top改善潜力：<strong>${top10[0]?.ent}-${top10[0]?.proc}</strong>（潜在节约 ${top10[0]?.totalSaving.toFixed(0)} 元/台）。红色气泡表示超出均值 ${threshold}% 以上的异常工序，建议优先组织对标学习与工艺改善。<a class="link-drill" onclick="navTo('es-cost-benchmark.html')">← 返回全成本总览</a>`;
-
-  // table
-  let html='<thead><tr><th>企业</th><th>工序</th><th>实际工时</th><th>均值工时</th><th>偏差%</th><th>工费率</th><th>改善潜力(元/台)</th><th>状态</th></tr></thead><tbody>';
-  potentials.slice(0,20).forEach(p=>{
-    const actH=HOURS[p.ent][p.key];
-    const avgH=avgHours[p.key];
-    const devPct=((actH-avgH)/avgH*100).toFixed(1);
-    const rate=RATES[p.ent][p.key];
-    const tag=devPct>threshold?'tag-bottleneck':devPct>5?'tag-warn':'tag-ok';
-    const tagText=devPct>threshold?'🔴 瓶颈':devPct>5?'🟡 关注':'🟢 正常';
-    html+=`<tr><td style="font-weight:600">${p.ent}</td><td>${p.proc}</td><td style="font-weight:700">${actH.toFixed(1)}h</td><td>${avgH.toFixed(1)}h</td>
-      <td class="${devPct>threshold?'val-hi':devPct>5?'':'val-lo'}">+${devPct}%</td><td>${rate}元/h</td>
-      <td style="font-weight:600">${p.totalSaving.toFixed(0)}</td>
-      <td><span class="${tag}">${tagText}</span></td></tr>`;
-  });
-  html+='</tbody>';
-  document.getElementById('tblBottleneck').innerHTML=html;
+  // Table
+  const tbl=$('tbl-bn');
+  tbl.querySelector('thead tr').innerHTML='<th style="text-align:left">企业</th><th>工序</th><th>实际工时</th><th>均值工时</th><th>偏差率</th><th>工费率</th><th>改善潜力</th><th>状态</th>';
+  tbl.querySelector('tbody').innerHTML=bns.map(b=>{
+    const k=procKeys.find(pk=>PROCS.find(p=>p.key===pk).name===b.proc);
+    const h=HOURS[b.ent][k],r=RATES[b.ent][k],pot=Math.round((h-avgH[k])*r);
+    return `<tr><td style="font-weight:700">${b.ent}</td><td>${b.proc}</td><td style="font-weight:700">${h.toFixed(1)}h</td><td>${avgH[k].toFixed(1)}h</td><td class="val-hi">+${b.dev}%</td><td>${r}元/h</td><td style="font-weight:700;color:var(--em)">${fmt(pot)}</td><td><span class="mtag mtag-r">瓶颈</span></td></tr>`;
+  }).join('');
 }
-document.getElementById('bottleneckPct').addEventListener('change',renderBottleneck);
 
-/* ── RENDER ALL ── */
-function renderAll(){
-  renderKPI();renderProcessFlow();renderHourRank();renderRateAnalysis();renderBottleneck();updateNavLinks();
-}
+function renderAll(){renderSnap();renderProcTabs();renderHours();renderRate();renderBottleneck()}
 renderAll();
 </script>
 </body>

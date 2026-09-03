@@ -39,7 +39,6 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
 .bg-l::after{content:'';position:absolute;bottom:-60px;left:-40px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(5,150,105,.04) 0%,transparent 70%)}
 .shell{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
 
-/* Topbar */
 .topbar{position:sticky;top:0;z-index:300;height:52px;padding:0 20px;display:flex;align-items:center;gap:12px;background:var(--glass);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-b);box-shadow:var(--sh-sm)}
 .bc{display:flex;align-items:center;gap:5px;font-size:11px;flex-shrink:0}
 .bc a{color:var(--s400);text-decoration:none;cursor:pointer}.bc a:hover{color:var(--i)}
@@ -81,8 +80,7 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
 .snap-abn:hover{box-shadow:0 8px 28px rgba(217,119,6,.15),0 2px 8px rgba(0,0,0,.06);border-color:var(--am);transform:translateY(-2px)}
 .snap-abn .snap-value{color:var(--am)}
 .snap-abn .snap-badge{background:var(--am-bg);color:var(--am)}
-.snap-best{background:var(--snap-best-bg);border:1px solid var(--snap-best-bd);cursor:pointer}
-.snap-best:hover{box-shadow:0 8px 28px rgba(5,150,105,.12);border-color:var(--em);transform:translateY(-2px)}
+.snap-best{background:var(--snap-best-bg);border:1px solid var(--snap-best-bd)}
 .snap-best .snap-value{color:var(--em)}
 .snap-best .snap-badge{background:var(--em-bg);color:var(--em)}
 
@@ -101,6 +99,14 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
 .summary-tbl .row-star td:first-child{border-left:3px solid var(--am);padding-left:10px}
 .summary-tbl .row-avg td:first-child{border-left:3px solid var(--i);padding-left:10px}
 .summary-tbl .row-bench td:first-child{border-left:3px solid var(--em);padding-left:10px}
+
+/* Cost Structure (NEW) */
+.struct-section{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.struct-card{padding:16px;display:flex;flex-direction:column}
+.struct-card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.struct-card-ti{font-size:12px;font-weight:700;color:var(--s800);display:flex;align-items:center;gap:5px}
+.struct-card-ti .dot{width:6px;height:6px;border-radius:50%}
+.struct-canvas{flex:1;min-height:260px;position:relative}
 
 /* Heatmap */
 .heatmap-card{padding:16px;overflow-x:auto}
@@ -137,6 +143,9 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
 .ent-name{color:var(--i);font-weight:700;cursor:pointer;text-decoration:none;padding:2px 4px;border-radius:4px;transition:all .12s}
 .ent-name:hover{background:var(--i-bg);text-decoration:underline}
 .ent-name.selected{background:var(--i-bg);box-shadow:0 0 0 2px var(--i-bd)}
+.hm-supply-tag{font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:2px;vertical-align:super}
+.hm-supply-client{background:rgba(217,119,6,.12);color:var(--am)}
+.hm-supply-self{background:rgba(5,150,105,.12);color:var(--em)}
 
 /* Trend */
 .trend-section{margin-top:4px}
@@ -157,22 +166,15 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
 .tl-dot{width:10px;height:4px;border-radius:2px;flex-shrink:0}
 .tl-line{width:12px;height:0;border-top:2px dashed;flex-shrink:0}
 
-/* Detail table at bottom */
-.detail-card{padding:16px;overflow-x:auto}
-.detail-hd{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap}
-.detail-title{font-size:12px;font-weight:700;color:var(--s800);display:flex;align-items:center;gap:6px}
-.detail-title .dot{width:7px;height:7px;border-radius:50%}
-.dtbl{width:100%;border-collapse:collapse;font-size:11px;min-width:1200px}
-.dtbl th{padding:8px 8px;text-align:center;font-weight:700;color:var(--s500);font-size:9.5px;background:var(--s50);border-bottom:2px solid var(--s200);white-space:nowrap}
-.dtbl th:first-child{text-align:left;padding-left:12px}
-.dtbl td{padding:7px 8px;text-align:center;border-bottom:1px solid var(--s100);font-size:11px;white-space:nowrap;color:var(--s600)}
-.dtbl td:first-child{text-align:left;padding-left:12px;font-weight:600;color:var(--s700)}
-.dtbl tr:hover{background:rgba(79,70,229,.03)}
-.val-hi{color:var(--ro);font-weight:700}.val-lo{color:var(--em);font-weight:700}
+/* Insight callout */
+.insight-bar{display:flex;gap:10px;flex-wrap:wrap}
+.insight-item{flex:1;min-width:260px;padding:12px 16px;border-radius:var(--r);border:1px solid;font-size:11px;line-height:1.6}
+.insight-item strong{font-weight:700}
+.insight-item .insight-icon{font-size:14px;margin-right:4px}
 
 .foot{padding:10px 20px;border-top:1px solid var(--s100);font-size:10px;color:var(--s300);display:flex;justify-content:space-between}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.93);backdrop-filter:blur(12px);color:#F8FAFC;padding:9px 18px;border-radius:10px;font-size:12px;font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;white-space:nowrap}
-@media(max-width:1100px){.snap-grid{grid-template-columns:repeat(3,1fr)}.trend-grid{grid-template-columns:1fr}}
+@media(max-width:1100px){.snap-grid{grid-template-columns:repeat(3,1fr)}.trend-grid,.struct-section{grid-template-columns:1fr}}
 ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--s200);border-radius:2px}
 </style>
 </head>
@@ -192,7 +194,7 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
     <div class="fi-dv"></div>
     <div class="fi-g"><span class="fi-l">产品</span><select class="fi-s" id="f-product"><option selected>全部产品</option><option>20尺标准储能柜</option><option>40尺标准储能柜</option><option>定制储能集装箱</option></select></div>
     <div class="fi-g"><span class="fi-l">客户</span><select class="fi-s" id="f-customer"><option selected>全部客户</option><option>阳光电源</option><option>海博思创</option><option>比亚迪</option><option>宁德时代</option></select></div>
-    <div class="fi-g"><span class="fi-l">可比口径</span><select class="fi-s" id="f-scope"><option selected>全成本</option><option>剔除客户自供</option></select></div>
+    <div class="fi-g"><span class="fi-l">可比口径</span><select class="fi-s" id="f-scope"><option selected>全成本</option><option>剔除客供件</option></select></div>
   </div>
   <div class="tb-d"></div>
   <div class="tb-r">
@@ -210,7 +212,7 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
 <!-- ═══════════ LAYER 0: Snapshot ═══════════ -->
 <div class="sh">
   <div class="sh-d" style="background:var(--i)"></div>
-  <div class="sh-t">储能全成本 × 度电成本 × 集成合格率 快照</div>
+  <div class="sh-t">储能全成本 × 度电成本 × 系统集成合格率 快照</div>
   <div class="sh-l"></div>
   <div class="sh-extra" id="snap-ent-label">南通元能 · 2026年8月</div>
 </div>
@@ -230,13 +232,35 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
   </table>
 </div>
 
-<!-- ═══════════ LAYER 2: Heatmap ═══════════ -->
+<!-- ═══════════ LAYER 2: Cost Structure (NEW) ═══════════ -->
+<div class="sh">
+  <div class="sh-d" style="background:var(--v)"></div>
+  <div class="sh-t">成本结构对比 · 各企业材料/费用占比差异</div>
+  <div class="sh-l"></div>
+  <div class="sh-extra">点击条形图 → 联动快照与热力图</div>
+</div>
+<div class="struct-section">
+  <div class="card struct-card">
+    <div class="struct-card-hd">
+      <div class="struct-card-ti"><span class="dot" style="background:var(--i)"></span>成本结构堆叠对比（按企业）</div>
+    </div>
+    <div class="struct-canvas"><canvas id="c-struct-stack"></canvas></div>
+  </div>
+  <div class="card struct-card">
+    <div class="struct-card-hd">
+      <div class="struct-card-ti"><span class="dot" style="background:var(--tl)"></span>选中企业 vs 标杆 · 结构差异</div>
+    </div>
+    <div class="struct-canvas"><canvas id="c-struct-diff"></canvas></div>
+  </div>
+</div>
+
+<!-- ═══════════ LAYER 3: Heatmap ═══════════ -->
 <div class="card heatmap-card">
   <div class="hm-hd">
     <div>
       <div class="hm-ti">储能企业全成本对标矩阵 · <span id="hm-filter-display">全部产品 · 全成本口径</span>
         <span class="hm-badge" style="background:var(--v-bg);color:var(--v)" id="hm-ent-count">9家储能企业</span></div>
-      <div class="hm-subtitle">点击企业名 → 联动快照与趋势 | 点击材料列 → 穿透至材料量价分析 | 点击费用列 → 穿透至工序费用分析 | 色阶基于当前对标基准偏差</div>
+      <div class="hm-subtitle">点击企业名 → 联动快照/趋势/结构 | 点击材料列 → 穿透至材料量价分析 | 点击费用列 → 穿透至工序费用分析 | <span style="color:var(--am);font-weight:600">客</span>=客户自供件</div>
     </div>
     <div style="display:flex;align-items:center;gap:12px">
       <div class="bm-switch" id="bm-switch">
@@ -272,7 +296,15 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
   </table>
 </div>
 
-<!-- ═══════════ LAYER 3: Trend ═══════════ -->
+<!-- ═══════════ LAYER 4: AI Insight ═══════════ -->
+<div class="sh">
+  <div class="sh-d" style="background:var(--am)"></div>
+  <div class="sh-t">智能洞察 · 基于当前筛选条件自动生成</div>
+  <div class="sh-l"></div>
+</div>
+<div class="insight-bar" id="insight-bar"></div>
+
+<!-- ═══════════ LAYER 5: Trend ═══════════ -->
 <div class="trend-section">
   <div class="sh">
     <div class="sh-d" style="background:var(--tl)"></div>
@@ -300,12 +332,12 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
       <div class="trend-legend">
         <div class="trend-legend-item"><div class="tl-dot" style="background:rgba(124,58,237,.55)"></div><span id="legend-bar-label">值(元/台)</span></div>
         <div class="trend-legend-item"><div class="tl-line" style="border-color:var(--am)"></div>恒星均值</div>
-        <div class="trend-legend-item"><div class="tl-line" style="border-color:var(--ro)"></div>环比(%)</div>
+        <div class="trend-legend-item"><div class="tl-line" style="border-color:var(--sk)"></div>电芯市场价指数</div>
       </div>
     </div>
     <div class="card trend-card">
       <div class="trend-card-hd">
-        <div class="trend-card-ti"><span class="dot" style="background:var(--em)"></span>产量趋势</div>
+        <div class="trend-card-ti"><span class="dot" style="background:var(--em)"></span>产量 × 产能利用率</div>
       </div>
       <div class="trend-canvas"><canvas id="c-vol-trend"></canvas></div>
       <div class="trend-legend">
@@ -316,20 +348,6 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
   </div>
 </div>
 
-<!-- ═══════════ LAYER 4: Detail Table ═══════════ -->
-<div class="card detail-card">
-  <div class="detail-hd">
-    <div class="detail-title"><span class="dot" style="background:var(--am)"></span>各企业全成本明细一览</div>
-    <div class="summary-meta">按全成本升序 · 点击企业名联动全页 · 单位：元/台</div>
-  </div>
-  <table class="dtbl">
-    <thead><tr>
-      <th style="text-align:left">排名</th><th style="text-align:left">企业</th><th>全成本</th><th>度电成本</th><th>电芯模组</th><th>BMS</th><th>PCS</th><th>温控</th><th>结构件</th><th>线束</th><th>辅材</th><th>人工费用</th><th>制造费用</th><th>管理费用</th><th>集成合格率</th><th>vs标杆</th>
-    </tr></thead>
-    <tbody id="detail-body"></tbody>
-  </table>
-</div>
-
 </main>
 <footer class="foot">
   <span>储能全成本对标看板 · es-cost-benchmark.html · 储能业务专项 1/3</span>
@@ -338,9 +356,9 @@ html,body{min-height:100vh;font-size:13px;line-height:1.5;font-family:'Inter','N
 </div>
 
 <script>
-/* ═══════════════════════════════════════════ */
-/* UTILITIES                                   */
-/* ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════ */
+/*  UTILITIES                                              */
+/* ═══════════════════════════════════════════════════════ */
 const $=id=>document.getElementById(id);
 $('fdt').textContent='数据刷新：2026-09-02 · 月结T+1';
 let _t;function toast(m){const e=$('toast');e.textContent=m;e.style.opacity='1';clearTimeout(_t);_t=setTimeout(()=>e.style.opacity='0',2800)}
@@ -351,27 +369,35 @@ Chart.defaults.font.family="'Inter','Noto Sans SC',sans-serif";Chart.defaults.fo
 
 let selectedEnterprise='南通元能',currentBenchmark='star',currentMetric='total';
 
-/* ═══════════════════════════════════════════ */
-/* DATA                                        */
-/* ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════ */
+/*  DATA                                                    */
+/* ═══════════════════════════════════════════════════════ */
 const CAPACITY=5; // MWh per unit
 const ENTERPRISES=[
-  {name:'南通元能',cell:65800,bms:5400,pcs:13600,thermal:5700,structure:8000,harness:2900,aux:1800,labor:7000,mfgOH:4800,mgmt:2000,yield:97.2,vol:86,cap:120},
-  {name:'东莞南方',cell:68500,bms:5800,pcs:14200,thermal:6100,structure:8900,harness:3200,aux:2100,labor:7800,mfgOH:5400,mgmt:2300,yield:95.8,vol:72,cap:100},
-  {name:'新会',    cell:66200,bms:5500,pcs:13800,thermal:5800,structure:8200,harness:3000,aux:1900,labor:7200,mfgOH:5000,mgmt:2100,yield:96.5,vol:65,cap:80},
-  {name:'青岛',    cell:71300,bms:6200,pcs:15100,thermal:6500,structure:9400,harness:3500,aux:2400,labor:8500,mfgOH:5800,mgmt:2600,yield:93.6,vol:58,cap:80},
-  {name:'扬州',    cell:67800,bms:5600,pcs:14000,thermal:5900,structure:8500,harness:3100,aux:2000,labor:7500,mfgOH:5200,mgmt:2200,yield:96.0,vol:60,cap:80},
-  {name:'宁波',    cell:69900,bms:5900,pcs:14600,thermal:6300,structure:9100,harness:3300,aux:2200,labor:8100,mfgOH:5600,mgmt:2400,yield:94.8,vol:55,cap:80},
-  {name:'天津',    cell:72500,bms:6400,pcs:15500,thermal:6800,structure:9700,harness:3600,aux:2500,labor:8800,mfgOH:6000,mgmt:2700,yield:92.4,vol:48,cap:80},
-  {name:'太仓',    cell:67000,bms:5500,pcs:13900,thermal:5850,structure:8400,harness:3050,aux:1950,labor:7400,mfgOH:5100,mgmt:2150,yield:96.2,vol:62,cap:80},
-  {name:'南通',    cell:70800,bms:6100,pcs:14800,thermal:6400,structure:9200,harness:3400,aux:2300,labor:8300,mfgOH:5700,mgmt:2500,yield:94.1,vol:52,cap:80}
+  {name:'南通元能',cell:65800,bms:5400,pcs:13600,thermal:5700,structure:8000,harness:2900,aux:1800,labor:7000,mfgOH:4800,mgmt:2000,yield:97.2,vol:86,cap:120,
+   supply:{cell:'self',bms:'self',pcs:'self'}},
+  {name:'东莞南方',cell:68500,bms:5800,pcs:14200,thermal:6100,structure:8900,harness:3200,aux:2100,labor:7800,mfgOH:5400,mgmt:2300,yield:95.8,vol:72,cap:100,
+   supply:{cell:'client',bms:'self',pcs:'self'}},
+  {name:'新会',cell:66200,bms:5500,pcs:13800,thermal:5800,structure:8200,harness:3000,aux:1900,labor:7200,mfgOH:5000,mgmt:2100,yield:96.5,vol:65,cap:80,
+   supply:{cell:'self',bms:'self',pcs:'client'}},
+  {name:'青岛',cell:71300,bms:6200,pcs:15100,thermal:6500,structure:9400,harness:3500,aux:2400,labor:8500,mfgOH:5800,mgmt:2600,yield:93.6,vol:58,cap:80,
+   supply:{cell:'self',bms:'self',pcs:'self'}},
+  {name:'扬州',cell:67800,bms:5600,pcs:14000,thermal:5900,structure:8500,harness:3100,aux:2000,labor:7500,mfgOH:5200,mgmt:2200,yield:96.0,vol:60,cap:80,
+   supply:{cell:'client',bms:'client',pcs:'self'}},
+  {name:'宁波',cell:69900,bms:5900,pcs:14600,thermal:6300,structure:9100,harness:3300,aux:2200,labor:8100,mfgOH:5600,mgmt:2400,yield:94.8,vol:55,cap:80,
+   supply:{cell:'self',bms:'self',pcs:'self'}},
+  {name:'天津',cell:72500,bms:6400,pcs:15500,thermal:6800,structure:9700,harness:3600,aux:2500,labor:8800,mfgOH:6000,mgmt:2700,yield:92.4,vol:48,cap:80,
+   supply:{cell:'self',bms:'self',pcs:'self'}},
+  {name:'太仓',cell:67000,bms:5500,pcs:13900,thermal:5850,structure:8400,harness:3050,aux:1950,labor:7400,mfgOH:5100,mgmt:2150,yield:96.2,vol:62,cap:80,
+   supply:{cell:'self',bms:'self',pcs:'self'}},
+  {name:'南通',cell:70800,bms:6100,pcs:14800,thermal:6400,structure:9200,harness:3400,aux:2300,labor:8300,mfgOH:5700,mgmt:2500,yield:94.1,vol:52,cap:80,
+   supply:{cell:'client',bms:'self',pcs:'self'}}
 ];
-// Derived
 ENTERPRISES.forEach(e=>{
   e.matTotal=e.cell+e.bms+e.pcs+e.thermal+e.structure+e.harness+e.aux;
   e.feeTotal=e.labor+e.mfgOH+e.mgmt;
   e.total=e.matTotal+e.feeTotal;
-  e.kwhCost=+(e.total/(CAPACITY*1000)).toFixed(2); // yuan per kWh
+  e.kwhCost=+(e.total/(CAPACITY*1000)).toFixed(2);
   e.capUtil=+((e.vol/e.cap)*100).toFixed(1);
 });
 
@@ -380,16 +406,14 @@ const FEE_KEYS=['labor','mfgOH','mgmt'];
 const ALL_KEYS=[...MAT_KEYS,...FEE_KEYS];
 const KEY_LABELS={cell:'电芯模组',bms:'BMS',pcs:'PCS',thermal:'温控',structure:'结构件',harness:'线束',aux:'辅材',labor:'人工费用',mfgOH:'制造费用',mgmt:'管理费用'};
 
-// Benchmarks
 function calcBM(arr){const o={};ALL_KEYS.forEach(k=>{o[k]=Math.round(arr.reduce((s,e)=>s+e[k],0)/arr.length)});o.total=Math.round(arr.reduce((s,e)=>s+e.total,0)/arr.length);o.kwhCost=+(arr.reduce((s,e)=>s+e.kwhCost,0)/arr.length).toFixed(2);o.yield=+(arr.reduce((s,e)=>s+e.yield,0)/arr.length).toFixed(1);return o}
-function getBench(){const sorted=[...ENTERPRISES].sort((a,b)=>a.total-b.total);return{...sorted[0]}}
-const BENCHMARKS={
-  star: calcBM(ENTERPRISES),
-  avg:  calcBM(ENTERPRISES),
-  bench:getBench()
-};
+function getBench(){return{...[...ENTERPRISES].sort((a,b)=>a.total-b.total)[0]}}
+const BENCHMARKS={star:calcBM(ENTERPRISES),avg:calcBM(ENTERPRISES),bench:getBench()};
 
-// Trend data (6 months)
+// Cell market price index (元/Wh) for 6 months — external reference
+const CELL_PRICE_INDEX=[0.38,0.36,0.35,0.33,0.32,0.31];
+
+// Trend data
 const MONTHS=['3月','4月','5月','6月','7月','8月'];
 const TREND_DATA={};
 ENTERPRISES.forEach(ent=>{
@@ -407,76 +431,156 @@ ENTERPRISES.forEach(ent=>{
   };
 });
 
-/* ═══════════════════════════════════════════ */
-/* SNAPSHOT                                    */
-/* ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════ */
+/*  SNAPSHOT                                                */
+/* ═══════════════════════════════════════════════════════ */
 function getEnt(n){return ENTERPRISES.find(e=>e.name===n)||ENTERPRISES[0]}
 function renderSnap(){
   const ent=getEnt(selectedEnterprise),bm=BENCHMARKS[currentBenchmark];
   function dt(v,b,dec,inv){
     const d=v-b;const s=d>0?'+':'';const f=dec?d.toFixed(dec):Math.round(d);
     const good=inv?(d>0):(d<0);
-    return good
-      ?`<span class="snap-tag" style="background:var(--em-bg);color:var(--em)">${s}${f}</span>`
-      :`<span class="snap-tag" style="background:var(--ro-bg);color:var(--ro)">${s}${f}</span>`;
+    return good?`<span class="snap-tag" style="background:var(--em-bg);color:var(--em)">${s}${f}</span>`:`<span class="snap-tag" style="background:var(--ro-bg);color:var(--ro)">${s}${f}</span>`;
   }
   $('snap-ent-label').textContent=`${selectedEnterprise} · ${$('f-period').value}`;
   $('snap-grid').innerHTML=`
     <div class="snap-card snap-plain"><div class="snap-label">全成本(元/台)</div><div class="snap-value">${(ent.total/10000).toFixed(2)}万</div><div class="snap-sub">材料 ${(ent.matTotal/ent.total*100).toFixed(0)}% + 费用 ${(ent.feeTotal/ent.total*100).toFixed(0)}% ${dt(ent.total,bm.total)}</div></div>
-    <div class="snap-card snap-plain"><div class="snap-label">度电成本(元/kWh)</div><div class="snap-value">${ent.kwhCost}</div><div class="snap-sub">系统容量 ${CAPACITY}MWh ${dt(ent.kwhCost,bm.kwhCost,2)}</div></div>
-    <div class="snap-card snap-best" onclick="selectEnterprise(BENCHMARKS.bench.name)"><div class="snap-label">集成一次合格率</div><div class="snap-value">${ent.yield}%</div><div class="snap-sub">板块均值 ${bm.yield}% ${dt(ent.yield,bm.yield,1,true)}</div><div class="snap-badge">关键指标</div></div>
-    <div class="snap-card snap-labor" onclick="goMaterial(selectedEnterprise)"><div class="snap-label">材料成本合计</div><div class="snap-value">${(ent.matTotal/10000).toFixed(2)}万</div><div class="snap-sub">占比 ${(ent.matTotal/ent.total*100).toFixed(1)}% ${dt(ent.matTotal,bm.total*ent.matTotal/ent.total)}</div><div class="snap-badge">🔋 穿透</div></div>
-    <div class="snap-card snap-labor" onclick="goProcess(selectedEnterprise)"><div class="snap-label">费用成本合计</div><div class="snap-value">${(ent.feeTotal/10000).toFixed(2)}万</div><div class="snap-sub">占比 ${(ent.feeTotal/ent.total*100).toFixed(1)}% ${dt(ent.feeTotal,bm.total*ent.feeTotal/ent.total)}</div><div class="snap-badge">⚙ 穿透</div></div>
-    <div class="snap-card snap-abn"><div class="snap-label">产能利用率</div><div class="snap-value">${ent.capUtil}%</div><div class="snap-sub">${ent.vol}台 / ${ent.cap}台(设计)</div><div class="snap-badge">${ent.capUtil<70?'⚠ 偏低':'正常'}</div></div>`;
+    <div class="snap-card snap-plain"><div class="snap-label">度电成本(元/kWh)</div><div class="snap-value">${ent.kwhCost}</div><div class="snap-sub">系统 ${CAPACITY}MWh ${dt(ent.kwhCost,bm.kwhCost,2)}</div></div>
+    <div class="snap-card snap-best"><div class="snap-label">系统集成一次合格率</div><div class="snap-value">${ent.yield}%</div><div class="snap-sub">均值 ${bm.yield}% ${dt(ent.yield,bm.yield,1,true)}</div><div class="snap-badge">关键指标</div></div>
+    <div class="snap-card snap-labor" onclick="goMaterial(selectedEnterprise)"><div class="snap-label">材料成本</div><div class="snap-value">${(ent.matTotal/10000).toFixed(2)}万</div><div class="snap-sub">占比 ${(ent.matTotal/ent.total*100).toFixed(1)}% ${dt(ent.matTotal,bm.total*0.87)}</div><div class="snap-badge">🔋 穿透</div></div>
+    <div class="snap-card snap-labor" onclick="goProcess(selectedEnterprise)"><div class="snap-label">费用成本</div><div class="snap-value">${(ent.feeTotal/10000).toFixed(2)}万</div><div class="snap-sub">占比 ${(ent.feeTotal/ent.total*100).toFixed(1)}% ${dt(ent.feeTotal,bm.total*0.13)}</div><div class="snap-badge">⚙ 穿透</div></div>
+    <div class="snap-card ${ent.capUtil<70?'snap-abn':'snap-plain'}"><div class="snap-label">产能利用率</div><div class="snap-value">${ent.capUtil}%</div><div class="snap-sub">${ent.vol}台 / ${ent.cap}台设计产能</div>${ent.capUtil<70?'<div class="snap-badge">⚠ 偏低</div>':''}</div>`;
 }
 
-/* ═══════════════════════════════════════════ */
-/* NAVIGATION                                  */
-/* ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════ */
+/*  NAVIGATION                                              */
+/* ═══════════════════════════════════════════════════════ */
 function buildParams(entOverride){return new URLSearchParams({period:$('f-period').value,enterprise:entOverride||selectedEnterprise,product:$('f-product').value,customer:$('f-customer').value,scope:$('f-scope').value}).toString()}
 function goMaterial(ent){toast(`穿透到材料量价分析：${ent}`);window.location.href=`es-material-drilldown.html?${buildParams(ent)}`}
 function goProcess(ent){toast(`穿透到工序费用分析：${ent}`);window.location.href=`es-labor-process.html?${buildParams(ent)}`}
-function goMaterialFromHM(ent){toast(`穿透到材料分析：${ent}`);window.location.href=`es-material-drilldown.html?${buildParams(ent)}`}
-function goProcessFromHM(ent){toast(`穿透到工序分析：${ent}`);window.location.href=`es-labor-process.html?${buildParams(ent)}`}
+function goMaterialFromHM(ent){goMaterial(ent)}
+function goProcessFromHM(ent){goProcess(ent)}
 
-/* ═══════════════════════════════════════════ */
-/* SUMMARY                                     */
-/* ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════ */
+/*  SUMMARY TABLE                                           */
+/* ═══════════════════════════════════════════════════════ */
 function renderSummary(){
   $('summary-period').textContent=$('f-period').value;
   function row(cls,icon,label,d){
     const kw=d.kwhCost||+(d.total/(CAPACITY*1000)).toFixed(2);
     return `<tr class="${cls}"><td>${icon} ${label}</td><td>${d.total.toLocaleString()}</td><td>${kw}</td>${ALL_KEYS.map(k=>`<td>${(d[k]||0).toLocaleString()}</td>`).join('')}</tr>`;
   }
-  $('summary-body').innerHTML=
-    row('row-star','⭐','恒星均值',BENCHMARKS.star)+
-    row('row-avg','📊','同类企业均值',BENCHMARKS.avg)+
-    row('row-bench','🏆','标杆('+BENCHMARKS.bench.name+')',BENCHMARKS.bench);
+  $('summary-body').innerHTML=row('row-star','⭐','恒星均值',BENCHMARKS.star)+row('row-avg','📊','同类均值',BENCHMARKS.avg)+row('row-bench','🏆','标杆('+BENCHMARKS.bench.name+')',BENCHMARKS.bench);
 }
 
-/* ═══════════════════════════════════════════ */
-/* HEATMAP                                     */
-/* ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════ */
+/*  COST STRUCTURE CHARTS (NEW)                             */
+/* ═══════════════════════════════════════════════════════ */
+const STRUCT_COLORS={cell:'#6366F1',bms:'#8B5CF6',pcs:'#0EA5E9',thermal:'#14B8A6',structure:'#F59E0B',harness:'#F97316',aux:'#94A3B8',labor:'#EC4899',mfgOH:'#EF4444',mgmt:'#78716C'};
+const charts={};function kill(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
+
+function renderStructure(){
+  kill('cStack');kill('cDiff');
+  const sorted=[...ENTERPRISES].sort((a,b)=>a.total-b.total);
+
+  // Left: Stacked horizontal bar — each enterprise shows 10 segments as % of total
+  const labels=sorted.map(e=>e.name);
+  const datasets=ALL_KEYS.map(k=>({
+    label:KEY_LABELS[k],
+    data:sorted.map(e=>+((e[k]/e.total)*100).toFixed(1)),
+    backgroundColor:STRUCT_COLORS[k],
+    borderWidth:0,
+    barThickness:18
+  }));
+
+  charts.cStack=new Chart($('c-struct-stack'),{
+    type:'bar',
+    data:{labels,datasets},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{stacked:true,max:100,ticks:{callback:v=>v+'%'},grid:{color:'rgba(0,0,0,.04)'}},
+        y:{stacked:true,grid:{display:false}}
+      },
+      plugins:{
+        legend:{display:true,position:'bottom',labels:{boxWidth:10,font:{size:9},padding:8}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}：${ctx.raw}%`}},
+        datalabels:{display:ctx=>ctx.raw>8,color:'#fff',font:{size:8,weight:700},formatter:v=>v+'%'}
+      },
+      onClick:(evt,els)=>{
+        if(els.length>0){const idx=els[0].index;selectEnterprise(sorted[idx].name)}
+      }
+    }
+  });
+
+  // Right: Selected vs Bench diverging bar
+  const ent=getEnt(selectedEnterprise);
+  const bench=BENCHMARKS.bench;
+  const diffLabels=ALL_KEYS.map(k=>KEY_LABELS[k]);
+  const diffData=ALL_KEYS.map(k=>{
+    const pct=((ent[k]-bench[k])/bench[k]*100);
+    return +pct.toFixed(1);
+  });
+  const diffColors=diffData.map(v=>v>0?'rgba(225,29,72,.6)':'rgba(5,150,105,.6)');
+
+  charts.cDiff=new Chart($('c-struct-diff'),{
+    type:'bar',
+    data:{labels:diffLabels,datasets:[{
+      data:diffData,backgroundColor:diffColors,borderRadius:4,barThickness:20
+    }]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>(v>0?'+':'')+v+'%'},
+          afterFit:s=>{s.min=Math.min(-15,...diffData.map(v=>v-3));s.max=Math.max(15,...diffData.map(v=>v+3))}},
+        y:{grid:{display:false}}
+      },
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}：${ctx.raw>0?'+':''}${ctx.raw}% vs 标杆`}},
+        datalabels:{display:true,anchor:ctx=>ctx.raw>=0?'end':'start',align:ctx=>ctx.raw>=0?'right':'left',
+          font:{size:9,weight:700},color:ctx=>ctx.raw>0?'#E11D48':'#059669',
+          formatter:v=>(v>0?'+':'')+v+'%'}
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════ */
+/*  HEATMAP                                                 */
+/* ═══════════════════════════════════════════════════════ */
 function getHmCls(pct){if(pct<=-8)return'g3';if(pct<=-4)return'g2';if(pct<=-1)return'g1';if(pct<=1)return'n';if(pct<=4)return'r1';if(pct<=8)return'r2';return'r3'}
 function getHmClsInv(pct){if(pct>=3)return'g3';if(pct>=1.5)return'g2';if(pct>=0.3)return'g1';if(pct>=-0.3)return'n';if(pct>=-1.5)return'r1';if(pct>=-3)return'r2';return'r3'}
+
 function renderHeatmap(){
   const bm=BENCHMARKS[currentBenchmark];
   const sorted=[...ENTERPRISES].sort((a,b)=>a.total-b.total);
-  const METRICS=[...ALL_KEYS,'total','kwhCost'];
-  const metricRanks={};METRICS.forEach(m=>{const r=[...ENTERPRISES].sort((a,b)=>a[m]-b[m]);metricRanks[m]={};r.forEach((e,i)=>{metricRanks[m][e.name]=i+1})});
+  const ALL_METRICS=[...ALL_KEYS,'total','kwhCost'];
+  const metricRanks={};ALL_METRICS.forEach(m=>{const r=[...ENTERPRISES].sort((a,b)=>a[m]-b[m]);metricRanks[m]={};r.forEach((e,i)=>{metricRanks[m][e.name]=i+1})});
   const yieldRanks={};[...ENTERPRISES].sort((a,b)=>b.yield-a.yield).forEach((e,i)=>{yieldRanks[e.name]=i+1});
 
   $('hm-filter-display').textContent=`${$('f-product').value} · ${$('f-scope').value}`;
+
+  const isExcludeClient=$('f-scope').value==='剔除客供件';
+
   $('hm-body').innerHTML=sorted.map(ent=>{
     const isSel=selectedEnterprise===ent.name;
     const isHL=ent.total>bm.total*1.06;
 
+    function supplyTag(key){
+      if(!ent.supply||!ent.supply[key])return '';
+      if(ent.supply[key]==='client')return '<span class="hm-supply-tag hm-supply-client">客</span>';
+      return '';
+    }
+
     function mc(key,action){
-      const v=ent[key],bmv=bm[key]||(bm.total/(CAPACITY*1000)),d=((v-bmv)/bmv*100),cls=getHmCls(d);
+      const v=ent[key],bmv=bm[key],d=((v-bmv)/bmv*100),cls=getHmCls(d);
       const rk=metricRanks[key]?metricRanks[key][ent.name]:'-';
       const fv=v>=10000?(v/10000).toFixed(1)+'万':v.toLocaleString();
       const sgn=d>0?'+':'';
-      return `<td onclick="${action}"><div class="hm-cell ${cls}"><span class="hm-cell-v">${fv}</span><span class="hm-cell-sub">${sgn}${d.toFixed(1)}% #${rk}</span></div></td>`;
+      const tag=supplyTag(key);
+      const dimmed=isExcludeClient&&ent.supply&&ent.supply[key]==='client'?' style="opacity:.4"':'';
+      return `<td onclick="${action}"${dimmed}><div class="hm-cell ${cls}"><span class="hm-cell-v">${fv}${tag}</span><span class="hm-cell-sub">${sgn}${d.toFixed(1)}% #${rk}</span></div></td>`;
     }
     function mcKwh(action){
       const v=ent.kwhCost,bmv=bm.kwhCost,d=((v-bmv)/bmv*100),cls=getHmCls(d);
@@ -503,30 +607,53 @@ function renderHeatmap(){
   }).join('');
 }
 
-/* ═══════════════════════════════════════════ */
-/* ENTERPRISE SELECT                           */
-/* ═══════════════════════════════════════════ */
-function selectEnterprise(name){
-  selectedEnterprise=name;
-  $('f-enterprise').value=name;
-  renderAll();
-  toast(`已选中：${name}`);
+/* ═══════════════════════════════════════════════════════ */
+/*  SMART INSIGHTS                                          */
+/* ═══════════════════════════════════════════════════════ */
+function renderInsights(){
+  const ent=getEnt(selectedEnterprise);
+  const bench=BENCHMARKS.bench;
+  const sorted=[...ENTERPRISES].sort((a,b)=>a.total-b.total);
+  const rank=sorted.findIndex(e=>e.name===ent.name)+1;
+
+  // Find biggest gap vs bench
+  let maxGapKey='',maxGapPct=0;
+  ALL_KEYS.forEach(k=>{const pct=(ent[k]-bench[k])/bench[k]*100;if(pct>maxGapPct){maxGapPct=pct;maxGapKey=k}});
+
+  // Cell cost ratio
+  const cellRatio=(ent.cell/ent.total*100).toFixed(1);
+  const benchCellRatio=(bench.cell/bench.total*100).toFixed(1);
+
+  // Client supply count
+  const clientKeys=ent.supply?Object.keys(ent.supply).filter(k=>ent.supply[k]==='client'):[];
+  const clientNote=clientKeys.length>0?`${ent.name}的${clientKeys.map(k=>KEY_LABELS[k]||k).join('、')}为客户自供件，对标时需注意口径可比性。`:'该企业所有核心部件均为自供，对标口径完全可比。';
+
+  // Capacity utilization insight
+  const lowCapEnts=ENTERPRISES.filter(e=>e.capUtil<70);
+  const capNote=lowCapEnts.length>0?`${lowCapEnts.map(e=>e.name).join('、')}产能利用率低于70%，固定成本分摊偏高，建议关注产能调配。`:'所有企业产能利用率均在70%以上，产能分摊合理。';
+
+  $('insight-bar').innerHTML=`
+    <div class="insight-item" style="background:var(--i-bg);border-color:var(--i-bd);color:var(--s700)">
+      <span class="insight-icon">📊</span>
+      <strong>${ent.name}</strong>全成本排名第<strong>${rank}</strong>/${ENTERPRISES.length}，${maxGapKey?`与标杆最大差距在<strong>${KEY_LABELS[maxGapKey]}</strong>（偏高${maxGapPct.toFixed(1)}%），建议优先穿透分析。`:'各项指标均处于领先水平。'}
+    </div>
+    <div class="insight-item" style="background:var(--v-bg);border-color:rgba(124,58,237,.2);color:var(--s700)">
+      <span class="insight-icon">🔋</span>
+      电芯模组占全成本<strong>${cellRatio}%</strong>（标杆${benchCellRatio}%）。6个月内电芯市场价从0.38降至0.31元/Wh（跌幅18.4%），需区分<strong>市场降价</strong>与<strong>内部采购改善</strong>的贡献。
+    </div>
+    <div class="insight-item" style="background:var(--am-bg);border-color:var(--am-bd);color:var(--s700)">
+      <span class="insight-icon">⚠</span>
+      ${clientNote}
+    </div>
+    <div class="insight-item" style="background:var(--tl-bg);border-color:rgba(13,148,136,.2);color:var(--s700)">
+      <span class="insight-icon">🏭</span>
+      ${capNote}
+    </div>`;
 }
 
-/* ═══════════════════════════════════════════ */
-/* BENCHMARK SWITCH                            */
-/* ═══════════════════════════════════════════ */
-$('bm-switch').addEventListener('click',e=>{
-  const b=e.target.closest('.bm-btn');if(!b||b.classList.contains('active'))return;
-  $('bm-switch').querySelectorAll('.bm-btn').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active');currentBenchmark=b.dataset.bm;
-  renderAll();toast(`对标基准：${b.textContent}`);
-});
-
-/* ═══════════════════════════════════════════ */
-/* TREND CHARTS                                */
-/* ═══════════════════════════════════════════ */
-const charts={};function kill(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
+/* ═══════════════════════════════════════════════════════ */
+/*  TREND CHARTS                                            */
+/* ═══════════════════════════════════════════════════════ */
 const METRIC_TITLES={total:'全成本',kwhCost:'度电成本',cell:'电芯模组',pcs:'PCS',structure:'结构件',labor:'人工费用',yield:'集成合格率'};
 const METRIC_UNITS={total:'元/台',kwhCost:'元/kWh',cell:'元/台',pcs:'元/台',structure:'元/台',labor:'元/台',yield:'%'};
 
@@ -539,93 +666,97 @@ function renderTrend(){
   const unit=METRIC_UNITS[m]||'元/台';
   const isYield=m==='yield';
   const isKwh=m==='kwhCost';
+  const isCell=m==='cell';
 
   $('trend-main-title').textContent=`${METRIC_TITLES[m]||m}趋势`;
   $('legend-bar-label').textContent=`${METRIC_TITLES[m]}(${unit})`;
   $('trend-right-info').innerHTML=`当前选中：<strong>${selectedEnterprise}</strong>`;
 
-  // avg line
   const avgLine=MONTHS.map((_,i)=>{
     const arr=ENTERPRISES.map(e=>(TREND_DATA[e.name][m]||TREND_DATA[e.name].total)[i]);
     return +(arr.reduce((s,v)=>s+v,0)/arr.length).toFixed(2);
   });
-  // MoM %
-  const mom=vals.map((v,i)=>i===0?0:+((v-vals[i-1])/vals[i-1]*100).toFixed(1));
 
   const mainColor=isYield?'rgba(5,150,105,.55)':'rgba(124,58,237,.55)';
-  const mainBorder=isYield?'#059669':'#7C3AED';
+  const dsList=[
+    {type:'bar',data:vals,backgroundColor:mainColor,borderRadius:4,barThickness:28,yAxisID:'y',order:2},
+    {type:'line',data:avgLine,borderColor:'#D97706',borderDash:[5,3],borderWidth:1.5,pointRadius:0,yAxisID:'y',order:1,fill:false}
+  ];
+
+  // Add cell price index on y1 axis for cell/total/kwhCost metrics
+  const showCellIdx=m==='cell'||m==='total'||m==='kwhCost';
+  if(showCellIdx){
+    dsList.push({type:'line',data:CELL_PRICE_INDEX,borderColor:'#0284C7',borderDash:[3,2],borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#0284C7',yAxisID:'y1',order:0,fill:false});
+  }
+
+  const y1Cfg=showCellIdx
+    ?{position:'right',grid:{display:false},ticks:{callback:v=>v.toFixed(2)+'元/Wh'},title:{display:true,text:'电芯市场价(元/Wh)',font:{size:9},color:'#0284C7'},min:0.2,max:0.5}
+    :{display:false};
 
   charts.cM=new Chart($('c-main-trend'),{
     type:'bar',
-    data:{labels:MONTHS,datasets:[
-      {type:'bar',data:vals,backgroundColor:mainColor,borderColor:mainBorder,borderWidth:1,borderRadius:4,barThickness:28,yAxisID:'y',order:2},
-      {type:'line',data:avgLine,borderColor:'#D97706',borderDash:[5,3],borderWidth:1.5,pointRadius:0,yAxisID:'y',order:1,fill:false},
-      {type:'line',data:mom,borderColor:'#E11D48',borderDash:[3,2],borderWidth:1.2,pointRadius:2,pointBackgroundColor:'#E11D48',yAxisID:'y1',order:0,fill:false}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:ctx=>ctx.datasetIndex===0,anchor:'end',align:'top',font:{size:9,weight:600},color:'#334155',formatter:v=>isKwh?v.toFixed(2):isYield?v.toFixed(1)+'%':v>=10000?(v/10000).toFixed(1)+'万':v.toLocaleString()}},
-      scales:{x:{grid:{display:false}},y:{position:'left',grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>isKwh?v.toFixed(1):isYield?v+'%':v>=10000?(v/10000).toFixed(1)+'万':v}},y1:{position:'right',grid:{display:false},ticks:{callback:v=>v+'%'},min:-15,max:5}}}
+    data:{labels:MONTHS,datasets:dsList},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        datalabels:{display:ctx=>ctx.datasetIndex===0,anchor:'end',align:'top',font:{size:9,weight:600},color:'#334155',
+          formatter:v=>isKwh?v.toFixed(2):isYield?v.toFixed(1)+'%':v>=10000?(v/10000).toFixed(1)+'万':v.toLocaleString()}
+      },
+      scales:{
+        x:{grid:{display:false}},
+        y:{position:'left',grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>isKwh?v.toFixed(1):isYield?v+'%':v>=10000?(v/10000).toFixed(1)+'万':v}},
+        y1:y1Cfg
+      }
+    }
   });
 
-  // Volume trend
-  const volData=td.vol;
-  const capUtilData=td.capUtil;
+  // Volume
   charts.cV=new Chart($('c-vol-trend'),{
     type:'bar',
     data:{labels:MONTHS,datasets:[
-      {type:'bar',data:volData,backgroundColor:'rgba(5,150,105,.55)',borderColor:'#059669',borderWidth:1,borderRadius:4,barThickness:28,yAxisID:'y',order:1},
-      {type:'line',data:capUtilData,borderColor:'#D97706',borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#D97706',yAxisID:'y1',order:0,fill:false}
+      {type:'bar',data:td.vol,backgroundColor:'rgba(5,150,105,.55)',borderRadius:4,barThickness:28,yAxisID:'y',order:1},
+      {type:'line',data:td.capUtil,borderColor:'#D97706',borderWidth:1.5,pointRadius:3,pointBackgroundColor:'#D97706',yAxisID:'y1',order:0,fill:false}
     ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:ctx=>ctx.datasetIndex===0,anchor:'end',align:'top',font:{size:9,weight:600},color:'#334155',formatter:v=>v+'台'}},
-      scales:{x:{grid:{display:false}},y:{position:'left',grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>v+'台'}},y1:{position:'right',grid:{display:false},ticks:{callback:v=>v+'%'},min:0,max:100}}}
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        datalabels:{display:ctx=>ctx.datasetIndex===0,anchor:'end',align:'top',font:{size:9,weight:600},color:'#334155',formatter:v=>v+'台'}
+      },
+      scales:{
+        x:{grid:{display:false}},
+        y:{position:'left',grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>v+'台'}},
+        y1:{position:'right',grid:{display:false},ticks:{callback:v=>v+'%'},min:0,max:120}
+      }
+    }
   });
 }
 
-/* ═══════════════════════════════════════════ */
-/* TREND TABS                                  */
-/* ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════ */
+/*  INTERACTIONS                                            */
+/* ═══════════════════════════════════════════════════════ */
+function selectEnterprise(name){selectedEnterprise=name;$('f-enterprise').value=name;renderAll();toast(`已选中：${name}`)}
+
+$('bm-switch').addEventListener('click',e=>{
+  const b=e.target.closest('.bm-btn');if(!b||b.classList.contains('active'))return;
+  $('bm-switch').querySelectorAll('.bm-btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');currentBenchmark=b.dataset.bm;renderAll();toast(`对标基准：${b.textContent}`);
+});
+
 $('trend-tabs').addEventListener('click',e=>{
   const b=e.target.closest('.trend-tab');if(!b||b.classList.contains('active'))return;
   $('trend-tabs').querySelectorAll('.trend-tab').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active');currentMetric=b.dataset.metric;
-  renderTrend();
+  b.classList.add('active');currentMetric=b.dataset.metric;renderTrend();
 });
 
-/* ═══════════════════════════════════════════ */
-/* DETAIL TABLE                                */
-/* ═══════════════════════════════════════════ */
-function renderDetail(){
-  const sorted=[...ENTERPRISES].sort((a,b)=>a.total-b.total);
-  const bench=sorted[0];
-  $('detail-body').innerHTML=sorted.map((ent,i)=>{
-    const isSel=selectedEnterprise===ent.name;
-    const diff=ent.total-bench.total;const pct=((diff/bench.total)*100).toFixed(1);
-    function vc(v,key){
-      const avg=ENTERPRISES.reduce((s,e)=>s+e[key],0)/ENTERPRISES.length;
-      const cls=v>avg*1.05?'val-hi':v<avg*0.95?'val-lo':'';
-      return `<td class="${cls}">${v>=10000?(v/10000).toFixed(1)+'万':v.toLocaleString()}</td>`;
-    }
-    return `<tr>
-      <td style="font-weight:800;color:var(--i)">#${i+1}</td>
-      <td><a class="ent-name ${isSel?'selected':''}" onclick="selectEnterprise('${ent.name}')" style="font-size:12px">${ent.name}</a></td>
-      <td style="font-weight:800">${(ent.total/10000).toFixed(2)}万</td>
-      <td style="font-weight:700">${ent.kwhCost}</td>
-      ${ALL_KEYS.map(k=>vc(ent[k],k)).join('')}
-      <td style="font-weight:700;color:${ent.yield>=96?'var(--em)':ent.yield<94?'var(--ro)':'var(--s700)'}">${ent.yield}%</td>
-      <td style="font-weight:700;color:${diff>0?'var(--ro)':'var(--em)'}">${diff===0?'—':(diff>0?'+':'')+diff.toLocaleString()+' ('+pct+'%)'}</td>
-    </tr>`;
-  }).join('');
-}
-
-/* ═══════════════════════════════════════════ */
-/* FILTER LISTENERS                            */
-/* ═══════════════════════════════════════════ */
 [$('f-period'),$('f-product'),$('f-customer'),$('f-scope')].forEach(el=>el.addEventListener('change',()=>{renderAll();toast('筛选已更新')}));
 $('f-enterprise').addEventListener('change',()=>{selectedEnterprise=$('f-enterprise').value;renderAll();toast(`已选中：${selectedEnterprise}`)});
 
-/* ═══════════════════════════════════════════ */
-/* RENDER ALL                                  */
-/* ═══════════════════════════════════════════ */
-function renderAll(){renderSnap();renderSummary();renderHeatmap();renderTrend();renderDetail()}
+/* ═══════════════════════════════════════════════════════ */
+/*  RENDER ALL                                              */
+/* ═══════════════════════════════════════════════════════ */
+function renderAll(){renderSnap();renderSummary();renderStructure();renderHeatmap();renderInsights();renderTrend()}
 renderAll();
 </script>
 </body>

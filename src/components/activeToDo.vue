@@ -45,6 +45,7 @@ import moment from "moment";
 import notifications from "../helpers/notifications";
 import linkifyStr from 'linkify-string';
 import tasksHelper from "../helpers/tasksHelper";
+import { isSpanningTask, syncSpanningChecked } from "../helpers/spanSyncHelper";
 
 export default {
   components: {},
@@ -67,7 +68,7 @@ export default {
       notifications.refreshDayNotifications(this, this.activeTodo.toDoListId);
       toDoListRepository.update(this.activeTodo.toDoListId, this.$store.getters.todoLists[this.activeTodo.toDoListId]);
       let toast = new Toast(document.getElementById("taskRemoved"));
-      toast.show(); // The undo remove acction it's called in todoModal.vue:undoRemoveTask
+      toast.show();
       this.hideToDoItem();
     },
     showToDoDetails: function () {
@@ -89,7 +90,14 @@ export default {
       this.activeTodo.edit();
     },
     checkToDo: function (toDoListId, index) {
-      if (this.$store.getters.todoLists[toDoListId][index].checked && this.$store.getters.config.moveCompletedTaskToBottom) {
+      let todo = this.$store.getters.todoLists[toDoListId][index];
+
+      // ★ 跨天任务同步 checked 状态
+      if (isSpanningTask(todo)) {
+        syncSpanningChecked(todo, this.$store);
+      }
+
+      if (todo.checked && this.$store.getters.config.moveCompletedTaskToBottom) {
         this.$refs.currentTodo.style.display = `none`;
         this.$store.commit("moveTodoToEnd", { toDoListId: toDoListId, index: index, });
       }

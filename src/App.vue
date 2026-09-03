@@ -52,20 +52,18 @@
               @todo-list-mounted="todoListMounted"
             ></to-do-list>
             <div v-if="homeCustomList" class="home-custom-list-slot flex-grow-1 position-relative">
-              <div v-if="customListCount > 1" class="home-custom-list-switcher">
-                <i class="bi-chevron-left" @click="cycleHomeCustomList(-1)"></i>
-                <span>{{ homeCustomListIndex + 1 }}/{{ customListCount }}</span>
-                <i class="bi-chevron-right" @click="cycleHomeCustomList(1)"></i>
-              </div>
+              <!-- ★ 删除了原来的 home-custom-list-switcher div，切换器移到了 listHeader 内部 -->
               <to-do-list
                 :key="homeCustomList.listId"
                 :id="homeCustomList.listId"
                 :customTodoList="true"
                 :cTodoListIndex="homeCustomListIndex"
+                :totalCustomLists="customListCount"
                 :columnsOverride="4"
                 @todo-list-mounted="todoListMounted"
                 @reorderCustomList="resetCustomList"
                 @addCustomList="onCustomListAdded"
+                @cycleCustomList="cycleHomeCustomList"
               ></to-do-list>
               <!-- 归档操作栏 -->
               <div class="archive-action-bar">
@@ -313,7 +311,6 @@ export default {
     resetCustomList: function () {
       // 占位
     },
-    // 新列表创建后切换到最后一个（刚创建的）
     onCustomListAdded: function () {
       this.$nextTick(function () {
         this.homeCustomListIndex = this.$store.getters.cTodoListIds.length - 1;
@@ -517,7 +514,6 @@ export default {
         this.setSelectedDate({ date: dateStr, picked: true });
       });
     },
-    // ============ 归档功能 ============
     archiveCompletedTasks: function () {
       if (!this.homeCustomList) return;
       let listId = this.homeCustomList.listId;
@@ -765,31 +761,7 @@ body {
   min-height: 0;
 }
 
-.home-custom-list-switcher {
-  position: absolute;
-  top: 2px;
-  right: 16px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.7rem;
-  color: #9aa0a8;
-
-  i {
-    cursor: pointer;
-    padding: 2px 4px;
-    border-radius: 4px;
-
-    &:hover {
-      background-color: #eaecef;
-    }
-  }
-}
-
-.dark-theme .home-custom-list-switcher i:hover {
-  background-color: #21262d;
-}
+/* ★ 已删除 .home-custom-list-switcher 样式块，切换器移到了 listHeader 组件内部 */
 
 /* 归档操作栏 */
 .archive-action-bar {

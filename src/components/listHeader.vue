@@ -16,7 +16,7 @@
       </div>
       <div
         v-else
-        class="custom-list-title d-flex align-items-center justify-content-center"
+        class="custom-list-title d-flex flex-column align-items-center justify-content-center"
         draggable="true"
         @dragstart="startListDrag($event)"
         @dragover.prevent
@@ -28,6 +28,12 @@
         <h4 v-show="!editing" @dblclick="editToDoListName"> {{ todo_list_name }} </h4>
         <input class="custom-todo-input" v-show="editing" type="text" v-model="name" ref="cTodoInput" @blur="doneEdit()"
           @keyup.enter="doneEdit()" @keyup.esc="cancelEdit()" />
+        <!-- ★ 列表切换器：放在标题下方，类似日期 subheader -->
+        <div v-if="totalCustomLists > 1" class="custom-list-pager">
+          <i class="bi-chevron-left" @click.stop="$emit('cycleCustomList', -1)"></i>
+          <span>{{ cTodoListIndex + 1 }}/{{ totalCustomLists }}</span>
+          <i class="bi-chevron-right" @click.stop="$emit('cycleCustomList', 1)"></i>
+        </div>
       </div>
     </div>
     <i v-show="!editing" class="bi-three-dots-vertical header-menu-icons dropdown-toggle-split align-self-center"
@@ -103,8 +109,9 @@ export default {
     cTodoListIndex: { required: false, type: Number },
     toDoList: { required: false, type: Array },
     pickedDate: { required: false, type: String, default: null },
+    totalCustomLists: { required: false, type: Number, default: 1 },
   },
-  emits: ["reorderCustomList", "addCustomList"],
+  emits: ["reorderCustomList", "addCustomList", "cycleCustomList"],
   data() {
     return {
       editing: false,
@@ -217,7 +224,6 @@ export default {
           .focus();
       });
     },
-    // ===== 新增列表 =====
     addNewCustomList: function () {
       const newId = moment().format("YYYYMMDDTHHmmssS");
       const newListObj = {
@@ -227,9 +233,7 @@ export default {
       this.$store.commit("newCustomTodoList", newListObj);
       customToDoListIdsRepository.update(this.$store.getters.cTodoListIds);
       toDoListRepository.update(newId, []);
-      // 标记刚创建，触发新列表自动进入编辑模式
       this.$store.commit("actionsCListCreatedUpdate", true);
-      // 通知父组件切换到新创建的列表
       this.$emit("addCustomList");
     },
     startListDrag: function (event) {
@@ -385,6 +389,45 @@ export default {
 .dark-theme .list-drag-hover {
   box-shadow: #0b0d12 0px 0px 4px 1px inset;
   background-color: #0c0d14;
+}
+
+/* ★ 列表切换器样式 */
+.custom-list-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: grey;
+  user-select: none;
+
+  i {
+    cursor: pointer;
+    padding: 1px 4px;
+    border-radius: 4px;
+    font-size: 11px;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: #eaecef;
+      color: #333;
+    }
+  }
+
+  span {
+    min-width: 24px;
+    text-align: center;
+  }
+}
+
+.dark-theme .custom-list-pager {
+  color: #9aa0a8;
+
+  i:hover {
+    background-color: #21262d;
+    color: #dedede;
+  }
 }
 
 .custom-todo-input {

@@ -205,6 +205,7 @@ import descriptionTextArea from "./descriptionTextArea.vue";
 import tagPicker from "./tagPicker.vue";
 import reminderPicker from "./reminderPicker.vue";
 import defaultTaskTags from "../../data/defaultTaskTags.js";
+import { isSpanningTask, syncSpanningState, syncSpanningChecked } from "../../helpers/spanSyncHelper";
 
 export default {
   name: "toDoModal",
@@ -297,7 +298,7 @@ export default {
       }
       this.updateTodo();
 
-      // 同步镜像：需要在 startDate+1 到 endDate 的列表中都添加/移除引用
+      // 同步镜像
       this.syncSpanningMirrors();
     },
     syncSpanningMirrors: function () {
@@ -315,7 +316,6 @@ export default {
       }
     },
     clearOldMirrors: function () {
-      // 根据 selectedDates 检查每个日期列表中的 spanning 标记
       let selectedDates = this.$store.getters.selectedDates || [];
       let selfListId = this.todo.listId;
       selectedDates.forEach((dateId) => {
@@ -323,7 +323,7 @@ export default {
         let list = this.$store.getters.todoLists[dateId];
         if (!list) return;
         let filtered = list.filter(
-          (t) => !(t._spanSourceId === selfListId && t._spanSourceText === this.todo.text && t._isSpanMirror)
+          (t) => !(t._isSpanMirror && t._spanSourceId === selfListId)
         );
         if (filtered.length !== list.length) {
           this.$store.commit("loadTodoLists", { todoListId: dateId, todoList: filtered });
@@ -336,7 +336,7 @@ export default {
       if (!list) return;
       // 避免重复添加
       let alreadyExists = list.some(
-        (t) => t._spanSourceId === this.todo.listId && t._spanSourceText === this.todo.text && t._isSpanMirror
+        (t) => t._isSpanMirror && t._spanSourceId === this.todo.listId
       );
       if (alreadyExists) return;
 
@@ -345,18 +345,17 @@ export default {
         checked: this.todo.checked,
         listId: dateId,
         desc: this.todo.desc,
-        subTaskList: this.todo.subTaskList,
+        subTaskList: JSON.parse(JSON.stringify(this.todo.subTaskList || [])),
         color: this.todo.color,
         priority: this.todo.priority || 0,
-        tags: this.todo.tags || [],
+        tags: this.todo.tags ? [...this.todo.tags] : [],
         time: this.todo.time,
         alarm: this.todo.alarm,
-        reminders: this.todo.reminders || [],
+        reminders: this.todo.reminders ? [...this.todo.reminders] : [],
         repeatingEvent: null,
         endDate: this.todo.endDate,
         _isSpanMirror: true,
         _spanSourceId: this.todo.listId,
-        _spanSourceText: this.todo.text,
       };
       list.push(mirror);
       this.$store.commit("loadTodoLists", { todoListId: dateId, todoList: list });
@@ -440,6 +439,11 @@ export default {
       );
     },
     checkTodo: function (resetRepeatinEvent = true) {
+      // ★ 跨天任务同步 checked 状态
+      if (isSpanningTask(this.todo)) {
+        syncSpanningChecked(this.todo, this.$store);
+      }
+
       if (this.todo.checked) {
         if (this.$store.getters.config.moveCompletedTaskToBottom) {
           this.$store.commit("moveTodoToEnd", { toDoListId: this.todo.listId, index: this.index });
@@ -453,6 +457,11 @@ export default {
         this.todo.repeatingEvent = null;
       }
       this.updateTodoList(this.todo.listId, this.todoList);
+
+      // ★ 跨天任务：同步所有字段到镜像
+      if (isSpanningTask(this.todo)) {
+        syncSpanningState(this.todo, this.$store);
+      }
     },
     updateTodoWithReorder: function (resetRepeatinEvent = true) {
       if (resetRepeatinEvent) {
@@ -462,6 +471,11 @@ export default {
         this.updateTodoList(this.todo.listId, tasksHelper.reorderTasksList(this.todoList));
       } else {
         this.updateTodoList(this.todo.listId, this.todoList);
+      }
+
+      // ★ 跨天任务：同步所有字段到镜像
+      if (isSpanningTask(this.todo)) {
+        syncSpanningState(this.todo, this.$store);
       }
     },
     updateTodoList: function (todoListId, TodoList) {
@@ -543,6 +557,7 @@ export default {
       // 恢复镜像
       this.$nextTick(() => {
         if (obj.todo.endDate) {
+          this.todo = obj.todo;
           this.syncSpanningMirrors();
         }
       });
@@ -699,7 +714,12 @@ export default {
       this.getCListOptions();
       this.loadingView = true;
       if (this.showingCalendar) {
-        this.startDateStr = moment(this.todo.listId, "YYYYMMDD").format("YYYY-MM-DD");
+        // 如果是镜像任务，用源日期作为 startDate
+        if (this.todo._isSpanMirror && this.todo._spanSourceId) {
+          this.startDateStr = moment(this.todo._spanSourceId, "YYYYMMDD").format("YYYY-MM-DD");
+        } else {
+          this.startDateStr = moment(this.todo.listId, "YYYYMMDD").format("YYYY-MM-DD");
+        }
         this.endDateStr = this.todo.endDate
           ? moment(this.todo.endDate, "YYYYMMDD").format("YYYY-MM-DD")
           : this.startDateStr;
@@ -879,12 +899,13 @@ export default {
   align-items: center;
   gap: 0;
   margin-left: 4px;
-  background-color: #f4f5f7;
+  /* ★ 去掉灰色底色，改为透明 */
+  background-color: transparent;
   padding: 2px 4px;
-  border-radius: 8px;
+  border-radius: 0;
 
   .dark-theme & {
-    background-color: #1a1e24;
+    background-color: transparent;
   }
 }
 

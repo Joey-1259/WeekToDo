@@ -12,16 +12,15 @@
     "Productivity",
     "Minimalist"
   ],
+  
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint",
-    "electron:build": "vue-cli-service electron:build",
+    "clean": "rm -rf dist_electron",
+    "electron:build": "node scripts/pre-build-check.js && vue-cli-service electron:build",
     "electron:serve": "vue-cli-service electron:serve",
     "postinstall": "electron-builder install-app-deps",
-    "postuninstall": "electron-builder install-app-deps",
-    "release": "electron-builder",
-    "test": "echo success"
+    "postuninstall": "electron-builder install-app-deps"
   },
   "main": "background.js",
   "repository": "https://github.com/manuelernestog/weektodo",

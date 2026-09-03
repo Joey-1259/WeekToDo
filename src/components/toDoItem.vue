@@ -43,6 +43,7 @@
 import toDoListRepository from "../repositories/toDoListRepository";
 import moment from "moment";
 import linkifyStr from 'linkify-string';
+import { isSpanningTask, syncSpanningState } from "../helpers/spanSyncHelper";
 
 export default {
   components: {},
@@ -79,6 +80,12 @@ export default {
         text: this.text,
       });
       toDoListRepository.update(this.toDoListId, this.$store.getters.todoLists[this.toDoListId]);
+
+      // ★ 行内编辑后，同步跨天任务的文本到所有镜像
+      let todo = this.$store.getters.todoLists[this.toDoListId][this.index];
+      if (isSpanningTask(todo)) {
+        syncSpanningState(todo, this.$store);
+      }
     },
     cancelEdit: function () {
       this.text = this.toDo.text;

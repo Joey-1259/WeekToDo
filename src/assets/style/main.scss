@@ -1,4 +1,4 @@
-@import "globalVars";
+@use "./globalVars" as *;
 
 body {
   color: $text-color;
@@ -452,3 +452,32 @@ i {
     display: none !important;
   }
 }
+
+/* WeekToDo dark modal contrast */
+.dark-theme .modal-content {
+  color: #c9d1d9;
+}
+
+.dark-theme .modal-content .modal-title,
+.dark-theme .modal-content .form-label,
+.dark-theme .modal-content .form-check-label,
+.dark-theme .modal-content label {
+  color: #c9d1d9;
+}
+
+.dark-theme .modal-content .text-muted {
+  color: #8b949e !important;
+}
+
+.dark-theme .modal-content input,
+.dark-theme .modal-content textarea {
+  color: #c9d1d9;
+  caret-color: #8da2fb;
+}
+
+.dark-theme .modal-content input::placeholder,
+.dark-theme .modal-content textarea::placeholder {
+  color: #6e7681;
+  opacity: 1;
+}
+

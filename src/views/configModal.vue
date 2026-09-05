@@ -452,7 +452,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
-@import "../assets/style/globalVars";
+@use "../assets/style/globalVars" as *;
 
 .form-check-input {
   width: 2.8em !important;

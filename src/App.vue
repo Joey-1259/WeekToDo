@@ -653,7 +653,7 @@ export default {
 </script>
 
 <style lang="scss">
-@import "/src/assets/style/globalVars.scss";
+@use "./assets/style/globalVars" as *;
 
 body {
   line-height: unset !important;

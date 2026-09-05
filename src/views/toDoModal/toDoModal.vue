@@ -721,7 +721,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
-@import "/src/assets/style/globalVars.scss";
+@use "../../assets/style/globalVars" as *;
 
 .modal-dialog {
   max-height: 82%;

@@ -349,4 +349,61 @@ export default {
   z-index: 1;
   margin-bottom: -1px;
 }
+
+/* WeekToDo minimal task composer */
+.new-todo-input {
+  display: block;
+  appearance: none;
+  background-color: transparent;
+  color: inherit;
+  caret-color: #4263eb;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.fake-drop-zone > .todo-item-container {
+  background-color: transparent;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.fake-drop-zone > .todo-item-container:hover {
+  background-color: rgba(66, 99, 235, 0.035);
+}
+
+.fake-drop-zone > .todo-item-container:focus-within {
+  background-color: rgba(66, 99, 235, 0.06);
+  border-bottom-color: #4263eb;
+  box-shadow: 0 1px 0 rgba(66, 99, 235, 0.16);
+}
+
+.dark-theme .new-todo-input {
+  background-color: transparent;
+  color: #c9d1d9;
+  caret-color: #8da2fb;
+}
+
+.dark-theme .new-todo-input::placeholder {
+  color: #6e7681;
+  opacity: 1;
+}
+
+.dark-theme .fake-drop-zone > .todo-item-container {
+  background-color: transparent;
+  border-bottom-color: #30363d;
+}
+
+.dark-theme .fake-drop-zone > .todo-item-container:hover {
+  background-color: rgba(108, 140, 255, 0.045);
+}
+
+.dark-theme .fake-drop-zone > .todo-item-container:focus-within {
+  background-color: rgba(108, 140, 255, 0.08);
+  border-bottom-color: #6c8fff;
+  box-shadow: 0 1px 0 rgba(108, 140, 255, 0.2);
+}
+
 </style>

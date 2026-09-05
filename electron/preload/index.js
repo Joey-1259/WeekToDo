@@ -6,6 +6,13 @@ import {
 const desktopApi = Object.freeze({
   isElectron: true,
 
+  openExternal(url) {
+    return ipcRenderer.invoke(
+      "open-external",
+      String(url || "")
+    );
+  },
+
   showCurrentWindow() {
     ipcRenderer.send("show-current-window");
   },
@@ -181,10 +188,20 @@ const ipcRendererCompatibilityApi = Object.freeze({
 function restrictedRequire(moduleName) {
   if (moduleName === "electron") {
     return {
-      ipcRenderer:
+        ipcRenderer:
         ipcRendererCompatibilityApi,
+
+        shell: Object.freeze({
+        openExternal(url) {
+            return ipcRenderer.invoke(
+            "open-external",
+            String(url || "")
+            );
+        },
+        }),
     };
   }
+
 
   if (moduleName === "is-electron") {
     return function isElectron() {

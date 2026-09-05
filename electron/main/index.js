@@ -381,6 +381,29 @@ function registerIpcHandlers() {
     }
   );
 
+    ipcMain.handle(
+    "open-external",
+    async (event, value) => {
+      if (!isTrustedSender(event)) {
+        throw new Error(
+          "Untrusted renderer"
+        );
+      }
+
+      const url = String(value || "");
+
+      if (!isAllowedExternalUrl(url)) {
+        throw new Error(
+          `Blocked external URL: ${url}`
+        );
+      }
+
+      await shell.openExternal(url);
+
+      return true;
+    }
+  );
+
   ipcMain.handle(
     "get-data-location",
     (event) => {

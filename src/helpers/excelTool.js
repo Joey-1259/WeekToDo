@@ -3,7 +3,6 @@ import { Modal, Toast } from "bootstrap";
 import dbRepository from "../repositories/dbRepository";
 import customToDoListIdsRepository from "../repositories/customToDoListIdsRepository";
 import anniversaryRepository from "../repositories/anniversaryRepository";
-import anniversaryTagRepository from "../repositories/anniversaryTagRepository";
 import archiveRepository from "../repositories/archiveRepository";
 
 // ==================== Sheet1: 事项 ====================
@@ -406,51 +405,78 @@ function processImportTaskRows(rows) {
 
 function mergeIntoDb(listIds, grouped) {
   let db_req = dbRepository.open();
+
   db_req.onsuccess = function (event) {
     try {
       let db = event.target.result;
       let i = 0;
 
-      function next() {
+      const next = function () {
         if (i >= listIds.length) {
           finishImport();
           return;
         }
+
         let listId = listIds[i];
-        let get_req = dbRepository.get(db, "todo_lists", listId);
+        let get_req = dbRepository.get(
+          db,
+          "todo_lists",
+          listId
+        );
+
         get_req.onsuccess = function () {
           try {
             let existing = get_req.result || [];
             let merged = existing.concat(grouped[listId]);
-            let put_req = dbRepository.update(db, "todo_lists", listId, merged);
+
+            let put_req = dbRepository.update(
+              db,
+              "todo_lists",
+              listId,
+              merged
+            );
+
             put_req.onsuccess = function () {
               i++;
               next();
             };
+
             put_req.onerror = function () {
               i++;
               next();
             };
           } catch (innerErr) {
-            console.error("导入 Excel 失败(合并数据阶段):", innerErr);
+            console.error(
+              "导入 Excel 失败(合并数据阶段):",
+              innerErr
+            );
+
             hideImportingModal();
           }
         };
+
         get_req.onerror = function () {
           i++;
           next();
         };
-      }
+      };
+
       next();
     } catch (dbErr) {
-      console.error("导入 Excel 失败(数据库写入阶段):", dbErr);
+      console.error(
+        "导入 Excel 失败(数据库写入阶段):",
+        dbErr
+      );
+
       hideImportingModal();
     }
   };
+
   db_req.onerror = function () {
     hideImportingModal();
   };
 }
+
 
 function finishImport() {
   setTimeout(function () {

@@ -58,7 +58,6 @@ export default {
   data() {
     return {
       language: this.$store.getters.config.language,
-      isElectron: require("is-electron"),
     };
   },
   methods: {
@@ -68,9 +67,13 @@ export default {
         configRepository.update(this.$store.getters.config);
         this.$i18n.locale = this.language;
 
-        if (this.isElectron()) {
-          const { ipcRenderer } = require("electron");
-          ipcRenderer.send("set-tray-context-menu-label", { open: this.$t("ui.open"), quit: this.$t("ui.quit") });
+        const desktopApi = window.weekToDoDesktop;
+
+        if (desktopApi && desktopApi.isElectron) {
+          desktopApi.setTrayContextMenuLabel({
+            open: this.$t("ui.open"),
+            quit: this.$t("ui.quit"),
+          });
         }
       });
     },

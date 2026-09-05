@@ -382,41 +382,54 @@ export default {
       excelTool.excelImport(event);
     },
     isElectron: function () {
-      let isElectron = require("is-electron");
-      return isElectron();
+      return Boolean(
+        window.weekToDoDesktop &&
+        window.weekToDoDesktop.isElectron
+      );
     },
     setOpenOnStart: function () {
       this.changeConfig("openOnStartup", this.configData.openOnStartup);
       this.$nextTick(function () {
-        if (this.isElectron()) {
-          const { ipcRenderer } = require('electron');
-          ipcRenderer.send('set-open-on-startup', this.configData.openOnStartup);
+        const desktopApi = window.weekToDoDesktop;
+        if (desktopApi && desktopApi.isElectron) {
+          desktopApi.setOpenOnStartup(
+            this.configData.openOnStartup
+          );
         }
       });
     },
     setRunInBackground: function () {
       this.changeConfig("runInBackground", this.configData.runInBackground);
       this.$nextTick(function () {
-        if (this.isElectron()) {
-          const { ipcRenderer } = require('electron');
-          ipcRenderer.send('set-run-in-background', this.configData.runInBackground);
+        const desktopApi = window.weekToDoDesktop;
+        if (desktopApi && desktopApi.isElectron) {
+          desktopApi.setRunInBackground(
+            this.configData.runInBackground
+          );
         }
       });
     },
     setLanguage: function () {
       this.changeConfig('language', this.configData.language);
       this.$nextTick(function () {
-        if (this.isElectron()) {
-          const { ipcRenderer } = require('electron');
-          ipcRenderer.send('set-tray-context-menu-label', { open: this.$t("ui.open"), quit: this.$t("ui.quit") });
+        const desktopApi = window.weekToDoDesktop;
+        if (desktopApi && desktopApi.isElectron) {
+          desktopApi.setTrayContextMenuLabel({
+            open: this.$t("ui.open"),
+            quit: this.$t("ui.quit"),
+          });
         }
       });
     },
     setDarkTrayIcon: function () {
       this.changeConfig('darkTrayIcon', this.configData.darkTrayIcon);
       this.$nextTick(function () {
-        const { ipcRenderer } = require('electron');
-        ipcRenderer.send('set-dark-tray-icon', this.configData.darkTrayIcon);
+        const desktopApi = window.weekToDoDesktop;
+        if (desktopApi && desktopApi.isElectron) {
+          desktopApi.setDarkTrayIcon(
+            this.configData.darkTrayIcon
+          );
+        }
       });
     },
     playSound: function () {

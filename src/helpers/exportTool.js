@@ -2,7 +2,6 @@ import storageRepository from "../repositories/storageRepository";
 import dbRepository from "../repositories/dbRepository";
 import { Toast, Modal } from "bootstrap";
 import migrations from "../migrations/migrations";
-import isElectron from "is-electron";
 
 export default {
   export() {
@@ -45,9 +44,10 @@ export default {
     };
   },
   clear() {
-    if (isElectron()) {
-      const { ipcRenderer } = require("electron");
-      ipcRenderer.send("clear-config");
+    const desktopApi = window.weekToDoDesktop;
+
+    if (desktopApi && desktopApi.isElectron) {
+      desktopApi.clearMainConfig();
     }
 
     storageRepository.clean();

@@ -42,11 +42,11 @@
                 window.open(link);
             },
             externaLink: function (link) {
-                let isElectron = require("is-electron");
-                if (isElectron()) {
-                    require('electron').shell.openExternal(link, '_blank');
+                const desktopApi = window.weekToDoDesktop;
+                if (desktopApi && desktopApi.isElectron) {
+                    desktopApi.openExternal(link);
                 } else {
-                    window.open(link, '_blank');
+                    window.open(link, '_blank', 'noopener,noreferrer');
                 }
             },
             tagIdLink: function (id) {

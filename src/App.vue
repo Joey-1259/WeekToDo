@@ -150,7 +150,6 @@ import toDoModal from "./views/toDoModal/toDoModal";
 import { Modal, Toast } from "bootstrap";
 import migrations from "./migrations/migrations";
 import version_json from "./data/version.json";
-import isElectron from "is-electron";
 import taskHelper from "./helpers/tasksHelper";
 import notifications from "./helpers/notifications";
 import clearDataModal from "./components/comfirmModals/clearDataModal.vue";
@@ -192,7 +191,8 @@ export default {
     return {
       selected_date: null,
       pickedDate: null,
-      ipcRenderer: null,
+      desktopApi: null,
+      removeInitialChecksListener: null,
       initialLoadCompleted: false,
       initialListToLoad: 0,
       initialListLoaded: 0,
@@ -243,11 +243,16 @@ export default {
       }
     };
 
-    if (isElectron()) {
-      const { ipcRenderer } = require("electron");
-      this.ipcRenderer = ipcRenderer;
-      if (this.$store.getters.config.firstTimeOpen) this.ipcRenderer.send("show-current-window");
-      this.ipcRenderer.send("match-open-on-startup", this.$store.getters.config.openOnStartup);
+    if (this.isElectron()) {
+      this.desktopApi = window.weekToDoDesktop;
+
+      if (this.$store.getters.config.firstTimeOpen) {
+        this.desktopApi.showCurrentWindow();
+      }
+
+      this.desktopApi.matchOpenOnStartup(
+        this.$store.getters.config.openOnStartup
+      );
     }
 
     if (this.$store.getters.config.importing) {
@@ -261,6 +266,12 @@ export default {
     holidayHelper.checkForUpdate(this.$store.getters.config.holidayCountries || ["CN"]);
 
     this.resetAppOnDayChange();
+  },
+  beforeUnmount() {
+    if (this.removeInitialChecksListener) {
+      this.removeInitialChecksListener();
+      this.removeInitialChecksListener = null;
+    }
   },
   methods: {
     cycleHomeCustomList: function (step) {
@@ -325,12 +336,14 @@ export default {
       });
     },
     isElectron: function () {
-      let isElectron = require("is-electron");
-      return isElectron();
+      return Boolean(
+        window.weekToDoDesktop &&
+        window.weekToDoDesktop.isElectron
+      );
     },
     hideSplash: function () {
       if (this.isElectron()) {
-        if (this.ipcRenderer.sendSync("is-windows-visible")) {
+        if (this.desktopApi.isWindowVisible()) {
           this.$refs.splash.hideSplash();
         }
       } else {
@@ -368,11 +381,11 @@ export default {
               this.refreshTodayNotifications();
               this.$store.commit("updateConfig", { val: moment().format("YYYYMMDD"), key: "lastDayOpened" });
               configRepository.update(this.$store.getters.config);
-              if (isElectron()) this.showInitialNotification();
+              if (this.isElectron()) this.showInitialNotification();
             });
           } else {
             this.refreshTodayNotifications();
-            if (isElectron()) this.showInitialNotification();
+            if (this.isElectron()) this.showInitialNotification();
             this.$store.commit("updateConfig", { val: moment().format("YYYYMMDD"), key: "lastDayOpened" });
             configRepository.update(this.$store.getters.config);
           }
@@ -388,7 +401,7 @@ export default {
             icon: "/favicon.ico",
             silent: true,
           }).onclick = () => {
-            this.ipcRenderer.send("show-current-window");
+            this.desktopApi.showCurrentWindow();
             setTimeout(() => {
               if (document.getElementById("splashScreen")) {
                 document.getElementById("splashScreen").classList.add("hiddenSplashScreen");
@@ -424,7 +437,7 @@ export default {
 
       setTimeout(
         function () {
-          if (isElectron() && !this.ipcRenderer.sendSync("is-windows-visible")) {
+          if (isElectron() && !this.desktopApi.isWindowVisible()) {
             window.location.reload();
           }
           this.refreshTodayNotifications();
@@ -477,10 +490,15 @@ export default {
     },
     checksOnLoadApp: function () {
       if (this.isElectron()) {
-        require("electron").ipcRenderer.on("initial-checks", () => {
-          this.checkVersion();
-          this.checkForUpdates();
-        });
+        if (this.removeInitialChecksListener) {
+          this.removeInitialChecksListener();
+        }
+
+        this.removeInitialChecksListener =
+          this.desktopApi.onInitialChecks(() => {
+            this.checkVersion();
+            this.checkForUpdates();
+          });
       } else {
         this.checkVersion();
       }
@@ -492,22 +510,43 @@ export default {
       }
     },
     downloadNewVersion: function () {
-      let isElectron = require("is-electron");
-      if (isElectron()) {
-        require("electron").shell.openExternal("https://weektodo.me", "_blank");
+      if (this.isElectron()) {
+        this.desktopApi.openExternal("https://weektodo.me");
       } else {
-        window.open("https://weektodo.me", "_blank");
+        window.open(
+          "https://weektodo.me",
+          "_blank",
+          "noopener,noreferrer"
+        );
       }
     },
     seeChangeLog: function () {
       window.open("https://weektodo.me/changelog", "_blank");
     },
     syncElectronConfig: function () {
-      const { ipcRenderer } = require("electron");
-      ipcRenderer.send("set-tray-context-menu-label", { open: this.$t("ui.open"), quit: this.$t("ui.quit") });
-      ipcRenderer.send("set-open-on-startup", this.$store.getters.config.openOnStartup);
-      ipcRenderer.send("set-run-in-background", this.$store.getters.config.runInBackground);
-      ipcRenderer.send("set-dark-tray-icon", this.$store.getters.config.darkTrayIcon);
+      if (!this.isElectron()) {
+        return;
+      }
+
+      const desktopApi =
+        this.desktopApi || window.weekToDoDesktop;
+
+      desktopApi.setTrayContextMenuLabel({
+        open: this.$t("ui.open"),
+        quit: this.$t("ui.quit"),
+      });
+
+      desktopApi.setOpenOnStartup(
+        this.$store.getters.config.openOnStartup
+      );
+
+      desktopApi.setRunInBackground(
+        this.$store.getters.config.runInBackground
+      );
+
+      desktopApi.setDarkTrayIcon(
+        this.$store.getters.config.darkTrayIcon
+      );
     },
     openCalendarHub: function () {
       this.showCalendarHub = true;

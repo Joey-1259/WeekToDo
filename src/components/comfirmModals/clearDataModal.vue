@@ -14,11 +14,14 @@ export default {
   },
   methods: {
     clearData: function () {
-      let isElectron = require("is-electron");
-      if (isElectron()) {
-        const { ipcRenderer } = require('electron');
-        ipcRenderer.send('set-tray-context-menu-label', { open: 'Open', quit: 'Quit' });
-        ipcRenderer.send('set-dark-tray-icon',false);
+      const desktopApi = window.weekToDoDesktop;
+
+      if (desktopApi && desktopApi.isElectron) {
+        desktopApi.setTrayContextMenuLabel({
+          open: "Open",
+          quit: "Quit",
+        });
+        desktopApi.setDarkTrayIcon(false);
       }
       exportTool.clear();
     },

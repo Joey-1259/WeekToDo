@@ -13,9 +13,19 @@ export default defineConfig(({ mode }) => {
     plugins: [vue()],
 
     resolve: {
-      alias: {
-        "@": resolve(__dirname, "src"),
-      },
+        alias: {
+            "@": resolve(__dirname, "src"),
+        },
+        extensions: [
+            ".mjs",
+            ".js",
+            ".mts",
+            ".ts",
+            ".jsx",
+            ".tsx",
+            ".json",
+            ".vue",
+        ],
     },
 
     define: {

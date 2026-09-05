@@ -125,7 +125,7 @@
 .todo-item-container.compact-view[data-v-3f663b65] {
   height: 26px;
 }
-.weekly-to-do-header[data-v-25950bf3] {
+.weekly-to-do-header[data-v-f029691f] {
   text-align: center;
   margin-bottom: 14px;
   margin-top: 10px;
@@ -134,19 +134,19 @@
   align-items: center;
   justify-content: center;
 }
-.today-date[data-v-25950bf3],
-.picked-date[data-v-25950bf3] {
+.today-date[data-v-f029691f],
+.picked-date[data-v-f029691f] {
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-underline-offset: 4px;
 }
-.weekly-to-do-header h4[data-v-25950bf3] {
+.weekly-to-do-header h4[data-v-f029691f] {
   margin-bottom: 4px;
   font-size: 21px;
   text-transform: capitalize;
   min-height: 25px;
 }
-.weekly-to-do-subheader[data-v-25950bf3] {
+.weekly-to-do-subheader[data-v-f029691f] {
   margin-top: 0;
   font-size: 12px;
   color: grey;
@@ -156,7 +156,7 @@
 }
 
 /* 首页日期下方的节假日和纪念日标识 */
-.calendar-marker-row[data-v-25950bf3] {
+.calendar-marker-row[data-v-f029691f] {
   min-height: 19px;
   height: 19px;
   margin-top: 3px;
@@ -168,7 +168,7 @@
   overflow: hidden;
   white-space: nowrap;
 }
-.calendar-marker[data-v-25950bf3] {
+.calendar-marker[data-v-f029691f] {
   display: inline-flex;
   align-items: center;
   max-width: 46%;
@@ -181,20 +181,20 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.holiday-marker[data-v-25950bf3] {
+.holiday-marker[data-v-f029691f] {
   color: #d9363e;
   background-color: rgba(217, 54, 62, 0.08);
 }
-.workday-marker[data-v-25950bf3] {
+.workday-marker[data-v-f029691f] {
   flex: 0 0 auto;
   color: #b8860b;
   background-color: rgba(184, 134, 11, 0.08);
 }
-.anniversary-marker[data-v-25950bf3] {
+.anniversary-marker[data-v-f029691f] {
   color: #5f6f8c;
   background-color: rgba(116, 143, 252, 0.1);
 }
-.anniversary-marker-dot[data-v-25950bf3] {
+.anniversary-marker-dot[data-v-f029691f] {
   width: 5px;
   height: 5px;
   flex: 0 0 5px;
@@ -202,35 +202,35 @@
   display: inline-block;
   margin-right: 4px;
 }
-.calendar-marker-more[data-v-25950bf3] {
+.calendar-marker-more[data-v-f029691f] {
   flex: 0 0 auto;
   max-width: none;
   padding: 0 4px;
   color: #7d838c;
   background-color: #f1f3f5;
 }
-.calendar-marker-placeholder[data-v-25950bf3] {
+.calendar-marker-placeholder[data-v-f029691f] {
   display: inline-block;
   height: 17px;
   line-height: 17px;
 }
-.dark-theme .holiday-marker[data-v-25950bf3] {
+.dark-theme .holiday-marker[data-v-f029691f] {
   color: #ff7875;
   background-color: rgba(255, 120, 117, 0.12);
 }
-.dark-theme .workday-marker[data-v-25950bf3] {
+.dark-theme .workday-marker[data-v-f029691f] {
   color: #e0a95c;
   background-color: rgba(224, 169, 92, 0.12);
 }
-.dark-theme .anniversary-marker[data-v-25950bf3] {
+.dark-theme .anniversary-marker[data-v-f029691f] {
   color: #aebcff;
   background-color: rgba(116, 143, 252, 0.14);
 }
-.dark-theme .calendar-marker-more[data-v-25950bf3] {
+.dark-theme .calendar-marker-more[data-v-f029691f] {
   color: #9aa0a8;
   background-color: #21262d;
 }
-.weekly-to-do-header .header-menu-icons[data-v-25950bf3] {
+.weekly-to-do-header .header-menu-icons[data-v-f029691f] {
   color: grey;
   font-size: 20px;
   flex-grow: 0;
@@ -240,40 +240,40 @@
   opacity: 0;
   transition: 0.4s cubic-bezier(0.2, 1, 0.1, 1);
 }
-.dark-theme .weekly-to-do-header .header-menu-icons[data-v-25950bf3] {
+.dark-theme .weekly-to-do-header .header-menu-icons[data-v-f029691f] {
   color: #c9d1d9;
 }
-.weekly-to-do-header .header-menu-icons[data-v-25950bf3]:hover {
+.weekly-to-do-header .header-menu-icons[data-v-f029691f]:hover {
   color: black;
 }
-.dark-theme .weekly-to-do-header .header-menu-icons[data-v-25950bf3]:hover {
+.dark-theme .weekly-to-do-header .header-menu-icons[data-v-f029691f]:hover {
   color: white;
 }
-.custom-list-title[data-v-25950bf3] {
+.custom-list-title[data-v-f029691f] {
   position: relative;
   cursor: grab;
   border-radius: 6px;
   padding: 2px 4px;
   transition: background-color 0.2s ease-out;
 }
-.custom-list-title[data-v-25950bf3]:hover {
+.custom-list-title[data-v-f029691f]:hover {
   background-color: #f7f8fa;
 }
-.dark-theme .custom-list-title[data-v-25950bf3]:hover {
+.dark-theme .custom-list-title[data-v-f029691f]:hover {
   background-color: #1a1e24;
 }
-.list-drag-hover[data-v-25950bf3] {
+.list-drag-hover[data-v-f029691f] {
   box-shadow: rgb(244, 243, 243) 0 0 4px 1px inset;
   background-color: rgb(250, 249, 249);
 }
-.dark-theme .list-drag-hover[data-v-25950bf3] {
+.dark-theme .list-drag-hover[data-v-f029691f] {
   box-shadow: #0b0d12 0 0 4px 1px inset;
   background-color: #0c0d14;
 }
-.custom-list-pager[data-v-25950bf3] {
+.custom-list-pager[data-v-f029691f] {
   user-select: none;
 }
-.pager-arrow[data-v-25950bf3] {
+.pager-arrow[data-v-f029691f] {
   cursor: pointer;
   padding: 0 4px;
   border-radius: 4px;
@@ -281,31 +281,31 @@
   transition: background-color 0.2s;
   vertical-align: middle;
 }
-.pager-arrow[data-v-25950bf3]:hover {
+.pager-arrow[data-v-f029691f]:hover {
   background-color: #eaecef;
   color: #333;
 }
-.dark-theme .pager-arrow[data-v-25950bf3]:hover {
+.dark-theme .pager-arrow[data-v-f029691f]:hover {
   background-color: #21262d;
   color: #dedede;
 }
-.custom-todo-input[data-v-25950bf3] {
+.custom-todo-input[data-v-f029691f] {
   font-size: 1.25rem;
   width: 100%;
 }
-.custom-todo-input[data-v-25950bf3]:focus {
+.custom-todo-input[data-v-f029691f]:focus {
   outline: black auto 1px;
 }
-.dark-theme .custom-todo-input[data-v-25950bf3]:focus {
+.dark-theme .custom-todo-input[data-v-f029691f]:focus {
   color: white;
   outline: #13171d auto 1px;
 }
-.weekly-to-do-header:hover .header-menu-icons[data-v-25950bf3],
-.header-menu-icons.show[data-v-25950bf3] {
+.weekly-to-do-header:hover .header-menu-icons[data-v-f029691f],
+.header-menu-icons.show[data-v-f029691f] {
   visibility: visible;
   opacity: 1;
 }
-.dropdown-menu[data-v-25950bf3] {
+.dropdown-menu[data-v-f029691f] {
   font-size: 0.865rem;
   min-width: unset;
   border-radius: 8px;
@@ -313,22 +313,22 @@
   border: none;
   color: #3c3c3c;
 }
-.dropdown-menu .dropdown-item[data-v-25950bf3] {
+.dropdown-menu .dropdown-item[data-v-f029691f] {
   padding: 0.4rem 1.9rem 0.4rem 0.65rem;
 }
-.dropdown-menu .dropdown-divider[data-v-25950bf3] {
+.dropdown-menu .dropdown-divider[data-v-f029691f] {
   margin: 0.3rem;
 }
-.dropdown-menu i[data-v-25950bf3] {
+.dropdown-menu i[data-v-f029691f] {
   font-size: 0.99rem;
   margin-right: 11px;
   display: inline-block;
 }
-.dropdown-toggle-split[data-v-25950bf3] {
+.dropdown-toggle-split[data-v-f029691f] {
   padding: 0;
 }
-.bi-reply-all[data-v-25950bf3],
-.bi-files[data-v-25950bf3] {
+.bi-reply-all[data-v-f029691f],
+.bi-files[data-v-f029691f] {
   transform: scaleX(-1);
 }
 .to-do-list[data-v-65ad7d08] {

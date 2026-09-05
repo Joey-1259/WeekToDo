@@ -9,11 +9,11 @@
     <div style="flex-grow: 1" class="noselect">
       <div v-if="!customTodoList">
         <h4 :class="{ 'today-date': is_today, 'picked-date': is_picked }">
-          {{ moments(id).locale(language).format("dddd") }}
+          {{ localizedWeekday(id) }}
         </h4>
 
         <span class="weekly-to-do-subheader">
-          {{ moments(id).locale(language).format("LL") }}
+          {{ localizedLongDate(id) }}
         </span>
 
         <div
@@ -275,6 +275,91 @@ export default {
   },
 
   methods: {
+    normalizedLocale: function () {
+      const localeMap = {
+        zh_cn: "zh-CN",
+        zh_tw: "zh-TW",
+        pt_br: "pt-BR",
+        en_us: "en-US",
+        en_gb: "en-GB",
+      };
+
+      const configuredLanguage = String(this.language || "en").toLowerCase();
+
+      return (
+        localeMap[configuredLanguage] ||
+        configuredLanguage.replace(/_/g, "-")
+      );
+    },
+
+    dateFromListId: function (dateId) {
+      const value = String(dateId || "").trim();
+
+      // 同时兼容 WeekToDo 现有的 YYYYMMDD 和 YYYY-MM-DD 日期 ID。
+      const parsedDate = moment(
+        value,
+        ["YYYYMMDD", "YYYY-MM-DD"],
+        true
+      );
+
+      if (!parsedDate.isValid()) {
+        console.warn("[listHeader] 无法解析日期 ID：", value);
+        return null;
+      }
+
+      // 固定在本地时间中午，避免日期在时区换算中前后偏移。
+      return parsedDate
+        .hour(12)
+        .minute(0)
+        .second(0)
+        .millisecond(0)
+        .toDate();
+    },
+
+    localizedWeekday: function (dateId) {
+      const date = this.dateFromListId(dateId);
+
+      if (!date) {
+        return "";
+      }
+
+      try {
+        return new Intl.DateTimeFormat(this.normalizedLocale(), {
+          weekday: "long",
+        }).format(date);
+      } catch (error) {
+        console.warn("[listHeader] 星期本地化失败：", error);
+
+        return new Intl.DateTimeFormat("en", {
+          weekday: "long",
+        }).format(date);
+      }
+    },
+
+    localizedLongDate: function (dateId) {
+      const date = this.dateFromListId(dateId);
+
+      if (!date) {
+        return "";
+      }
+
+      try {
+        return new Intl.DateTimeFormat(this.normalizedLocale(), {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }).format(date);
+      } catch (error) {
+        console.warn("[listHeader] 日期本地化失败：", error);
+
+        return new Intl.DateTimeFormat("en", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }).format(date);
+      }
+    },
+
     check_all_items: function () {
       this.$store.commit("checkAllItems", this.id);
       this.updateTodoList(

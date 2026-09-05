@@ -4,6 +4,7 @@
 // 缓存策略：localStorage 按国家分别缓存，每个国家每天最多真正发起一次网络请求
 
 import moment from "moment";
+import axios from "axios";
 import storageRepository from "../repositories/storageRepository";
 import holidaysSeed from "../data/holidaysSeed";
 
@@ -148,7 +149,6 @@ export default {
       return Promise.resolve();
     }
 
-    const axios = require("axios").default;
     let currentYear = moment().year();
     let yearsToFetch = [currentYear - 1, currentYear, currentYear + 1];
 
@@ -178,7 +178,6 @@ export default {
       return Promise.resolve();
     }
 
-    const axios = require("axios").default;
     let currentYear = moment().year();
     let yearsToFetch = [currentYear - 1, currentYear, currentYear + 1];
 
@@ -205,7 +204,6 @@ export default {
    */
   ensureYearLoaded(year, countryCodes) {
     let codes = countryCodes && countryCodes.length ? countryCodes : ["CN"];
-    const axios = require("axios").default;
     let promises = codes.map((code) => {
       if (code === "CN") {
         let cache = loadCnCache();

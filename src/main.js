@@ -1,5 +1,26 @@
 import { createApp } from "vue";
 import App from "./App.vue";
+import moment from "moment";
+import "moment/locale/es";
+import "moment/locale/ru";
+import "moment/locale/fr";
+import "moment/locale/pt";
+import "moment/locale/zh-cn";
+import "moment/locale/zh-tw";
+import "moment/locale/de";
+import "moment/locale/it";
+import "moment/locale/ar";
+import "moment/locale/pl";
+import "moment/locale/ja";
+import "moment/locale/tr";
+import "moment/locale/uk";
+import "moment/locale/ko";
+import "moment/locale/hi";
+import "moment/locale/he";
+import "moment/locale/vi";
+
+moment.locale("en");
+
 import { store } from "./store/store";
 import * as Sentry from "@sentry/vue";
 

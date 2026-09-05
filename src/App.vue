@@ -138,6 +138,7 @@
 <script>
 import toDoList from "./components/toDoList";
 import moment from "moment";
+import axios from "axios";
 import sideBar from "./components/layout/sideBar";
 import customToDoListIdsRepository from "./repositories/customToDoListIdsRepository";
 import removeCustomList from "./components/comfirmModals/removeCustomList";
@@ -203,6 +204,13 @@ export default {
   },
   beforeCreate() {
     let config = configRepository.load();
+
+    moment.locale(
+      String(config.language || "en")
+        .replace("_", "-")
+        .toLowerCase()
+    );
+
     if (version_json.version != config.version) {
       migrations.migrate();
     }
@@ -461,7 +469,6 @@ export default {
     },
     checkForUpdates: function () {
       if (this.isElectron() && this.$store.getters.config.checkUpdates) {
-        const axios = require("axios").default;
         axios
           .get("https://app.weektodo.me/version.json")
           .then((response) => this.showNewVersionToast(response))

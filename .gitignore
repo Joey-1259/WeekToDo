@@ -2,3 +2,5 @@ node_modules/
 dist/
 dist_electron/
 .DS_Store
+
+out/

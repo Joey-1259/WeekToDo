@@ -1,29 +1,86 @@
 <template>
-  <div class="item-drop-zone" @dragenter.self="onDragenter" @dragleave.self="onDragleave" @drop="onDragleave"
-    :class="[{ 'drag-hover': todoDragHover }]">
-    <div class="todo-item-container" :class="{ 'compact-view': compactView }" ref="itemContainer">
-      <div v-if="!editing" class="inline-todo-item d-flex flex-column" @mouseenter="showToDoItem">
+  <div
+    class="item-drop-zone"
+    @dragenter.self="onDragenter"
+    @dragleave.self="onDragleave"
+    @drop="onDragleave"
+    :class="[{ 'drag-hover': todoDragHover }]"
+  >
+    <div
+      class="todo-item-container"
+      :class="{ 'compact-view': compactView }"
+      ref="itemContainer"
+    >
+      <div
+        v-if="!editing"
+        class="inline-todo-item d-flex flex-column"
+        @mouseenter="showToDoItem"
+      >
         <div class="d-flex">
-          <span class="noselect item-text" :class="{ 'checked-todo': toDo.checked, 'compact-view': compactView }"
-            style="flex-grow: 1">
-            <span v-if="toDo.color != 'none'" class="cicle-icon" :style="'color: ' + toDo.color" :class="{
-              'bi-check-circle-fill': toDo.checked,
-              'bi-circle-fill': !toDo.checked,
-            }"></span>
-            <span v-else class="cicle-icon"
-              :class="{ 'bi-check-circle': toDo.checked, 'bi-circle': !toDo.checked, }"></span>
+          <span
+            class="noselect item-text"
+            :class="{
+              'checked-todo': toDo.checked,
+              'compact-view': compactView,
+            }"
+            style="flex-grow: 1"
+          >
+            <span
+              v-if="toDo.color != 'none'"
+              class="cicle-icon"
+              :style="'color: ' + toDo.color"
+              :class="{
+                'bi-check-circle-fill': toDo.checked,
+                'bi-circle-fill': !toDo.checked,
+              }"
+            ></span>
+
+            <span
+              v-else
+              class="cicle-icon"
+              :class="{
+                'bi-check-circle': toDo.checked,
+                'bi-circle': !toDo.checked,
+              }"
+            ></span>
+
             <span v-html="todoText"></span>
-            <span v-if="!compactView" class="item-time mx-2" :class="{ 'checked-todo': toDo.checked }"> {{
-                timeFormat(toDo.time)
-            }} <div class="alarm-indicator" :class="{ 'show-alarm-indicator': notificationIndicator && toDo.alarm }">
-              </div></span>
+
+            <span
+              v-if="!compactView"
+              class="item-time mx-2"
+              :class="{ 'checked-todo': toDo.checked }"
+            >
+              {{ timeFormat(toDo.time) }}
+
+              <div
+                class="alarm-indicator"
+                :class="{
+                  'show-alarm-indicator':
+                    notificationIndicator && toDo.alarm,
+                }"
+              ></div>
+            </span>
           </span>
-          <span v-if="compactView" class="item-time" :class="{ 'checked-todo': toDo.checked }"> {{ timeFormat(toDo.time)
-          }}
-            <div class="alarm-indicator" :class="{ 'show-alarm-indicator': notificationIndicator && toDo.alarm }"></div>
+
+          <span
+            v-if="compactView"
+            class="item-time"
+            :class="{ 'checked-todo': toDo.checked }"
+          >
+            {{ timeFormat(toDo.time) }}
+
+            <div
+              class="alarm-indicator"
+              :class="{
+                'show-alarm-indicator':
+                  notificationIndicator && toDo.alarm,
+              }"
+            ></div>
           </span>
         </div>
       </div>
+
       <textarea
         v-show="editing"
         class="edit todo-input"
@@ -42,104 +99,152 @@
 <script>
 import toDoListRepository from "../repositories/toDoListRepository";
 import moment from "moment";
-import linkifyStr from 'linkify-string';
-import { isSpanningTask, syncSpanningState } from "../helpers/spanSyncHelper";
+import linkifyStr from "linkify-string";
+import {
+  isSpanningTask,
+  syncSpanningState,
+} from "../helpers/spanSyncHelper";
 
 export default {
   components: {},
+
   props: {
     toDo: { required: true, type: Object },
     index: { required: true, type: Number },
     toDoListId: { required: true, type: String },
   },
+
   data() {
     return {
       editing: false,
       text: this.toDo.text,
       todoDragHover: false,
-      options: { target: '_blank', defaultProtocol: 'https' }
+      options: {
+        target: "_blank",
+        defaultProtocol: "https",
+      },
     };
   },
+
   methods: {
     editToDo: function () {
       this.text = this.toDo.text;
       this.editing = true;
+
       this.$nextTick(function () {
         this.$refs.toDoEditInput.style.height = "auto";
-        this.$refs.toDoEditInput.style.height = this.$refs.toDoEditInput.scrollHeight + "px";
+        this.$refs.toDoEditInput.style.height =
+          this.$refs.toDoEditInput.scrollHeight + "px";
+
         this.$refs.toDoEditInput.focus();
         this.$refs.toDoEditInput.select();
       });
-      document.getElementById("todo-item-active").style.display = 'none';
+
+      document.getElementById("todo-item-active").style.display =
+        "none";
     },
+
     doneEdit: function () {
       this.editing = false;
+
       this.$store.commit("updateTodo", {
         toDoListId: this.toDoListId,
         index: this.index,
         text: this.text,
       });
-      toDoListRepository.update(this.toDoListId, this.$store.getters.todoLists[this.toDoListId]);
 
-      // ★ 行内编辑后，同步跨天任务的文本到所有镜像
-      let todo = this.$store.getters.todoLists[this.toDoListId][this.index];
+      toDoListRepository.update(
+        this.toDoListId,
+        this.$store.getters.todoLists[this.toDoListId]
+      );
+
+      // 行内编辑后，同步跨天任务的文本到所有镜像。
+      let todo =
+        this.$store.getters.todoLists[this.toDoListId][this.index];
+
       if (isSpanningTask(todo)) {
         syncSpanningState(todo, this.$store);
       }
     },
+
     cancelEdit: function () {
       this.text = this.toDo.text;
       this.editing = false;
     },
+
     autoGrow: function (e) {
       e.target.style.height = "auto";
       e.target.style.height = e.target.scrollHeight + "px";
     },
+
     onDragenter: function () {
       this.todoDragHover = true;
     },
+
     onDragleave: function () {
       this.todoDragHover = false;
     },
+
     timeFormat: function (date) {
       if (date) {
         return moment(date, "HH:mm").format("hh:mm a");
       }
     },
+
     showToDoItem: function () {
       var activeTodo = {
         toDo: this.toDo,
         index: this.index,
         toDoListId: this.toDoListId,
         edit: this.editToDo,
-        container: this.$refs.itemContainer
+        container: this.$refs.itemContainer,
       };
-      this.$store.commit('setActiveTodo', activeTodo);
 
-      const activeTodoItem = document.getElementById("todo-item-active");
+      this.$store.commit("setActiveTodo", activeTodo);
+
+      const activeTodoItem =
+        document.getElementById("todo-item-active");
+
       this.$nextTick(function () {
-        const bounding = this.$refs.itemContainer.getBoundingClientRect();
+        const bounding =
+          this.$refs.itemContainer.getBoundingClientRect();
+
         activeTodoItem.style.width = `${bounding.width}px`;
         activeTodoItem.style.top = `${bounding.y}px`;
         activeTodoItem.style.left = `${bounding.x}px`;
-        activeTodoItem.style.display = `block`;
+        activeTodoItem.style.display = "block";
+
         const margin_bottom = 10;
-        var offset = parseInt(window.innerHeight) - (parseInt(bounding.y) + parseInt(activeTodoItem.offsetHeight)) - margin_bottom;
-        if (offset < 0) activeTodoItem.style.top = `${bounding.y + offset}px`;
+
+        var offset =
+          parseInt(window.innerHeight) -
+          (parseInt(bounding.y) +
+            parseInt(activeTodoItem.offsetHeight)) -
+          margin_bottom;
+
+        if (offset < 0) {
+          activeTodoItem.style.top = `${bounding.y + offset}px`;
+        }
       });
     },
   },
+
   computed: {
     todoText: function () {
-      return linkifyStr(this.toDo.text, this.options).replace(/\n/g, "<br>");
+      return linkifyStr(
+        this.toDo.text,
+        this.options
+      ).replace(/\n/g, "<br>");
     },
+
     compactView: function () {
       return this.$store.getters.config.compactView;
     },
+
     notificationIndicator: function () {
       return this.$store.getters.config.notificationIndicator;
-    }
-  }
+    },
+  },
 };
 </script>
 
@@ -180,7 +285,7 @@ export default {
   min-height: 1.2rem;
   line-height: 1.3rem;
   font-size: 0.865rem;
-  margin: 2px 0px 2px 0px;
+  margin: 2px 0;
   padding: 0 3px 0 7px;
   word-break: break-word;
 }
@@ -197,8 +302,8 @@ export default {
   height: 1.2rem;
   line-height: 1.3rem;
   font-size: 0.865rem;
-  margin: 2px 0px 2px 0px;
-  padding: 0 2px 0 0px;
+  margin: 2px 0;
+  padding: 0 2px 0 0;
   opacity: 0.6;
 }
 
@@ -212,11 +317,15 @@ export default {
   margin-left: 5px;
 }
 
+/*
+ * 已完成事项：
+ * 仅替换文字颜色，不添加 text-decoration。
+ */
 .checked-todo {
-  color: #16a34a;
+  color: #9aa0a8;
 
   .dark-theme & {
-    color: #4ade80;
+    color: #6b7280;
   }
 }
 
@@ -235,27 +344,27 @@ export default {
 
 .drag-hover {
   color: rgba(157, 157, 157, 0.43);
-  box-shadow: rgb(244, 243, 243) 0px 0px 4px 1px inset;
+  box-shadow: rgb(244, 243, 243) 0 0 4px 1px inset;
   background-color: rgb(250, 249, 249);
 }
 
 .dark-theme .drag-hover {
   color: rgb(69, 69, 69);
-  box-shadow: #0b0d12 0px 0px 4px 1px inset;
+  box-shadow: #0b0d12 0 0 4px 1px inset;
   background-color: #0c0d14;
 }
 
 .sub-tasks {
   list-style: none;
-  padding: 0px;
+  padding: 0;
   font-size: 0.865rem;
 
   li {
-    margin: 0px 10px 0px 10px;
+    margin: 0 10px;
   }
 
   li:last-child {
-    margin: 0px 10px 10px 10px;
+    margin: 0 10px 10px;
   }
 
   input {

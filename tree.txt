@@ -20,9 +20,6 @@
 ├── changelog.md
 ├── crowdin.yml
 ├── dist_electron
-│   ├── WeekToDo-2.2.0-arm64.dmg
-│   ├── WeekToDo-2.2.0-arm64.dmg.blockmap
-│   ├── WeekToDo-2.2.0-arm64.pkg
 │   ├── WeekToDo-2.3.0-arm64.dmg
 │   ├── WeekToDo-2.3.0-arm64.dmg.blockmap
 │   ├── WeekToDo-2.3.0-arm64.pkg
@@ -38,7 +35,7 @@
 │   │   ├── background.js
 │   │   ├── browserconfig.xml
 │   │   ├── css
-│   │   │   ├── app.d7f2cd9a.css
+│   │   │   ├── app.7ea37fa9.css
 │   │   │   └── chunk-vendors.4cbc1385.css
 │   │   ├── fav_icons
 │   │   │   ├── android-chrome-192x192.png
@@ -68,12 +65,12 @@
 │   │   │   └── weektodo-isologo-white.svg
 │   │   ├── index.html
 │   │   ├── js
-│   │   │   ├── app.84be608c.js
-│   │   │   ├── app.84be608c.js.map
+│   │   │   ├── app.1a59c8df.js
+│   │   │   ├── app.1a59c8df.js.map
 │   │   │   ├── chunk-2d0b2ed7.f550b682.js
 │   │   │   ├── chunk-2d0b2ed7.f550b682.js.map
-│   │   │   ├── chunk-vendors.5414cf97.js
-│   │   │   └── chunk-vendors.5414cf97.js.map
+│   │   │   ├── chunk-vendors.817315ac.js
+│   │   │   └── chunk-vendors.817315ac.js.map
 │   │   ├── libs
 │   │   │   └── honeybadger.min.js
 │   │   ├── manifest.json
@@ -98,7 +95,6 @@
 │   │   ├── trayIconDark@2x.png
 │   │   ├── trayIconDark@3x.png
 │   │   └── version.json
-│   ├── index.js
 │   ├── latest-mac.yml
 │   ├── mac-arm64
 │   │   └── WeekToDo.app
@@ -354,7 +350,6 @@
 │   │               ├── vi.lproj
 │   │               ├── zh_CN.lproj
 │   │               └── zh_TW.lproj
-│   ├── package.json
 │   └── weektodo-app.netlify.app.plist
 ├── docker-compose.yml
 ├── netlify.toml
@@ -54283,6 +54278,8 @@
 │   ├── trayIconDark@2x.png
 │   ├── trayIconDark@3x.png
 │   └── version.json
+├── scripts
+│   └── pre-build-check.js
 ├── src
 │   ├── App.vue
 │   ├── assets
@@ -54346,6 +54343,7 @@
 │   │   ├── notifications.js
 │   │   ├── repeatingEvents.js
 │   │   ├── solarLunarCore.js
+│   │   ├── spanSyncHelper.js
 │   │   └── tasksHelper.js
 │   ├── main.js
 │   ├── migrations
@@ -54353,6 +54351,7 @@
 │   ├── repositories
 │   │   ├── anniversaryRepository.js
 │   │   ├── anniversaryTagRepository.js
+│   │   ├── archiveRepository.js
 │   │   ├── configRepository.js
 │   │   ├── customToDoListIdsRepository.js
 │   │   ├── dbRepository.js
@@ -54372,6 +54371,7 @@
 │   │   │   └── todolist.store.js
 │   │   └── store.js
 │   └── views
+│       ├── ArchiveHistoryModal.vue
 │       ├── RecurrentEventsModal.vue
 │       ├── ReorderCustomListsModal.vue
 │       ├── aboutModal.vue
@@ -54407,7 +54407,6 @@
 │       │   └── themeView.vue
 │       └── welcomeModal.vue
 ├── tree.txt
-├── vue.config.js
-└── yarn.lock
+└── vue.config.js
 
-7092 directories, 47319 files
+7093 directories, 47317 files

@@ -148,7 +148,7 @@ import welcomeModal from "./views/welcomeModal";
 import toDoModal from "./views/toDoModal/toDoModal";
 import { Modal, Toast } from "bootstrap";
 import migrations from "./migrations/migrations";
-import version_json from "../public/version.json";
+import version_json from "./data/version.json";
 import isElectron from "is-electron";
 import taskHelper from "./helpers/tasksHelper";
 import notifications from "./helpers/notifications";

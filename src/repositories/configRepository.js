@@ -1,5 +1,5 @@
 import storageRepository from "./storageRepository";
-import version_json from "../../public/version.json";
+import version_json from "../data/version.json";
 import moment from "moment";
 
 // 新增字段的默认值：老配置里如果缺这个 key，load() 时会自动补上

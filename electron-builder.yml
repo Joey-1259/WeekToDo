@@ -1,0 +1,57 @@
+appId: weektodo-app.netlify.app
+productName: WeekToDo
+
+directories:
+  buildResources: build
+  output: dist_electron
+
+files:
+  - out/**/*
+  - package.json
+
+asar: true
+npmRebuild: true
+
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.icns
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: pkg
+      arch:
+        - arm64
+        - x64
+
+dmg:
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+pkg:
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  artifactName: "${productName}-Setup-${version}-${arch}.${ext}"
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  category: Utility
+  icon: build/icon.png
+  description: Free and Open Source Minimalist Weekly Planner and To Do list App focused on privacy.
+  target:
+    - AppImage
+    - deb
+    - rpm
+    - pacman
+
+publish:
+  provider: github

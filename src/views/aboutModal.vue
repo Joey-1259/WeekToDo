@@ -103,7 +103,7 @@
 </template>
 
 <script>
-import version_json from "../../public/version.json";
+import version_json from "../data/version.json";
 
 export default {
   name: "aboutModal",

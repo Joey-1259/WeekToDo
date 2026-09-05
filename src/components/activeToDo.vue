@@ -45,7 +45,12 @@ import moment from "moment";
 import notifications from "../helpers/notifications";
 import linkifyStr from 'linkify-string';
 import tasksHelper from "../helpers/tasksHelper";
-import { isSpanningTask, syncSpanningChecked, syncSpanningState } from "../helpers/spanSyncHelper";
+import {
+  clearMirrorsBySpanId,
+  isSpanningTask,
+  syncSpanningChecked,
+  syncSpanningState,
+} from "../helpers/spanSyncHelper";
 
 export default {
   components: {},
@@ -67,7 +72,6 @@ export default {
       // ★ 删除跨天任务时，清除所有镜像
       if (isSpanningTask(todo) && todo._spanId) {
         let sourceId = todo._isSpanMirror ? todo._spanSourceId : todo.listId;
-        let { clearMirrorsBySpanId } = require("../helpers/spanSyncHelper");
         clearMirrorsBySpanId(todo._spanId, sourceId, todo.endDate, this.$store);
         // 如果删除的是镜像，也要删除源
         if (todo._isSpanMirror && todo._spanSourceId) {

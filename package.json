@@ -1,10 +1,14 @@
 {
   "name": "WeekToDo",
+  "productName": "WeekToDo",
   "version": "2.3.0",
   "private": true,
   "description": "Free and Open Source Minimalist Weekly Planner focused on privacy.",
   "author": "Manuel Ernesto Garcia <contact@weektodo.me> (https://weektodo.me/)",
   "homepage": "https://weektodo.me",
+  "license": "GPL-3.0",
+  "main": "./out/main/index.js",
+  "repository": "https://github.com/manuelernestog/weektodo",
   "keywords": [
     "ToDo",
     "Weekly Planner",
@@ -12,18 +16,22 @@
     "Productivity",
     "Minimalist"
   ],
-  
-  "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
-    "clean": "rm -rf dist_electron",
-    "electron:build": "node scripts/pre-build-check.js && vue-cli-service electron:build",
-    "electron:serve": "vue-cli-service electron:serve",
-    "postinstall": "electron-builder install-app-deps",
-    "postuninstall": "electron-builder install-app-deps"
+  "engines": {
+    "node": ">=24 <25"
   },
-  "main": "background.js",
-  "repository": "https://github.com/manuelernestog/weektodo",
+  "packageManager": "yarn@1.22.22",
+  "scripts": {
+    "serve": "vite",
+    "build": "vite build",
+    "preview:web": "vite preview",
+    "electron:serve": "electron-vite dev",
+    "electron:preview": "electron-vite preview",
+    "electron:compile": "electron-vite build",
+    "electron:build": "node scripts/pre-build-check.js && electron-vite build && electron-builder",
+    "electron:build:dir": "node scripts/pre-build-check.js && electron-vite build && electron-builder --dir",
+    "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true});require('fs').rmSync('dist_electron',{recursive:true,force:true})\"",
+    "postinstall": "electron-builder install-app-deps"
+  },
   "dependencies": {
     "@achrinza/node-ipc": "^10.1.10",
     "@manuelernestog/click-handler": "^1.4.0",
@@ -35,7 +43,6 @@
     "bootstrap-icons": "^1.10.5",
     "core-js": "^3.20.1",
     "cryptocurrency-icons": "^0.17.1",
-    "electron-config": "^2.0.0",
     "is-electron": "^2.2.1",
     "linkify-string": "^3.0.4",
     "linkifyjs": "^3.0.5",
@@ -47,24 +54,15 @@
     "vue-i18n": "^9.1.9",
     "vue3-datepicker": "^0.2.5",
     "vuex": "^4.0.2",
-    "webpack": "4.46.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@vue/cli-plugin-babel": "^4.5.15",
-    "@vue/cli-plugin-eslint": "^4.5.15",
-    "@vue/cli-service": "^4.5.15",
+    "@vitejs/plugin-vue": "^6.0.1",
     "@vue/compiler-sfc": "^3.2.26",
-    "babel-eslint": "^10.1.0",
-    "electron": "^25.0.1",
-    "electron-devtools-installer": "^3.1.0",
-    "eslint": "^6.7.2",
-    "eslint-plugin-vue": "^7.20.0",
-    "sass": "^1.69.5",
-    "sass-loader": "^10",
-    "vue-cli-plugin-electron-builder": "~2.0.0-rc.6"
-  },
-  "resolutions": {
-    "vue-cli-plugin-electron-builder/electron-builder": "^23.0.3"
+    "electron": "^44.2.0",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^5.0.0",
+    "sass": "^1.92.1",
+    "vite": "^7.1.7"
   }
 }

@@ -43,7 +43,9 @@ let isQuitting = false;
 let splashScreenIsHidden = true;
 
 function isDevelopment() {
-  return !app.isPackaged;
+  return Boolean(
+    process.env.ELECTRON_RENDERER_URL
+  );
 }
 
 function isAllowedExternalUrl(value) {

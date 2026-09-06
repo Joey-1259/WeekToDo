@@ -30,11 +30,115 @@
         title="删除线"
         @click="run('toggleStrike')"
       ><s>S</s></button>
-      <button
-        :class="{ active: editor.isActive('highlight') }"
-        title="高亮"
-        @click="run('toggleHighlight')"
-      ><mark>A</mark></button>
+      <div class="focus-color-control">
+        <button
+          class="focus-color-trigger"
+          :class="{ active: activeColorMenu === 'toolbarText' }"
+          title="文字颜色"
+          @mousedown.prevent
+          @click.stop="toggleColorMenu('toolbarText')"
+        >
+          <span class="focus-color-letter">A</span>
+          <i
+            class="focus-color-indicator"
+            :style="{ backgroundColor: selectedTextColor }"
+          ></i>
+        </button>
+
+        <div
+          v-if="activeColorMenu === 'toolbarText'"
+          class="focus-color-menu"
+          @mousedown.stop
+          @click.stop
+        >
+          <strong>文字颜色</strong>
+          <div class="focus-color-grid">
+            <button
+              class="focus-color-reset"
+              title="恢复默认文字颜色"
+              @mousedown.prevent
+              @click="clearTextColor"
+            >自动</button>
+            <button
+              v-for="color in textColors"
+              :key="color"
+              class="focus-color-swatch"
+              :class="{ selected: selectedTextColor === color }"
+              :style="{ backgroundColor: color }"
+              :title="color"
+              @mousedown.prevent
+              @click="applyTextColor(color)"
+            ></button>
+          </div>
+
+          <label class="focus-custom-color">
+            <span>自定义颜色</span>
+            <input
+              type="color"
+              :value="selectedTextColor"
+              @input="applyTextColor($event.target.value)"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div class="focus-color-control">
+        <button
+          class="focus-color-trigger"
+          :class="{
+            active:
+              editor.isActive('highlight') ||
+              activeColorMenu === 'toolbarHighlight'
+          }"
+          title="高亮颜色"
+          @mousedown.prevent
+          @click.stop="toggleColorMenu('toolbarHighlight')"
+        >
+          <span class="focus-highlight-letter">A</span>
+          <i
+            class="focus-color-indicator"
+            :style="{ backgroundColor: selectedHighlightColor }"
+          ></i>
+        </button>
+
+        <div
+          v-if="activeColorMenu === 'toolbarHighlight'"
+          class="focus-color-menu"
+          @mousedown.stop
+          @click.stop
+        >
+          <strong>高亮颜色</strong>
+          <div class="focus-color-grid">
+            <button
+              class="focus-color-reset"
+              title="取消高亮"
+              @mousedown.prevent
+              @click="clearHighlight"
+            >无</button>
+            <button
+              v-for="color in highlightColors"
+              :key="color"
+              class="focus-color-swatch"
+              :class="{
+                selected: selectedHighlightColor === color
+              }"
+              :style="{ backgroundColor: color }"
+              :title="color"
+              @mousedown.prevent
+              @click="applyHighlight(color)"
+            ></button>
+          </div>
+
+          <label class="focus-custom-color">
+            <span>自定义颜色</span>
+            <input
+              type="color"
+              :value="selectedHighlightColor"
+              @input="applyHighlight($event.target.value)"
+            />
+          </label>
+        </div>
+      </div>
 
       <span class="divider"></span>
 
@@ -61,7 +165,85 @@
       <button @click="run('toggleItalic')"><em>I</em></button>
       <button @click="run('toggleUnderline')"><u>U</u></button>
       <button @click="run('toggleStrike')"><s>S</s></button>
-      <button @click="run('toggleHighlight')">高亮</button>
+
+      <div class="focus-color-control">
+        <button
+          class="focus-color-trigger"
+          title="文字颜色"
+          @mousedown.prevent
+          @click.stop="toggleColorMenu('bubbleText')"
+        >
+          <span class="focus-color-letter">A</span>
+          <i
+            class="focus-color-indicator"
+            :style="{ backgroundColor: selectedTextColor }"
+          ></i>
+        </button>
+
+        <div
+          v-if="activeColorMenu === 'bubbleText'"
+          class="focus-color-menu is-bubble"
+          @mousedown.stop
+          @click.stop
+        >
+          <strong>文字颜色</strong>
+          <div class="focus-color-grid">
+            <button
+              class="focus-color-reset"
+              @mousedown.prevent
+              @click="clearTextColor"
+            >自动</button>
+            <button
+              v-for="color in textColors"
+              :key="color"
+              class="focus-color-swatch"
+              :style="{ backgroundColor: color }"
+              @mousedown.prevent
+              @click="applyTextColor(color)"
+            ></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="focus-color-control">
+        <button
+          class="focus-color-trigger"
+          title="高亮颜色"
+          @mousedown.prevent
+          @click.stop="toggleColorMenu('bubbleHighlight')"
+        >
+          <span class="focus-highlight-letter">A</span>
+          <i
+            class="focus-color-indicator"
+            :style="{ backgroundColor: selectedHighlightColor }"
+          ></i>
+        </button>
+
+        <div
+          v-if="activeColorMenu === 'bubbleHighlight'"
+          class="focus-color-menu is-bubble"
+          @mousedown.stop
+          @click.stop
+        >
+          <strong>高亮颜色</strong>
+          <div class="focus-color-grid">
+            <button
+              class="focus-color-reset"
+              @mousedown.prevent
+              @click="clearHighlight"
+            >无</button>
+            <button
+              v-for="color in highlightColors"
+              :key="color"
+              class="focus-color-swatch"
+              :style="{ backgroundColor: color }"
+              @mousedown.prevent
+              @click="applyHighlight(color)"
+            ></button>
+          </div>
+        </div>
+      </div>
+
       <button @click="editLink">链接</button>
     </BubbleMenu>
 
@@ -112,6 +294,10 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Highlight from "@tiptap/extension-highlight";
 import {
+  TextStyle,
+  Color,
+} from "@tiptap/extension-text-style";
+import {
   Details,
   DetailsSummary,
   DetailsContent,
@@ -126,6 +312,29 @@ const EMPTY = {
   type: "doc",
   content: [{ type: "paragraph" }],
 };
+
+const TEXT_COLORS = [
+  "#292d33",
+  "#626a75",
+  "#d14343",
+  "#c26a22",
+  "#9a7614",
+  "#2f7d4a",
+  "#267a8a",
+  "#3f63c8",
+  "#7354b5",
+];
+
+const HIGHLIGHT_COLORS = [
+  "#fff0a6",
+  "#ffd8a8",
+  "#ffc9c9",
+  "#d3f9d8",
+  "#c5f6fa",
+  "#d0ebff",
+  "#e5dbff",
+  "#f1f3f5",
+];
 
 export default {
   name: "FocusDocumentEditor",
@@ -152,6 +361,11 @@ export default {
       markdownVisible: false,
       markdownSource: "",
       externalUpdate: false,
+      activeColorMenu: null,
+      selectedTextColor: "#292d33",
+      selectedHighlightColor: "#fff0a6",
+      textColors: TEXT_COLORS,
+      highlightColors: HIGHLIGHT_COLORS,
     };
   },
   computed: {
@@ -214,7 +428,9 @@ export default {
         }),
         TaskList,
         TaskItem.configure({ nested: true }),
-        Highlight,
+        TextStyle,
+        Color,
+        Highlight.configure({ multicolor: true }),
         Details.configure({ persist: true }),
         DetailsSummary,
         DetailsContent,
@@ -241,6 +457,11 @@ export default {
       },
     });
 
+    document.addEventListener(
+      "mousedown",
+      this.onDocumentPointerDown
+    );
+
     window.addEventListener(
       "focus-task-toggle",
       this.onTaskToggle
@@ -261,6 +482,11 @@ export default {
     this.refreshLinkedTasks();
   },
   beforeUnmount() {
+    document.removeEventListener(
+      "mousedown",
+      this.onDocumentPointerDown
+    );
+
     window.removeEventListener(
       "focus-task-toggle",
       this.onTaskToggle
@@ -282,6 +508,77 @@ export default {
   methods: {
     run(command) {
       this.editor?.chain().focus()[command]().run();
+    },
+
+    toggleColorMenu(name) {
+      this.activeColorMenu =
+        this.activeColorMenu === name ? null : name;
+
+      if (!this.editor) return;
+
+      const textColor =
+        this.editor.getAttributes("textStyle").color;
+      const highlightColor =
+        this.editor.getAttributes("highlight").color;
+
+      if (textColor) this.selectedTextColor = textColor;
+      if (highlightColor) {
+        this.selectedHighlightColor = highlightColor;
+      }
+    },
+
+    applyTextColor(color) {
+      if (!this.editor || !color) return;
+
+      this.editor
+        .chain()
+        .focus()
+        .setColor(color)
+        .run();
+
+      this.selectedTextColor = color;
+      this.activeColorMenu = null;
+    },
+
+    clearTextColor() {
+      this.editor
+        ?.chain()
+        .focus()
+        .unsetColor()
+        .run();
+
+      this.selectedTextColor = "#292d33";
+      this.activeColorMenu = null;
+    },
+
+    applyHighlight(color) {
+      if (!this.editor || !color) return;
+
+      this.editor
+        .chain()
+        .focus()
+        .setHighlight({ color })
+        .run();
+
+      this.selectedHighlightColor = color;
+      this.activeColorMenu = null;
+    },
+
+    clearHighlight() {
+      this.editor
+        ?.chain()
+        .focus()
+        .unsetHighlight()
+        .run();
+
+      this.selectedHighlightColor = "#fff0a6";
+      this.activeColorMenu = null;
+    },
+
+    onDocumentPointerDown(event) {
+      if (!event.target.closest(".focus-color-control")) {
+        this.activeColorMenu = null;
+      }
     },
 
     setBlock(value) {
@@ -1193,4 +1490,185 @@ export default {
   border-color: #3a424d;
   background: #252c35;
 }
+
+/* 颜色选择器 */
+.focus-color-control {
+  position: relative;
+  display: inline-flex;
+}
+
+.focus-color-trigger {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+.focus-color-letter,
+.focus-highlight-letter {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.focus-highlight-letter {
+  padding: 2px 3px;
+  border-radius: 2px;
+  background: #fff0a6;
+}
+
+.focus-color-indicator {
+  position: absolute;
+  right: 6px;
+  bottom: 3px;
+  left: 6px;
+  height: 2px;
+  border-radius: 2px;
+}
+
+.focus-color-menu {
+  position: absolute;
+  z-index: 15000;
+  top: calc(100% + 7px);
+  left: 0;
+  width: 224px;
+  padding: 11px;
+  border: 1px solid #e1e4e8;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow:
+    0 12px 32px rgba(25, 30, 40, 0.16),
+    0 2px 8px rgba(25, 30, 40, 0.06);
+}
+
+.focus-color-menu.is-bubble {
+  top: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.focus-color-menu strong {
+  display: block;
+  margin: 0 0 9px 2px;
+  color: #747b85;
+  font-size: 11px;
+  font-weight: 550;
+}
+
+.focus-color-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 30px);
+  gap: 7px;
+}
+
+.focus-color-grid .focus-color-swatch,
+.focus-color-grid .focus-color-reset {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(31, 35, 41, 0.12);
+  border-radius: 7px;
+}
+
+.focus-color-grid .focus-color-swatch:hover,
+.focus-color-grid .focus-color-swatch.selected {
+  border-color: #4263eb;
+  box-shadow: 0 0 0 2px rgba(66, 99, 235, 0.12);
+}
+
+.focus-color-grid .focus-color-reset {
+  color: #747b85;
+  font-size: 10px;
+}
+
+.focus-custom-color {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 0 3px;
+  color: #747b85;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.focus-custom-color input {
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+/*
+ * 折叠块采用纯文本披露结构：
+ * 无边框、无底色、无分割线，仅保留箭头。
+ */
+.focus-prosemirror [data-type="details"],
+.focus-prosemirror [data-type="details"]:hover,
+.focus-prosemirror [data-type="details"].is-open,
+.dark-theme .focus-prosemirror [data-type="details"],
+.dark-theme .focus-prosemirror [data-type="details"]:hover,
+.dark-theme .focus-prosemirror [data-type="details"].is-open {
+  margin: 0.5em 0;
+  padding: 0 0 0 28px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.focus-prosemirror [data-type="details"] > button {
+  top: 3px;
+  left: 2px;
+  width: 20px;
+  height: 24px;
+  border-radius: 4px;
+}
+
+.focus-prosemirror [data-type="details"] > button:hover {
+  background: rgba(127, 133, 143, 0.12);
+}
+
+.focus-prosemirror [data-type="details"] summary,
+.dark-theme .focus-prosemirror [data-type="details"] summary {
+  min-height: 28px;
+  padding: 0;
+  color: inherit;
+  font-weight: 550;
+  line-height: 28px;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  [data-type="detailsContent"],
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]
+  [data-type="detailsContent"] {
+  margin: 2px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.dark-theme .focus-color-menu {
+  border-color: #353d47;
+  background: #1d232b;
+}
+
+.dark-theme .focus-color-menu strong,
+.dark-theme .focus-custom-color {
+  color: #aeb5be;
+}
+
+.dark-theme .focus-color-grid .focus-color-reset {
+  border-color: #404954;
+  background: #252c35;
+  color: #cbd0d7;
+}
+
 </style>

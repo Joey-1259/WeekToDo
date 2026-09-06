@@ -198,8 +198,19 @@ export default {
           },
         }),
         Placeholder.configure({
-          placeholder:
-            "开始记录。输入 / 或 、插入内容……",
+          includeChildren: true,
+          showOnlyCurrent: true,
+          placeholder: ({ node }) => {
+            if (node.type.name === "detailsSummary") {
+              return "折叠标题";
+            }
+
+            if (node.type.name === "paragraph") {
+              return "输入内容，或使用 / 插入功能……";
+            }
+
+            return "";
+          },
         }),
         TaskList,
         TaskItem.configure({ nested: true }),
@@ -706,67 +717,365 @@ export default {
   box-shadow: 0 10px 30px rgba(20, 25, 34, 0.17);
 }
 
-.focus-slash-menu {
-  position: fixed;
+
+.focus-command-menu {
   z-index: 13000;
-  width: 310px;
-  max-height: 420px;
-  padding: 7px;
-  border: 1px solid rgba(25, 30, 38, 0.1);
-  border-radius: 12px;
+  width: min(470px, calc(100vw - 32px));
+  max-height: min(620px, calc(100vh - 40px));
+  border: 1px solid rgba(31, 35, 41, 0.12);
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 18px 48px rgba(18, 24, 34, 0.18);
-  overflow-y: auto;
+  box-shadow:
+    0 18px 55px rgba(25, 30, 40, 0.16),
+    0 3px 12px rgba(25, 30, 40, 0.08);
+  color: #262a30;
+  overflow: hidden;
+  backdrop-filter: blur(18px);
 }
 
-.focus-slash-title {
+.focus-command-header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  padding: 5px 8px 8px;
-  color: #9298a1;
+  padding: 11px 15px 8px;
+  color: #969ca5;
   font-size: 11px;
 }
 
-.focus-slash-menu > button {
+.focus-command-header kbd {
+  padding: 1px 5px;
+  border: 1px solid #dfe3e8;
+  border-radius: 4px;
+  background: #f8f9fa;
+  color: #858b94;
+  font-family: inherit;
+  font-size: 10px;
+}
+
+.focus-command-scroll {
+  max-height: min(560px, calc(100vh - 100px));
+  padding: 0 8px 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.focus-command-section {
+  padding-top: 7px;
+}
+
+.focus-command-section + .focus-command-section {
+  margin-top: 7px;
+  border-top: 1px solid #f0f1f3;
+}
+
+.focus-command-section-title {
+  padding: 8px 7px 6px;
+  color: #8e949d;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.focus-command-recent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 0 7px 8px;
+}
+
+.focus-command-recent .focus-command-item.is-compact {
+  width: auto;
+  min-width: 0;
+  padding: 7px 10px;
+  background: #f4f5f6;
+}
+
+.focus-command-format-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  padding: 0 4px 8px;
+}
+
+.focus-command-item {
   display: flex;
   width: 100%;
+  min-width: 0;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
+  gap: 11px;
+  padding: 8px 9px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 9px;
   background: transparent;
+  color: #2c3036;
   text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.focus-command-item:hover,
+.focus-command-item.is-selected {
+  background: #f0f2f4;
+}
+
+.focus-command-item.is-compact {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 7px;
+}
+
+.focus-command-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border: 1px solid #dde2e7;
+  border-radius: 9px;
+  background: #fff;
+  color: #343941;
+  font-size: 13px;
+  font-weight: 650;
+  box-shadow: 0 1px 2px rgba(30, 35, 45, 0.04);
+}
+
+.focus-command-item.is-compact .focus-command-icon {
+  width: 30px;
+  height: 30px;
+  flex-basis: 30px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 15px;
+}
+
+.focus-command-compact-title {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-command-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.focus-command-copy strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-command-copy small {
+  overflow: hidden;
+  color: #969ca5;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-command-shortcut {
+  flex: 0 0 auto;
+  color: #b0b5bc;
+  font-size: 11px;
+}
+
+.focus-command-loading,
+.focus-command-empty {
+  display: flex;
+  min-height: 90px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #9298a1;
+  font-size: 12px;
+}
+
+.focus-command-empty strong {
+  margin-bottom: 4px;
+  color: #656c76;
+  font-weight: 550;
+}
+
+.focus-command-empty small {
+  color: #a2a7af;
+}
+
+/* 折叠块 */
+.focus-prosemirror [data-type="details"] {
+  position: relative;
+  margin: 12px 0;
+  padding: 8px 10px 9px 38px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: #f7f8fa;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.focus-prosemirror [data-type="details"]:hover,
+.focus-prosemirror [data-type="details"].is-open {
+  border-color: #e2e5e9;
+  background: #fafbfc;
+}
+
+.focus-prosemirror [data-type="details"] > button {
+  position: absolute;
+  top: 11px;
+  left: 11px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
   cursor: pointer;
 }
 
-.focus-slash-menu > button:hover,
-.focus-slash-menu > button.selected {
-  background: #f0f3f7;
+.focus-prosemirror [data-type="details"] > button:hover {
+  background: #e8ebef;
 }
 
-.focus-slash-icon {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  place-items: center;
-  border: 1px solid #e2e5e9;
-  border-radius: 8px;
-  background: #fff;
-  font-size: 12px;
-  font-weight: 650;
+.focus-prosemirror
+  [data-type="details"]
+  > button::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid #6d747e;
+  transform-origin: 3px center;
+  transition: transform 0.15s ease;
 }
 
-.focus-slash-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
+.focus-prosemirror
+  [data-type="details"].is-open
+  > button::before {
+  transform: rotate(90deg);
 }
 
-.focus-slash-copy small {
-  color: #9197a0;
-  font-size: 11px;
+.focus-prosemirror [data-type="details"] summary {
+  display: block;
+  min-height: 26px;
+  padding: 1px 4px;
+  outline: none;
+  color: #343940;
+  font-weight: 600;
+  line-height: 24px;
+  cursor: text;
+  list-style: none;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  summary::-webkit-details-marker {
+  display: none;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  [data-type="detailsContent"] {
+  margin-top: 5px;
+  padding: 7px 4px 2px;
+  border-top: 1px solid #e8eaed;
+  color: #505761;
+}
+
+.focus-prosemirror
+  [data-type="details"]:not(.is-open)
+  [data-type="detailsContent"] {
+  display: none;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  summary.is-empty::before,
+.focus-prosemirror
+  [data-type="details"]
+  [data-type="detailsContent"]
+  .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #a6abb3;
+  font-weight: 400;
+  pointer-events: none;
+}
+
+.dark-theme .focus-command-menu {
+  border-color: #343b45;
+  background: rgba(27, 33, 41, 0.98);
+  color: #e0e4e9;
+}
+
+.dark-theme .focus-command-section + .focus-command-section {
+  border-color: #303740;
+}
+
+.dark-theme .focus-command-item {
+  color: #d9dde3;
+}
+
+.dark-theme .focus-command-item:hover,
+.dark-theme .focus-command-item.is-selected,
+.dark-theme
+  .focus-command-recent
+  .focus-command-item.is-compact {
+  background: #29313b;
+}
+
+.dark-theme .focus-command-icon {
+  border-color: #3b434e;
+  background: #222932;
+  color: #dce0e5;
+}
+
+.dark-theme .focus-command-header kbd {
+  border-color: #3b434e;
+  background: #222932;
+  color: #adb4bd;
+}
+
+.dark-theme .focus-prosemirror [data-type="details"] {
+  border-color: transparent;
+  background: #1b2129;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]:hover,
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"].is-open {
+  border-color: #38414b;
+  background: #1e252e;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]
+  summary {
+  color: #dce1e7;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]
+  [data-type="detailsContent"] {
+  border-color: #343c46;
+  color: #c6cbd2;
 }
 
 .markdown-backdrop {

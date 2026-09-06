@@ -294,5 +294,10 @@
     "study": "学习",
     "health": "健康",
     "urgent": "紧急"
+  },
+  "focusDocuments": {
+    "title": "重点客户 / 项目",
+    "newDocument": "新建文档",
+    "search": "搜索文档"
   }
 }

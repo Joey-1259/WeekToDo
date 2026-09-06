@@ -1,4 +1,3 @@
-cat > src/repositories/focusDataRepository.js <<'EOF'
 import dbRepository from "./dbRepository";
 
 export const FOCUS_STORES = Object.freeze({
@@ -225,4 +224,3 @@ const focusDataRepository = {
 };
 
 export default focusDataRepository;
-EOF

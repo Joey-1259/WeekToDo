@@ -16,7 +16,12 @@
       alt="WeekTodo Logo"
     />
 
-    <i class="bi-house" @click="setTodayDate" :title="$t('ui.today')"></i>
+    <i
+      class="bi-house"
+      :class="{ 'active-icon': activeModule === 'week' }"
+      @click="setTodayDate"
+      :title="$t('ui.today')"
+    ></i>
     <i
       class="bi-calendar-heart nav-icon-with-badge"
       :class="{ 'active-icon': calendarHubActive }"
@@ -25,6 +30,13 @@
     >
       <span v-if="upcomingBadgeCount > 0" class="badge-dot">{{ upcomingBadgeCount > 9 ? '9+' : upcomingBadgeCount }}</span>
     </i>
+
+    <i
+      class="bi-journal-richtext"
+      :class="{ 'active-icon': activeModule === 'focus' }"
+      @click="$emit('openFocusDocuments')"
+      title="重点客户 / 项目"
+    ></i>
 
     <span style="flex-grow: 1"></span>
 
@@ -46,9 +58,15 @@ export default {
   name: "sideBar",
   props: {
     calendarHubActive: { type: Boolean, default: false },
+    activeModule: { type: String, default: "week" },
     upcomingBadgeCount: { type: Number, default: 0 },
   },
-  emits: ["changeDate", "openCalendarHub"],
+  emits: [
+    "changeDate",
+    "openCalendarHub",
+    "openFocusDocuments",
+    "openWeek",
+  ],
   mounted() {
     window.addEventListener("beforeprint", () => {
       document.getElementById("app-container").classList.add("ready-to-print");
@@ -64,7 +82,11 @@ export default {
   },
   methods: {
     setTodayDate: function () {
-      this.$emit("changeDate", { date: moment().format("YYYYMMDD"), picked: false });
+      this.$emit("openWeek");
+      this.$emit("changeDate", {
+        date: moment().format("YYYYMMDD"),
+        picked: false,
+      });
     },
     openConfigModal: function () {
       document.getElementById("config-general-tab").click();

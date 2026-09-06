@@ -294,5 +294,10 @@
     "study": "Study",
     "health": "Health",
     "urgent": "Urgent"
+  },
+  "focusDocuments": {
+    "title": "Focus Documents",
+    "newDocument": "New document",
+    "search": "Search documents"
   }
 }

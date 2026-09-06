@@ -4,12 +4,17 @@
     <div class="hidden-mobile app-shell d-flex">
       <side-bar
         :calendarHubActive="showCalendarHub"
+        :activeModule="activeModule"
         :upcomingBadgeCount="upcomingAnniversaryCount"
         @change-date="setSelectedDate"
-        @open-calendar-hub="openCalendarHub"
+        @open-week="openWeek"
+        @open-calendar-hub="openCalendarModule"
+        @open-focus-documents="openFocusDocuments"
       ></side-bar>
 
-      <div v-show="!showCalendarHub" class="app-body flex-grow-1" :style="{ zoom: `${zoom}%` }">
+      <div
+        v-show="activeModule === 'week'"
+        class="app-body flex-grow-1" :style="{ zoom: `${zoom}%` }">
         <splash-screen ref="splash"></splash-screen>
 
         <div class="home-week-view d-flex flex-column h-100">
@@ -81,11 +86,16 @@
       </div>
 
       <calendar-hub-view
-        v-if="showCalendarHub"
+        v-if="activeModule === 'calendar'"
         class="flex-grow-1"
         @close="closeCalendarHub"
         @jump-to-date="jumpToDateFromHub"
       ></calendar-hub-view>
+
+      <focus-documents-view
+        v-if="activeModule === 'focus'"
+        class="flex-grow-1"
+      ></focus-documents-view>
     </div>
 
     <remove-custom-list></remove-custom-list>
@@ -167,6 +177,7 @@ import anniversaryRepository from "./repositories/anniversaryRepository";
 import anniversaryHelper from "./helpers/anniversaryHelper";
 import archiveRepository from "./repositories/archiveRepository";
 import archiveHistoryModal from "./views/ArchiveHistoryModal.vue";
+import focusDocumentsView from "./views/focusDocuments/FocusDocumentsView.vue";
 
 export default {
   name: "App",
@@ -186,6 +197,7 @@ export default {
     reorderCustomListsModal,
     calendarHubView,
     archiveHistoryModal,
+    focusDocumentsView,
   },
   data() {
     return {
@@ -197,6 +209,7 @@ export default {
       initialListToLoad: 0,
       initialListLoaded: 0,
       showCalendarHub: false,
+      activeModule: "week",
       homeAnniversaryList: anniversaryRepository.load(),
       homeCustomListIndex: 0,
       archiveHistoryVisible: false,
@@ -274,6 +287,22 @@ export default {
     }
   },
   methods: {
+    openWeek() {
+      this.activeModule = "week";
+      this.showCalendarHub = false;
+    },
+
+    openCalendarModule() {
+      this.activeModule = "calendar";
+      this.showCalendarHub = true;
+      this.openCalendarHub();
+    },
+
+    openFocusDocuments() {
+      this.activeModule = "focus";
+      this.showCalendarHub = false;
+    },
+
     cycleHomeCustomList: function (step) {
       let total = this.customListCount;
       if (total <= 1) return;

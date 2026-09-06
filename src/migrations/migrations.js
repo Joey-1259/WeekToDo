@@ -13,6 +13,7 @@ export default {
     v2_1_0();
     v2_2_0();
     v2_3_0();
+    v2_5_0();
   },
 };
 
@@ -109,6 +110,46 @@ function v2_3_0() {
   let config = configRepository.load();
   if (!("holidayCountries" in config)) {
     config["holidayCountries"] = ["CN"];
+    configRepository.update(config);
+  }
+}
+
+
+function v2_5_0() {
+  let config = configRepository.load();
+
+  let changed = false;
+
+  if (!("focusDocumentColumns" in config)) {
+    config["focusDocumentColumns"] = 3;
+    changed = true;
+  }
+
+  if (!("focusDocumentOpenIds" in config)) {
+    config["focusDocumentOpenIds"] = [
+      null,
+      null,
+      null,
+    ];
+    changed = true;
+  }
+
+  if (!("focusDocumentLastActiveId" in config)) {
+    config["focusDocumentLastActiveId"] = null;
+    changed = true;
+  }
+
+  if (!("focusDocumentFilterTagIds" in config)) {
+    config["focusDocumentFilterTagIds"] = [];
+    changed = true;
+  }
+
+  if (!("focusDocumentSort" in config)) {
+    config["focusDocumentSort"] = "manual";
+    changed = true;
+  }
+
+  if (changed) {
     configRepository.update(config);
   }
 }

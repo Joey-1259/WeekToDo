@@ -1,6 +1,6 @@
 export default {
     open() {
-        var req = indexedDB.open('weekToDo', 4);
+        var req = indexedDB.open('weekToDo', 5);
         req.onupgradeneeded = function (event) {
             var db = event.target.result;
             if (!db.objectStoreNames.contains("todo_lists")) {
@@ -13,6 +13,89 @@ export default {
 
             if (!db.objectStoreNames.contains("repeating_events_by_date")) {
                 db.createObjectStore('repeating_events_by_date', {autoIncrement: false});
+            }
+
+            if (!db.objectStoreNames.contains("focus_documents")) {
+                const store = db.createObjectStore(
+                    "focus_documents",
+                    { autoIncrement: false }
+                );
+                store.createIndex(
+                    "updatedAt",
+                    "updatedAt",
+                    { unique: false }
+                );
+                store.createIndex(
+                    "lastOpenedAt",
+                    "lastOpenedAt",
+                    { unique: false }
+                );
+                store.createIndex(
+                    "archivedAt",
+                    "archivedAt",
+                    { unique: false }
+                );
+                store.createIndex(
+                    "deletedAt",
+                    "deletedAt",
+                    { unique: false }
+                );
+            }
+
+            if (!db.objectStoreNames.contains("focus_tags")) {
+                const store = db.createObjectStore(
+                    "focus_tags",
+                    { autoIncrement: false }
+                );
+                store.createIndex(
+                    "normalizedName",
+                    "normalizedName",
+                    { unique: true }
+                );
+            }
+
+            if (!db.objectStoreNames.contains("focus_task_links")) {
+                const store = db.createObjectStore(
+                    "focus_task_links",
+                    { autoIncrement: false }
+                );
+                store.createIndex(
+                    "documentId",
+                    "documentId",
+                    { unique: false }
+                );
+                store.createIndex(
+                    "taskId",
+                    "taskId",
+                    { unique: false }
+                );
+                store.createIndex(
+                    "blockId",
+                    "blockId",
+                    { unique: false }
+                );
+                store.createIndex(
+                    "status",
+                    "status",
+                    { unique: false }
+                );
+            }
+
+            if (!db.objectStoreNames.contains("focus_document_revisions")) {
+                const store = db.createObjectStore(
+                    "focus_document_revisions",
+                    { autoIncrement: false }
+                );
+                store.createIndex(
+                    "documentId",
+                    "documentId",
+                    { unique: false }
+                );
+                store.createIndex(
+                    "createdAt",
+                    "createdAt",
+                    { unique: false }
+                );
             }
         }
         req.onerror = function (event) {

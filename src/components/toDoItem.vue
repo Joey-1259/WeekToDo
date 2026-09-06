@@ -8,6 +8,7 @@
   >
     <div
       class="todo-item-container"
+      :data-task-id="toDo.id"
       :class="{ 'compact-view': compactView }"
       ref="itemContainer"
     >
@@ -165,6 +166,16 @@ export default {
       if (isSpanningTask(todo)) {
         syncSpanningState(todo, this.$store);
       }
+
+      window.dispatchEvent(
+        new CustomEvent("weektodo:task-changed", {
+          detail: {
+            action: "updated",
+            taskId: todo.id,
+            listId: todo.listId,
+          },
+        })
+      );
     },
 
     cancelEdit: function () {

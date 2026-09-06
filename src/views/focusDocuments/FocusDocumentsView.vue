@@ -1,679 +1,529 @@
 <template>
-  <main class="focus-documents-view">
-    <header class="focus-topbar">
-      <div class="focus-title">
-        <i class="bi-journal-richtext"></i>
-        <h5>重点客户 / 项目</h5>
+  <main class="focus-workspace">
+    <header class="focus-workspace-header">
+      <div>
+        <h1>重点档案</h1>
+        <span>{{ documents.length }} 篇文档</span>
       </div>
 
-      <div class="focus-toolbar">
-        <div class="focus-search">
-          <i class="bi-search"></i>
-
+      <div class="focus-workspace-actions">
+        <label class="focus-search">
+          <span>⌕</span>
           <input
-            v-model.trim="searchQuery"
+            v-model.trim="search"
             type="search"
-            placeholder="搜索文档"
+            placeholder="搜索标题、标签、正文、关联事项"
           />
-        </div>
+        </label>
 
-        <select v-model="filterTagId">
-          <option value="">全部标签</option>
-
-          <option
-            v-for="tag in tags"
-            :key="tag.id"
-            :value="tag.id"
-          >
-            {{ tag.name }}
-          </option>
-        </select>
-
-        <select
-          v-model.number="columnCount"
-          title="并排显示数量"
-          @change="saveLayout"
-        >
+        <select v-model.number="columns">
           <option :value="1">1 列</option>
           <option :value="2">2 列</option>
           <option :value="3">3 列</option>
           <option :value="4">4 列</option>
         </select>
 
-        <button
-          type="button"
-          class="focus-primary-button"
-          @click="createDocument"
-        >
-          <i class="bi-plus-lg"></i>
-          新建文档
+        <button class="primary" @click="createDocument">
+          ＋ 新建文档
         </button>
       </div>
     </header>
 
-    <div
-      v-if="loading"
-      class="focus-empty-state"
+    <section
+      class="focus-grid"
+      :style="{ '--columns': columns }"
     >
-      正在加载重点档案…
-    </div>
-
-    <div
-      v-else-if="documents.length === 0"
-      class="focus-empty-state"
-    >
-      <i class="bi-journal-plus"></i>
-      <h4>建立第一篇重点档案</h4>
-      <p>
-        集中记录重要客户、项目背景和长期进展。
-      </p>
-
-      <button
-        type="button"
-        class="focus-primary-button"
-        @click="createDocument"
-      >
-        新建第一篇文档
-      </button>
-    </div>
-
-    <div
-      v-else
-      class="focus-workspace"
-      :style="{ '--focus-columns': columnCount }"
-    >
-      <div
-        v-for="slotIndex in columnCount"
-        :key="slotIndex"
-        class="focus-workspace-slot"
-      >
-        <div class="slot-document-picker">
-          <select
-            :value="openIds[slotIndex - 1] || ''"
-            @change="
-              selectDocument(
-                slotIndex - 1,
-                $event.target.value
-              )
-            "
-          >
-            <option value="">
-              选择文档…
-            </option>
-
-            <option
-              v-for="document in filteredDocuments"
-              :key="document.id"
-              :value="document.id"
-              :disabled="
-                isOpenElsewhere(
-                  document.id,
-                  slotIndex - 1
-                )
-              "
-            >
-              {{ document.title }}
-            </option>
-          </select>
-        </div>
-
-        <focus-document-pane
-          v-if="documentForSlot(slotIndex - 1)"
-          :key="
-            documentForSlot(slotIndex - 1).id
-          "
-          :document-data="
-            documentForSlot(slotIndex - 1)
-          "
-          :tags="tags"
-          @save-title="
-            saveTitle(
-              documentForSlot(slotIndex - 1),
-              $event
-            )
-          "
-          @save-content="
-            saveContent(
-              documentForSlot(slotIndex - 1),
-              $event
-            )
-          "
-          @add-tag="
-            addTag(
-              documentForSlot(slotIndex - 1),
-              $event
-            )
-          "
-          @remove-tag="
-            removeTag(
-              documentForSlot(slotIndex - 1),
-              $event
-            )
-          "
-          @create-tag="
-            createTag(
-              documentForSlot(slotIndex - 1)
-            )
-          "
+      <template v-for="index in columns" :key="index">
+        <FocusDocumentPane
+          v-if="documentForPane(index - 1)"
+          :document="documentForPane(index - 1)"
+          @saved="replaceDocument"
+          @edit="editDocument"
           @archive="archiveDocument"
+          @open-task="openTask"
         />
 
-        <div
-          v-else
-          class="empty-document-slot"
-        >
-          <i class="bi-file-earmark-text"></i>
-          <span>选择一篇文档</span>
+        <div v-else class="focus-empty-pane">
+          <div>
+            <span class="empty-icon">⌑</span>
+            <strong>选择一篇文档</strong>
+            <small>在这里并排查看和编辑</small>
 
-          <button
-            type="button"
-            @click="createDocument(slotIndex - 1)"
-          >
-            ＋ 新建文档
-          </button>
+            <div class="focus-picker">
+              <button
+                v-for="document in filteredDocuments"
+                :key="document.id"
+                @click="selectDocument(document.id, index - 1)"
+              >
+                <span>
+                  {{ document.title || "未命名文档" }}
+                  <em v-if="document.draft">草稿</em>
+                </span>
+                <small>{{ formatDate(document.updatedAt) }}</small>
+              </button>
+            </div>
+
+            <button class="create-link" @click="createDocument">
+              ＋ 新建文档
+            </button>
+          </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </section>
+
+    <FocusDocumentModal
+      v-if="modalDocument"
+      :document="modalDocument"
+      @close="closeModal"
+      @saved="finishModal"
+      @open-task="openTask"
+    />
   </main>
 </template>
 
 <script>
-import configRepository from "../../repositories/configRepository";
-import focusDocumentService from "../../services/focusDocumentService";
 import FocusDocumentPane from "./FocusDocumentPane.vue";
+import FocusDocumentModal from "./FocusDocumentModal.vue";
+import focusDocumentService from "../../services/focusDocumentService";
+import focusTaskService from "../../services/focusTaskService";
+
+function extractText(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    return value.map(extractText).join(" ");
+  }
+
+  return [
+    value.text || "",
+    value.attrs?.title || "",
+    extractText(value.content),
+  ].join(" ");
+}
 
 export default {
   name: "FocusDocumentsView",
-
   components: {
     FocusDocumentPane,
+    FocusDocumentModal,
   },
-
+  emits: ["open-week"],
   data() {
-    const config =
-      configRepository.load() || {};
-
     return {
-      loading: true,
       documents: [],
-      tags: [],
-      searchQuery: "",
-      filterTagId: "",
-      columnCount: Math.min(
-        4,
-        Math.max(
-          1,
-          Number(
-            config.focusDocumentColumns || 3
-          )
-        )
-      ),
-      openIds: Array.isArray(
-        config.focusDocumentOpenIds
-      )
-        ? [
-            ...config.focusDocumentOpenIds,
-            null,
-            null,
-            null,
-            null,
-          ].slice(0, 4)
-        : [null, null, null, null],
+      openIds: [],
+      columns: 3,
+      search: "",
+      modalDocument: null,
     };
   },
-
   computed: {
     filteredDocuments() {
-      const query =
-        this.searchQuery.toLocaleLowerCase();
+      const terms = this.search
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean);
 
-      return this.documents.filter(
-        (document) => {
-          if (
-            this.filterTagId &&
-            !(document.tagIds || []).includes(
-              this.filterTagId
-            )
-          ) {
-            return false;
-          }
+      if (!terms.length) return this.documents;
 
-          if (!query) {
-            return true;
-          }
+      return this.documents.filter((document) => {
+        const text = [
+          document.title,
+          ...(document.tags || []),
+          extractText(document.content),
+          document.linkedTaskText || "",
+        ]
+          .join(" ")
+          .toLowerCase();
 
-          const tagText = this.tags
-            .filter((tag) =>
-              (document.tagIds || []).includes(
-                tag.id
-              )
-            )
-            .map((tag) => tag.name)
-            .join(" ");
-
-          const haystack = [
-            document.title,
-            document.plainText,
-            tagText,
-          ]
-            .join(" ")
-            .toLocaleLowerCase();
-
-          return haystack.includes(query);
-        }
+        return terms.every((term) => text.includes(term));
+      });
+    },
+  },
+  watch: {
+    columns(value) {
+      localStorage.setItem(
+        "focusDocumentColumns",
+        String(value)
       );
     },
-  },
 
+    openIds: {
+      deep: true,
+      handler(value) {
+        localStorage.setItem(
+          "focusDocumentOpenIds",
+          JSON.stringify(value)
+        );
+      },
+    },
+  },
   async mounted() {
-    await this.reload();
-  },
+    const savedColumns = Number(
+      localStorage.getItem("focusDocumentColumns")
+    );
 
+    if (savedColumns >= 1 && savedColumns <= 4) {
+      this.columns = savedColumns;
+    }
+
+    try {
+      const ids = JSON.parse(
+        localStorage.getItem("focusDocumentOpenIds") || "[]"
+      );
+      this.openIds = Array.isArray(ids) ? ids : [];
+    } catch {
+      this.openIds = [];
+    }
+
+    await focusTaskService.initializeTaskIds();
+    await this.reload();
+
+    window.addEventListener(
+      "weektodo:focus-refresh",
+      this.reload
+    );
+    window.addEventListener("focus", this.reload);
+  },
+  beforeUnmount() {
+    window.removeEventListener(
+      "weektodo:focus-refresh",
+      this.reload
+    );
+    window.removeEventListener("focus", this.reload);
+  },
   methods: {
     async reload() {
-      this.loading = true;
+      const documents =
+        await focusDocumentService.listDocuments();
 
-      try {
-        const [documents, tags] =
-          await Promise.all([
-            focusDocumentService.listDocuments(),
-            focusDocumentService.listTags(),
-          ]);
+      this.documents = await Promise.all(
+        documents.map(async (document) => ({
+          ...document,
+          linkedTaskText:
+            await focusTaskService.getLinkedTaskText(
+              document.id
+            ),
+        }))
+      );
 
-        this.documents = documents;
-        this.tags = tags;
+      const existing = new Set(
+        this.documents.map((item) => item.id)
+      );
 
-        const validIds = new Set(
-          documents.map(
-            (document) => document.id
-          )
-        );
-
-        this.openIds = this.openIds.map(
-          (id) =>
-            id && validIds.has(id)
-              ? id
-              : null
-        );
-
-        if (
-          documents.length &&
-          !this.openIds.some(Boolean)
-        ) {
-          documents
-            .slice(0, this.columnCount)
-            .forEach((document, index) => {
-              this.openIds[index] =
-                document.id;
-            });
-        }
-
-        this.saveLayout();
-      } finally {
-        this.loading = false;
-      }
+      this.openIds = this.openIds.filter((id) =>
+        existing.has(id)
+      );
     },
 
-    documentForSlot(index) {
+    documentForPane(index) {
       const id = this.openIds[index];
 
       return (
-        this.documents.find(
-          (document) =>
-            document.id === id
-        ) || null
+        this.documents.find((item) => item.id === id) ||
+        null
       );
     },
 
-    isOpenElsewhere(id, currentIndex) {
-      return this.openIds.some(
-        (openId, index) =>
-          index !== currentIndex &&
-          openId === id
-      );
+    selectDocument(id, index) {
+      const next = [...this.openIds];
+      next[index] = id;
+      this.openIds = next;
     },
 
-    selectDocument(index, id) {
-      this.openIds[index] = id || null;
-      this.openIds = [...this.openIds];
-      this.saveLayout();
+    createDocument() {
+      this.modalDocument =
+        focusDocumentService.createDraftRecord();
+    },
 
-      if (id) {
-        focusDocumentService
-          .touchDocument(id)
-          .catch(console.error);
+    editDocument(id) {
+      this.modalDocument =
+        this.documents.find((item) => item.id === id) ||
+        null;
+    },
+
+    async closeModal(saved) {
+      this.modalDocument = null;
+
+      if (saved?.id) {
+        this.replaceDocument(saved);
+      } else {
+        await this.reload();
       }
     },
 
-    saveLayout() {
-      const config =
-        configRepository.load() || {};
+    finishModal(saved) {
+      this.replaceDocument(saved);
+      this.modalDocument = null;
 
-      config.focusDocumentColumns =
-        this.columnCount;
+      if (!this.openIds.includes(saved.id)) {
+        const next = [...this.openIds];
+        const empty = Array.from(
+          { length: this.columns },
+          (_, index) => index
+        ).find((index) => !next[index]);
 
-      config.focusDocumentOpenIds =
-        this.openIds.slice(0, 4);
-
-      configRepository.update(config);
-    },
-
-    async createDocument(preferredSlot = null) {
-      const document =
-        await focusDocumentService.createDocument();
-
-      this.documents.unshift(document);
-
-      let slot = Number.isInteger(preferredSlot)
-        ? preferredSlot
-        : this.openIds
-            .slice(0, this.columnCount)
-            .findIndex((id) => !id);
-
-      if (slot < 0) {
-        slot = 0;
+        next[empty ?? 0] = saved.id;
+        this.openIds = next;
       }
-
-      this.openIds[slot] = document.id;
-      this.openIds = [...this.openIds];
-      this.saveLayout();
     },
 
-    replaceDocument(updated) {
+    replaceDocument(saved) {
       const index = this.documents.findIndex(
-        (document) =>
-          document.id === updated.id
+        (item) => item.id === saved.id
       );
 
       if (index >= 0) {
-        this.documents.splice(
-          index,
-          1,
-          updated
-        );
-
-        this.documents = [...this.documents];
-      }
-    },
-
-    async saveTitle(document, title) {
-      const updated =
-        await focusDocumentService.updateDocument(
-          document.id,
-          { title }
-        );
-
-      this.replaceDocument(updated);
-    },
-
-    async saveContent(document, payload) {
-      const updated =
-        await focusDocumentService.updateDocument(
-          document.id,
-          payload
-        );
-
-      this.replaceDocument(updated);
-    },
-
-    async addTag(document, tagId) {
-      const tagIds = Array.from(
-        new Set([
-          ...(document.tagIds || []),
-          tagId,
-        ])
-      );
-
-      const updated =
-        await focusDocumentService.updateDocument(
-          document.id,
-          { tagIds }
-        );
-
-      this.replaceDocument(updated);
-    },
-
-    async removeTag(document, tagId) {
-      const tagIds = (
-        document.tagIds || []
-      ).filter((id) => id !== tagId);
-
-      const updated =
-        await focusDocumentService.updateDocument(
-          document.id,
-          { tagIds }
-        );
-
-      this.replaceDocument(updated);
-    },
-
-    async createTag(document) {
-      const name = window.prompt("标签名称");
-
-      if (!name) {
-        return;
-      }
-
-      try {
-        const tag =
-          await focusDocumentService.createTag(
-            name
-          );
-
-        if (
-          !this.tags.some(
-            (item) => item.id === tag.id
-          )
-        ) {
-          this.tags.push(tag);
-        }
-
-        await this.addTag(document, tag.id);
-      } catch (error) {
-        window.alert(error.message);
+        this.documents.splice(index, 1, {
+          ...this.documents[index],
+          ...saved,
+        });
+      } else {
+        this.documents.unshift(saved);
       }
     },
 
     async archiveDocument(id) {
-      if (
-        !window.confirm(
-          "归档后文档不会被删除，确定继续吗？"
-        )
-      ) {
+      if (!window.confirm("确定归档这篇文档吗？")) return;
+
+      await focusDocumentService.archiveDocument(id);
+      this.openIds = this.openIds.filter(
+        (item) => item !== id
+      );
+      await this.reload();
+    },
+
+    openTask(task) {
+      if (!task.listId) {
+        window.alert("该事项的日期或列表信息缺失。");
         return;
       }
 
-      await focusDocumentService.archiveDocument(id);
-
-      this.documents =
-        this.documents.filter(
-          (document) =>
-            document.id !== id
+      if (!/^\d{8}$/.test(task.listId)) {
+        window.alert(
+          "该事项位于自定义列表，请在每周视图右下角的自定义列表中查看。"
         );
+        return;
+      }
 
-      this.openIds = this.openIds.map(
-        (openId) =>
-          openId === id ? null : openId
-      );
+      this.$emit("open-week", {
+        listId: task.listId,
+        taskId: task.taskId,
+      });
+    },
 
-      this.saveLayout();
+    formatDate(value) {
+      if (!value) return "";
+
+      return new Intl.DateTimeFormat("zh-CN", {
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(value));
     },
   },
 };
 </script>
 
 <style scoped lang="scss">
-.focus-documents-view {
+.focus-workspace {
   display: flex;
-  width: 100%;
   min-width: 0;
-  height: 100%;
+  min-height: 0;
+  flex: 1;
   flex-direction: column;
-  overflow: hidden;
-  background: #f6f8fa;
+  padding: 16px;
+  background: #f5f7f9;
 }
 
-.focus-topbar {
+.focus-workspace-header {
   display: flex;
-  min-height: 58px;
-  padding: 9px 16px;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #e2e6ea;
-  background: #fff;
-  gap: 14px;
+  gap: 18px;
+  padding: 0 2px 14px;
 }
 
-.focus-title {
+.focus-workspace-header > div:first-child {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 9px;
-  white-space: nowrap;
 }
 
-.focus-title i {
-  color: #4263eb;
-  font-size: 20px;
-}
-
-.focus-title h5 {
+.focus-workspace-header h1 {
   margin: 0;
+  color: #272b31;
+  font-size: 19px;
+  font-weight: 680;
 }
 
-.focus-toolbar {
+.focus-workspace-header > div:first-child span {
+  color: #969ca5;
+  font-size: 11px;
+}
+
+.focus-workspace-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.focus-toolbar select,
 .focus-search {
+  display: flex;
+  width: 250px;
   height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
   border: 1px solid #dfe3e8;
-  border-radius: 7px;
+  border-radius: 8px;
   background: #fff;
 }
 
-.focus-toolbar select {
-  padding: 0 8px;
-}
-
-.focus-search {
-  display: flex;
-  width: 190px;
-  padding: 0 9px;
-  align-items: center;
-  gap: 7px;
-}
-
-.focus-search i {
-  color: #8c959f;
-}
-
 .focus-search input {
-  width: 100%;
+  min-width: 0;
+  flex: 1;
   border: 0;
-  background: transparent;
   outline: none;
+  background: transparent;
+  font-size: 12px;
 }
 
-.focus-primary-button {
-  min-height: 34px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 7px;
+.focus-workspace-actions select,
+.focus-workspace-actions button {
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  background: #fff;
+  color: #505761;
+}
+
+.focus-workspace-actions button.primary {
+  border-color: #4263eb;
   background: #4263eb;
   color: #fff;
 }
 
-.focus-workspace {
+.focus-grid {
   display: grid;
   min-width: 0;
-  flex: 1;
-  padding: 12px;
-  overflow-x: auto;
-  grid-template-columns:
-    repeat(
-      var(--focus-columns),
-      minmax(360px, 1fr)
-    );
-  gap: 10px;
-}
-
-.focus-workspace-slot {
-  display: flex;
-  min-width: 360px;
   min-height: 0;
-  flex-direction: column;
-}
-
-.slot-document-picker {
-  padding: 0 1px 7px;
-}
-
-.slot-document-picker select {
-  width: 100%;
-  height: 31px;
-  padding: 0 8px;
-  border: 1px solid #dfe3e8;
-  border-radius: 6px;
-  background: #fff;
-  color: #57606a;
-}
-
-.empty-document-slot,
-.focus-empty-state {
-  display: flex;
   flex: 1;
-  min-height: 250px;
-  align-items: center;
-  justify-content: center;
+  grid-template-columns:
+    repeat(var(--columns), minmax(290px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+}
+
+.focus-empty-pane {
+  display: grid;
+  min-width: 290px;
+  place-items: center;
+  border: 1px dashed #d6dbe1;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.focus-empty-pane > div {
+  display: flex;
+  width: min(290px, calc(100% - 30px));
+  max-height: 80%;
   flex-direction: column;
-  color: #8c959f;
-  gap: 8px;
+  align-items: center;
+  color: #747b85;
 }
 
-.empty-document-slot {
-  border: 1px dashed #d0d7de;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.55);
+.empty-icon {
+  margin-bottom: 7px;
+  color: #a5abb4;
+  font-size: 34px;
 }
 
-.empty-document-slot i,
-.focus-empty-state > i {
-  font-size: 36px;
+.focus-empty-pane > div > small {
+  margin-top: 4px;
+  color: #9da3ac;
 }
 
-.empty-document-slot button {
+.focus-picker {
+  width: 100%;
+  max-height: 250px;
+  margin: 15px 0 9px;
+  overflow-y: auto;
+}
+
+.focus-picker button {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 9px;
   border: 0;
+  border-radius: 7px;
   background: transparent;
-  color: #4263eb;
+  color: #505761;
+  text-align: left;
+  cursor: pointer;
 }
 
-.dark-theme .focus-documents-view {
-  background: #0d1117;
+.focus-picker button:hover {
+  background: #edf1f5;
 }
 
-.dark-theme .focus-topbar {
-  border-bottom-color: #30363d;
-  background: #161b22;
-  color: #c9d1d9;
+.focus-picker button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.dark-theme .focus-toolbar select,
+.focus-picker em {
+  margin-left: 5px;
+  color: #a77b15;
+  font-size: 9px;
+  font-style: normal;
+}
+
+.focus-picker small {
+  flex: 0 0 auto;
+  color: #9ba1aa;
+  font-size: 9px;
+}
+
+.create-link {
+  padding: 7px 12px;
+  border: 1px solid #dfe3e8;
+  border-radius: 7px;
+  background: #fff;
+  color: #59616c;
+  cursor: pointer;
+}
+
+.dark-theme .focus-workspace {
+  background: #0f141a;
+}
+
+.dark-theme .focus-workspace-header h1 {
+  color: #e1e5ea;
+}
+
 .dark-theme .focus-search,
-.dark-theme .slot-document-picker select {
-  border-color: #30363d;
-  background: #1c2128;
-  color: #c9d1d9;
+.dark-theme .focus-workspace-actions select {
+  border-color: #343b45;
+  background: #161b22;
+  color: #d1d6dc;
 }
 
-.dark-theme .focus-search input {
-  color: #c9d1d9;
+.dark-theme .focus-empty-pane {
+  border-color: #353d47;
+  background: rgba(22, 27, 34, 0.62);
 }
 
-.dark-theme .empty-document-slot {
-  border-color: #30363d;
-  background: rgba(22, 27, 34, 0.65);
+.dark-theme .focus-picker button {
+  color: #cbd0d7;
+}
+
+.dark-theme .focus-picker button:hover {
+  background: #252c35;
 }
 </style>

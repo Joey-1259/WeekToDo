@@ -1,253 +1,212 @@
 <template>
-  <section class="focus-document-pane">
-    <div class="document-pane-header">
+  <article class="focus-pane">
+    <header>
       <input
         v-model="localTitle"
-        class="document-title-input"
         maxlength="120"
-        placeholder="文档标题"
-        @blur="saveTitle"
-        @keydown.enter.prevent="$event.target.blur()"
+        placeholder="未命名文档"
+        @input="scheduleTitleSave"
       />
 
-      <div class="document-actions">
-        <button
-          type="button"
-          title="归档文档"
-          @click="$emit('archive', documentData.id)"
-        >
-          <i class="bi-archive"></i>
-        </button>
+      <div>
+        <span>{{ statusLabel }}</span>
+        <button title="沉浸式编辑" @click="$emit('edit', document.id)">⛶</button>
+        <button title="归档" @click="$emit('archive', document.id)">⋯</button>
       </div>
+    </header>
+
+    <div class="focus-pane-tags">
+      <span v-for="tag in document.tags" :key="tag">{{ tag }}</span>
+      <span v-if="document.draft" class="draft">草稿</span>
     </div>
 
-    <div class="document-tag-row">
-      <button
-        v-for="tag in documentTags"
-        :key="tag.id"
-        type="button"
-        class="document-tag"
-        :data-color="tag.color"
-        :title="`移除标签：${tag.name}`"
-        @click="$emit('removeTag', tag.id)"
-      >
-        {{ tag.name }}
-        <i class="bi-x"></i>
-      </button>
-
-      <select
-        class="tag-add-select"
-        :value="''"
-        @change="addTag"
-      >
-        <option value="">＋ 标签</option>
-
-        <option
-          v-for="tag in availableTags"
-          :key="tag.id"
-          :value="tag.id"
-        >
-          {{ tag.name }}
-        </option>
-
-        <option value="__new__">
-          ＋ 新建标签
-        </option>
-      </select>
-    </div>
-
-    <focus-document-editor
-      :key="documentData.id"
-      :document-data="documentData"
-      @save="$emit('saveContent', $event)"
+    <FocusDocumentEditor
+      ref="editor"
+      v-model="localContent"
+      :document-id="document.id"
+      @update:model-value="scheduleContentSave"
+      @request-task="taskComposerVisible = true"
+      @open-task="$emit('open-task', $event)"
     />
-  </section>
+
+    <FocusTaskComposer
+      v-if="taskComposerVisible"
+      :document-id="document.id"
+      @close="taskComposerVisible = false"
+      @created="insertTask"
+    />
+  </article>
 </template>
 
 <script>
 import FocusDocumentEditor from "./FocusDocumentEditor.vue";
+import FocusTaskComposer from "./FocusTaskComposer.vue";
+import focusDocumentService from "../../services/focusDocumentService";
 
 export default {
   name: "FocusDocumentPane",
-
   components: {
     FocusDocumentEditor,
+    FocusTaskComposer,
   },
-
   props: {
-    documentData: {
+    document: {
       type: Object,
       required: true,
     },
-
-    tags: {
-      type: Array,
-      default: () => [],
-    },
   },
-
-  emits: [
-    "saveTitle",
-    "saveContent",
-    "addTag",
-    "createTag",
-    "removeTag",
-    "archive",
-  ],
-
+  emits: ["saved", "edit", "archive", "open-task"],
   data() {
     return {
-      localTitle:
-        this.documentData.title || "",
+      localTitle: this.document.title,
+      localContent: this.document.content,
+      timer: null,
+      saveState: "saved",
+      taskComposerVisible: false,
     };
   },
-
   computed: {
-    documentTags() {
-      return this.tags.filter((tag) =>
-        (this.documentData.tagIds || [])
-          .includes(tag.id)
-      );
-    },
-
-    availableTags() {
-      return this.tags.filter(
-        (tag) =>
-          !(this.documentData.tagIds || [])
-            .includes(tag.id)
-      );
+    statusLabel() {
+      if (this.saveState === "saving") return "保存中…";
+      if (this.saveState === "failed") return "保存失败";
+      return "已保存";
     },
   },
-
   watch: {
-    "documentData.id"() {
-      this.localTitle =
-        this.documentData.title || "";
-    },
-
-    "documentData.title"(value) {
-      this.localTitle = value || "";
+    document: {
+      deep: true,
+      handler(value) {
+        this.localTitle = value.title;
+        this.localContent = value.content;
+      },
     },
   },
-
+  beforeUnmount() {
+    clearTimeout(this.timer);
+  },
   methods: {
-    saveTitle() {
-      const title =
-        String(this.localTitle || "").trim() ||
-        "未命名文档";
-
-      this.localTitle = title;
-      this.$emit("saveTitle", title);
+    scheduleTitleSave() {
+      this.scheduleSave({ title: this.localTitle });
     },
 
-    addTag(event) {
-      const tagId = event.target.value;
-      event.target.value = "";
+    scheduleContentSave() {
+      this.scheduleSave({ content: this.localContent });
+    },
 
-      if (!tagId) {
-        return;
-      }
+    scheduleSave(patch) {
+      this.saveState = "saving";
+      clearTimeout(this.timer);
 
-      if (tagId === "__new__") {
-        this.$emit("createTag");
-        return;
-      }
+      this.timer = setTimeout(async () => {
+        try {
+          const saved =
+            await focusDocumentService.updateDocument(
+              this.document.id,
+              patch
+            );
+          this.saveState = "saved";
+          this.$emit("saved", saved);
+        } catch (error) {
+          console.error(error);
+          this.saveState = "failed";
+        }
+      }, 800);
+    },
 
-      this.$emit("addTag", tagId);
+    insertTask(attrs) {
+      this.taskComposerVisible = false;
+      this.$refs.editor?.insertLinkedTask(attrs);
     },
   },
 };
 </script>
 
 <style scoped lang="scss">
-.focus-document-pane {
+.focus-pane {
   display: flex;
-  min-width: 360px;
-  height: 100%;
-  flex: 1 0 0;
+  min-width: 0;
+  min-height: 0;
   flex-direction: column;
-  overflow: hidden;
-  border: 1px solid #e2e6ea;
-  border-radius: 9px;
+  border: 1px solid #e1e5e9;
+  border-radius: 11px;
   background: #fff;
+  overflow: hidden;
 }
 
-.document-pane-header {
+.focus-pane > header {
   display: flex;
   align-items: center;
-  padding: 10px 12px 5px;
-  gap: 8px;
+  gap: 10px;
+  padding: 11px 12px 7px;
 }
 
-.document-title-input {
+.focus-pane > header input {
   min-width: 0;
   flex: 1;
   border: 0;
-  background: transparent;
-  color: #24292f;
-  font-size: 18px;
-  font-weight: 650;
   outline: none;
-}
-
-.document-actions button {
-  border: 0;
-  border-radius: 5px;
   background: transparent;
-  color: #8c959f;
+  color: #282c32;
+  font-size: 16px;
+  font-weight: 650;
 }
 
-.document-actions button:hover {
-  background: #f1f3f5;
-  color: #d9480f;
-}
-
-.document-tag-row {
+.focus-pane > header > div {
   display: flex;
-  min-height: 34px;
-  padding: 2px 12px 8px;
   align-items: center;
+  gap: 3px;
+}
+
+.focus-pane > header span {
+  color: #999fa8;
+  font-size: 10px;
+}
+
+.focus-pane > header button {
+  width: 29px;
+  height: 29px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.focus-pane > header button:hover {
+  background: #eef1f5;
+}
+
+.focus-pane-tags {
+  display: flex;
+  min-height: 25px;
   flex-wrap: wrap;
   gap: 5px;
+  padding: 0 12px 7px;
 }
 
-.document-tag {
-  padding: 2px 7px;
-  border: 0;
+.focus-pane-tags span {
+  padding: 3px 7px;
   border-radius: 10px;
-  background: #edf2ff;
-  color: #4263eb;
-  font-size: 11px;
+  background: #eef1f6;
+  color: #68707b;
+  font-size: 10px;
 }
 
-.tag-add-select {
-  max-width: 110px;
-  border: 0;
-  background: transparent;
-  color: #8c959f;
-  font-size: 11px;
-  outline: none;
+.focus-pane-tags .draft {
+  background: #fff3cd;
+  color: #856404;
 }
 
-.dark-theme .focus-document-pane {
+.dark-theme .focus-pane {
   border-color: #30363d;
   background: #161b22;
 }
 
-.dark-theme .document-title-input {
-  color: #e6edf3;
+.dark-theme .focus-pane > header input {
+  color: #e1e5ea;
 }
 
-.dark-theme .document-actions button:hover {
-  background: #262c36;
-}
-
-.dark-theme .document-tag {
-  background: #212b40;
-  color: #8ea6ff;
-}
-
-.dark-theme .tag-add-select {
-  color: #9da7b3;
+.dark-theme .focus-pane-tags span {
+  background: #252c35;
+  color: #bcc2ca;
 }
 </style>

@@ -88,7 +88,27 @@ export default {
       this.$store.commit("setUndoElement", { type: 'task', todo: todo, index: this.activeTodo.index });
       this.$store.commit("removeTodo", { toDoListId: this.activeTodo.toDoListId, index: this.activeTodo.index, });
       notifications.refreshDayNotifications(this, this.activeTodo.toDoListId);
+      window.dispatchEvent(
+        new CustomEvent("weektodo:task-changed", {
+          detail: {
+            action: "updated",
+            taskId: todo.id,
+            listId: todo.listId,
+          },
+        })
+      );
+      // weektodo:task-checked
       toDoListRepository.update(this.activeTodo.toDoListId, this.$store.getters.todoLists[this.activeTodo.toDoListId]);
+      window.dispatchEvent(
+        new CustomEvent("weektodo:task-changed", {
+          detail: {
+            action: "deleted",
+            taskId: todo.id,
+            listId: this.activeTodo.toDoListId,
+          },
+        })
+      );
+      // weektodo:task-removed
       let toast = new Toast(document.getElementById("taskRemoved"));
       toast.show();
       this.hideToDoItem();

@@ -1,210 +1,180 @@
 import focusDataRepository, {
   FOCUS_STORES,
 } from "../repositories/focusDataRepository";
+import focusTaskService from "./focusTaskService";
+import { createId } from "../helpers/idHelper";
 
-function createId(prefix) {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return `${prefix}_${crypto.randomUUID()}`;
-  }
+const EMPTY_CONTENT = {
+  type: "doc",
+  content: [{ type: "paragraph" }],
+};
 
-  return `${prefix}_${Date.now()}_${Math.random()
-    .toString(36)
-    .slice(2)}`;
+const revisionTimes = new Map();
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
-function now() {
-  return new Date().toISOString();
-}
+function normalize(record) {
+  const now = new Date().toISOString();
 
-function emptyContent() {
   return {
-    type: "doc",
-    content: [
-      {
-        type: "paragraph",
-      },
-    ],
+    id: record.id,
+    title: record.title || "",
+    tags: Array.isArray(record.tags) ? record.tags : [],
+    content: record.content || clone(EMPTY_CONTENT),
+    draft: Boolean(record.draft),
+    pinned: Boolean(record.pinned),
+    archivedAt: record.archivedAt || null,
+    deletedAt: record.deletedAt || null,
+    createdAt: record.createdAt || now,
+    updatedAt: record.updatedAt || now,
+    lastOpenedAt: record.lastOpenedAt || now,
   };
 }
 
-function normalizeTagName(value) {
-  return String(value || "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .slice(0, 24);
+async function createRevision(document) {
+  const last = revisionTimes.get(document.id) || 0;
+  const now = Date.now();
+
+  if (now - last < 10 * 60 * 1000) return;
+
+  revisionTimes.set(document.id, now);
+
+  await focusDataRepository.put(
+    FOCUS_STORES.revisions,
+    {
+      id: createId("revision"),
+      documentId: document.id,
+      title: document.title,
+      content: clone(document.content),
+      createdAt: new Date(now).toISOString(),
+    }
+  );
+
+  const revisions =
+    await focusDataRepository.getAllByIndex(
+      FOCUS_STORES.revisions,
+      "documentId",
+      document.id
+    );
+
+  const overflow = revisions
+    .sort((a, b) =>
+      String(b.createdAt).localeCompare(String(a.createdAt))
+    )
+    .slice(30);
+
+  await Promise.all(
+    overflow.map((item) =>
+      focusDataRepository.remove(
+        FOCUS_STORES.revisions,
+        item.id
+      )
+    )
+  );
 }
 
 const focusDocumentService = {
-  async listDocuments(options = {}) {
-    const includeArchived =
-      Boolean(options.includeArchived);
+  emptyContent() {
+    return clone(EMPTY_CONTENT);
+  },
 
-    const documents =
-      await focusDataRepository.getAll(
-        FOCUS_STORES.documents
-      );
+  createDraftRecord() {
+    const now = new Date().toISOString();
 
-    return documents
-      .filter((document) => {
-        if (document.deletedAt) {
-          return false;
-        }
+    return normalize({
+      id: createId("doc"),
+      title: "",
+      tags: [],
+      content: clone(EMPTY_CONTENT),
+      draft: true,
+      createdAt: now,
+      updatedAt: now,
+      lastOpenedAt: now,
+    });
+  },
 
-        if (
-          !includeArchived &&
-          document.archivedAt
-        ) {
-          return false;
-        }
+  async listDocuments({
+    includeArchived = false,
+    includeDeleted = false,
+  } = {}) {
+    const records = await focusDataRepository.getAll(
+      FOCUS_STORES.documents
+    );
 
-        return true;
-      })
+    return records
+      .map(normalize)
+      .filter(
+        (item) =>
+          (includeArchived || !item.archivedAt) &&
+          (includeDeleted || !item.deletedAt)
+      )
       .sort((a, b) => {
-        if (a.pinned !== b.pinned) {
-          return a.pinned ? -1 : 1;
-        }
-
-        if (
-          Number(a.sortOrder || 0) !==
-          Number(b.sortOrder || 0)
-        ) {
-          return (
-            Number(a.sortOrder || 0) -
-            Number(b.sortOrder || 0)
-          );
-        }
-
-        return String(b.updatedAt || "").localeCompare(
-          String(a.updatedAt || "")
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        return String(b.updatedAt).localeCompare(
+          String(a.updatedAt)
         );
       });
   },
 
-  async createDocument(title = "未命名文档") {
-    const timestamp = now();
+  async getDocument(id) {
+    const record = await focusDataRepository.get(
+      FOCUS_STORES.documents,
+      id
+    );
 
-    const document = {
-      id: createId("fd"),
-      title:
-        String(title || "").trim() ||
-        "未命名文档",
-      tagIds: [],
-      content: emptyContent(),
-      plainText: "",
-      pinned: false,
-      archivedAt: null,
-      deletedAt: null,
-      sortOrder: Date.now(),
-      schemaVersion: 1,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      lastOpenedAt: timestamp,
-    };
+    return record ? normalize(record) : null;
+  },
+
+  async saveDocument(document, { final = false } = {}) {
+    const current =
+      (await this.getDocument(document.id)) || document;
+    const now = new Date().toISOString();
+
+    const saved = normalize({
+      ...current,
+      ...clone(document),
+      id: document.id,
+      title: String(document.title || "").slice(0, 120),
+      draft: final ? false : Boolean(document.draft),
+      createdAt: current.createdAt || now,
+      updatedAt: now,
+      lastOpenedAt: now,
+    });
 
     await focusDataRepository.put(
       FOCUS_STORES.documents,
-      document
+      saved
     );
 
-    return document;
+    await createRevision(saved);
+    return saved;
   },
 
   async updateDocument(id, patch) {
-    const existing =
-      await focusDataRepository.get(
-        FOCUS_STORES.documents,
-        id
-      );
+    const current = await this.getDocument(id);
+    if (!current) throw new Error(`文档不存在：${id}`);
 
-    if (!existing) {
-      throw new Error("文档不存在或已被删除");
-    }
-
-    const document = {
-      ...existing,
-      ...patch,
+    return this.saveDocument({
+      ...current,
+      ...clone(patch),
       id,
-      updatedAt: now(),
-    };
-
-    await focusDataRepository.put(
-      FOCUS_STORES.documents,
-      document
-    );
-
-    return document;
+    });
   },
 
   async archiveDocument(id) {
     return this.updateDocument(id, {
-      archivedAt: now(),
+      archivedAt: new Date().toISOString(),
     });
   },
 
-  async touchDocument(id) {
-    return this.updateDocument(id, {
-      lastOpenedAt: now(),
-    });
-  },
-
-  async listTags() {
-    const tags =
-      await focusDataRepository.getAll(
-        FOCUS_STORES.tags
-      );
-
-    return tags.sort((a, b) =>
-      String(a.name).localeCompare(
-        String(b.name),
-        "zh-CN"
-      )
+  async deleteDocument(id) {
+    await focusTaskService.removeDocumentLinks(id);
+    await focusDataRepository.remove(
+      FOCUS_STORES.documents,
+      id
     );
-  },
-
-  async createTag(name, color = "blue") {
-    const cleanName = normalizeTagName(name);
-
-    if (!cleanName) {
-      throw new Error("标签名称不能为空");
-    }
-
-    const normalizedName =
-      cleanName.toLocaleLowerCase();
-
-    const existing =
-      await focusDataRepository.getAll(
-        FOCUS_STORES.tags
-      );
-
-    const duplicate = existing.find(
-      (tag) =>
-        tag.normalizedName === normalizedName
-    );
-
-    if (duplicate) {
-      return duplicate;
-    }
-
-    const timestamp = now();
-
-    const tag = {
-      id: createId("ft"),
-      name: cleanName,
-      normalizedName,
-      color,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
-
-    await focusDataRepository.put(
-      FOCUS_STORES.tags,
-      tag
-    );
-
-    return tag;
   },
 };
 

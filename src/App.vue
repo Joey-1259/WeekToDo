@@ -92,7 +92,7 @@
         @jump-to-date="jumpToDateFromHub"
       ></calendar-hub-view>
 
-      <focus-documents-view
+      <focus-documents-view @open-week="openFocusTaskDate"
         v-if="activeModule === 'focus'"
         class="flex-grow-1"
       ></focus-documents-view>
@@ -287,6 +287,36 @@ export default {
     }
   },
   methods: {
+    openFocusTaskDate: function (payload) {
+      this.activeModule = "week";
+      this.showCalendarHub = false;
+
+      this.$nextTick(() => {
+        this.setSelectedDate({
+          date: payload.listId,
+          picked: true,
+        });
+
+        setTimeout(() => {
+          const element = document.querySelector(
+            `[data-task-id="${payload.taskId}"]`
+          );
+
+          if (element) {
+            element.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+            element.classList.add("focus-task-flash");
+            setTimeout(
+              () => element.classList.remove("focus-task-flash"),
+              1800
+            );
+          }
+        }, 350);
+      });
+    },
+
     openWeek() {
       this.activeModule = "week";
       this.showCalendarHub = false;

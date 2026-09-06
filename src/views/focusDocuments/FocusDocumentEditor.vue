@@ -1,772 +1,583 @@
 <template>
-  <div class="focus-editor-shell">
-    <div class="focus-editor-toolbar">
+  <div class="focus-editor" :class="{ spacious }">
+    <div v-if="editor" class="focus-editor-toolbar">
+      <select :value="currentBlock" @change="setBlock($event.target.value)">
+        <option value="paragraph">正文</option>
+        <option value="h1">一级标题</option>
+        <option value="h2">二级标题</option>
+        <option value="h3">三级标题</option>
+      </select>
+
+      <span class="divider"></span>
+
       <button
-        type="button"
-        :class="{ active: editor?.isActive('bold') }"
+        :class="{ active: editor.isActive('bold') }"
         title="粗体"
-        @click="editor?.chain().focus().toggleBold().run()"
-      >
-        <i class="bi-type-bold"></i>
-      </button>
-
+        @click="run('toggleBold')"
+      ><strong>B</strong></button>
       <button
-        type="button"
-        :class="{ active: editor?.isActive('italic') }"
+        :class="{ active: editor.isActive('italic') }"
         title="斜体"
-        @click="editor?.chain().focus().toggleItalic().run()"
-      >
-        <i class="bi-type-italic"></i>
-      </button>
-
+        @click="run('toggleItalic')"
+      ><em>I</em></button>
       <button
-        type="button"
-        :class="{
-          active: editor?.isActive(
-            'heading',
-            { level: 2 }
-          )
-        }"
-        title="标题"
-        @click="
-          editor
-            ?.chain()
-            .focus()
-            .toggleHeading({ level: 2 })
-            .run()
-        "
-      >
-        H2
-      </button>
-
+        :class="{ active: editor.isActive('underline') }"
+        title="下划线"
+        @click="run('toggleUnderline')"
+      ><u>U</u></button>
       <button
-        type="button"
-        :class="{
-          active: editor?.isActive('bulletList')
-        }"
-        title="无序列表"
-        @click="
-          editor
-            ?.chain()
-            .focus()
-            .toggleBulletList()
-            .run()
-        "
-      >
-        <i class="bi-list-ul"></i>
-      </button>
-
+        :class="{ active: editor.isActive('strike') }"
+        title="删除线"
+        @click="run('toggleStrike')"
+      ><s>S</s></button>
       <button
-        type="button"
-        :class="{
-          active: editor?.isActive('taskList')
-        }"
-        title="清单"
-        @click="
-          editor
-            ?.chain()
-            .focus()
-            .toggleTaskList()
-            .run()
-        "
-      >
-        <i class="bi-list-check"></i>
-      </button>
+        :class="{ active: editor.isActive('highlight') }"
+        title="高亮"
+        @click="run('toggleHighlight')"
+      ><mark>A</mark></button>
 
-      <span class="editor-save-state">
-        {{ saveStateText }}
-      </span>
+      <span class="divider"></span>
+
+      <button title="无序列表" @click="run('toggleBulletList')">☷</button>
+      <button title="有序列表" @click="run('toggleOrderedList')">1.</button>
+      <button title="待办清单" @click="run('toggleTaskList')">☑</button>
+      <button title="引用" @click="run('toggleBlockquote')">❝</button>
+      <button title="关联事项" @click="$emit('request-task')">↗</button>
+
+      <span class="spacer"></span>
+
+      <button title="Markdown 源码" @click="openMarkdown">MD</button>
+      <button title="撤销" @click="run('undo')">↶</button>
+      <button title="重做" @click="run('redo')">↷</button>
     </div>
 
-    <div class="focus-editor-area">
-      <editor-content
-        v-if="editor"
-        :editor="editor"
-      />
+    <BubbleMenu
+      v-if="editor"
+      :editor="editor"
+      :options="{ placement: 'top', offset: 8 }"
+      class="focus-bubble"
+    >
+      <button @click="run('toggleBold')"><strong>B</strong></button>
+      <button @click="run('toggleItalic')"><em>I</em></button>
+      <button @click="run('toggleUnderline')"><u>U</u></button>
+      <button @click="run('toggleStrike')"><s>S</s></button>
+      <button @click="run('toggleHighlight')">高亮</button>
+      <button @click="editLink">链接</button>
+    </BubbleMenu>
 
-      <div
-        v-if="slashVisible"
-        class="slash-command-menu"
-      >
-        <button
-          v-for="(item, index) in filteredCommands"
-          :key="item.id"
-          type="button"
-          :class="{ active: index === slashIndex }"
-          @mousedown.prevent="runSlashCommand(item)"
-        >
-          <i :class="item.icon"></i>
+    <EditorContent :editor="editor" class="focus-editor-content" />
 
-          <span>
-            <strong>{{ item.label }}</strong>
-            <small>{{ item.description }}</small>
-          </span>
-        </button>
+    <div class="focus-editor-help">
+      输入 <kbd>/</kbd> 或 <kbd>、</kbd> 插入内容；
+      <kbd>/sx</kbd> 创建关联事项
+    </div>
 
-        <div
-          v-if="filteredCommands.length === 0"
-          class="slash-empty"
-        >
-          没有匹配的命令
-        </div>
-      </div>
+    <div
+      v-if="markdownVisible"
+      class="markdown-backdrop"
+      @mousedown.self="markdownVisible = false"
+    >
+      <section class="markdown-dialog">
+        <header>
+          <div>
+            <strong>Markdown 源码</strong>
+            <small>应用后会转换为结构化文档</small>
+          </div>
+          <button @click="markdownVisible = false">×</button>
+        </header>
+
+        <textarea
+          ref="markdown"
+          v-model="markdownSource"
+          spellcheck="false"
+        ></textarea>
+
+        <footer>
+          <button @click="markdownVisible = false">取消</button>
+          <button class="primary" @click="applyMarkdown">
+            应用
+          </button>
+        </footer>
+      </section>
     </div>
   </div>
 </template>
 
 <script>
-import {
-  Editor,
-  EditorContent,
-  Node,
-  mergeAttributes,
-} from "@tiptap/vue-3";
+import { Editor, EditorContent } from "@tiptap/vue-3";
+import { BubbleMenu } from "@tiptap/vue-3/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import Highlight from "@tiptap/extension-highlight";
+import {
+  Details,
+  DetailsSummary,
+  DetailsContent,
+} from "@tiptap/extension-details";
+import { Markdown } from "@tiptap/markdown";
+import SlashCommands from "../../editor/extensions/SlashCommands";
+import LinkedTask from "../../editor/extensions/LinkedTask";
+import { createSlashCommandItems } from "../../editor/slashCommandItems";
+import focusTaskService from "../../services/focusTaskService";
 
-const Callout = Node.create({
-  name: "callout",
-  group: "block",
-  content: "block+",
-  defining: true,
-
-  addAttributes() {
-    return {
-      tone: {
-        default: "info",
-      },
-    };
-  },
-
-  parseHTML() {
-    return [
-      {
-        tag: "div[data-callout]",
-      },
-    ];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return [
-      "div",
-      mergeAttributes(
-        HTMLAttributes,
-        {
-          "data-callout":
-            HTMLAttributes.tone || "info",
-        }
-      ),
-      0,
-    ];
-  },
-});
-
-const ToggleSummary = Node.create({
-  name: "toggleSummary",
-  group: "block",
-  content: "inline*",
-  defining: true,
-
-  parseHTML() {
-    return [{ tag: "summary" }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return [
-      "summary",
-      mergeAttributes(HTMLAttributes),
-      0,
-    ];
-  },
-});
-
-const ToggleDetails = Node.create({
-  name: "toggleDetails",
-  group: "block",
-  content: "toggleSummary block+",
-  defining: true,
-
-  parseHTML() {
-    return [{ tag: "details" }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return [
-      "details",
-      mergeAttributes(HTMLAttributes),
-      0,
-    ];
-  },
-});
+const EMPTY = {
+  type: "doc",
+  content: [{ type: "paragraph" }],
+};
 
 export default {
   name: "FocusDocumentEditor",
-
-  components: {
-    EditorContent,
-  },
-
+  components: { EditorContent, BubbleMenu },
   props: {
-    documentData: {
+    modelValue: {
       type: Object,
+      default: () => EMPTY,
+    },
+    documentId: {
+      type: String,
       required: true,
     },
+    spacious: Boolean,
   },
-
-  emits: ["save"],
-
+  emits: [
+    "update:modelValue",
+    "request-task",
+    "open-task",
+  ],
   data() {
     return {
       editor: null,
-      saveTimer: null,
-      saveState: "saved",
-      slashVisible: false,
-      slashQuery: "",
-      slashRange: null,
-      slashIndex: 0,
+      markdownVisible: false,
+      markdownSource: "",
+      externalUpdate: false,
     };
   },
-
   computed: {
-    saveStateText() {
-      const labels = {
-        saved: "已保存",
-        waiting: "等待保存",
-        saving: "正在保存…",
-        error: "保存失败",
-      };
-
-      return labels[this.saveState] || "";
-    },
-
-    slashCommands() {
-      return [
-        {
-          id: "text",
-          label: "正文",
-          keywords: "正文 text paragraph",
-          description: "普通文本段落",
-          icon: "bi-text-paragraph",
-          action: () =>
-            this.editor
-              .chain()
-              .focus()
-              .setParagraph()
-              .run(),
-        },
-        {
-          id: "h2",
-          label: "大标题",
-          keywords: "标题 h2 heading",
-          description: "二级标题",
-          icon: "bi-type-h2",
-          action: () =>
-            this.editor
-              .chain()
-              .focus()
-              .setHeading({ level: 2 })
-              .run(),
-        },
-        {
-          id: "h3",
-          label: "小标题",
-          keywords: "小标题 h3 heading",
-          description: "三级标题",
-          icon: "bi-type-h3",
-          action: () =>
-            this.editor
-              .chain()
-              .focus()
-              .setHeading({ level: 3 })
-              .run(),
-        },
-        {
-          id: "bullet",
-          label: "无序列表",
-          keywords: "无序 列表 bullet",
-          description: "项目符号列表",
-          icon: "bi-list-ul",
-          action: () =>
-            this.editor
-              .chain()
-              .focus()
-              .toggleBulletList()
-              .run(),
-        },
-        {
-          id: "ordered",
-          label: "有序列表",
-          keywords: "有序 编号 number",
-          description: "数字编号列表",
-          icon: "bi-list-ol",
-          action: () =>
-            this.editor
-              .chain()
-              .focus()
-              .toggleOrderedList()
-              .run(),
-        },
-        {
-          id: "check",
-          label: "清单",
-          keywords: "清单 检查 checkbox task",
-          description: "仅存在于文档中的检查项",
-          icon: "bi-list-check",
-          action: () =>
-            this.editor
-              .chain()
-              .focus()
-              .toggleTaskList()
-              .run(),
-        },
-        {
-          id: "quote",
-          label: "引用",
-          keywords: "引用 quote",
-          description: "引用一段内容",
-          icon: "bi-quote",
-          action: () =>
-            this.editor
-              .chain()
-              .focus()
-              .toggleBlockquote()
-              .run(),
-        },
-        {
-          id: "toggle",
-          label: "折叠块",
-          keywords: "折叠 展开 toggle details",
-          description: "可展开和收起的内容",
-          icon: "bi-chevron-right",
-          action: () =>
-            this.insertToggle(),
-        },
-        {
-          id: "info",
-          label: "信息块",
-          keywords: "信息 蓝色 info",
-          description: "背景资料或一般说明",
-          icon: "bi-info-circle",
-          action: () =>
-            this.insertCallout("info"),
-        },
-        {
-          id: "warning",
-          label: "注意块",
-          keywords: "注意 黄色 warning",
-          description: "需要特别关注",
-          icon: "bi-exclamation-circle",
-          action: () =>
-            this.insertCallout("warning"),
-        },
-        {
-          id: "danger",
-          label: "风险块",
-          keywords: "风险 红色 danger",
-          description: "风险或阻塞",
-          icon: "bi-exclamation-triangle",
-          action: () =>
-            this.insertCallout("danger"),
-        },
-        {
-          id: "success",
-          label: "结论块",
-          keywords: "结论 绿色 success",
-          description: "已确认的结论",
-          icon: "bi-check-circle",
-          action: () =>
-            this.insertCallout("success"),
-        },
-        {
-          id: "divider",
-          label: "分割线",
-          keywords: "分割线 divider horizontal",
-          description: "分隔不同内容",
-          icon: "bi-dash-lg",
-          action: () =>
-            this.editor
-              .chain()
-              .focus()
-              .setHorizontalRule()
-              .run(),
-        },
-      ];
-    },
-
-    filteredCommands() {
-      const query = String(
-        this.slashQuery || ""
-      ).toLocaleLowerCase();
-
-      return this.slashCommands.filter(
-        (item) =>
-          `${item.label} ${item.keywords}`
-            .toLocaleLowerCase()
-            .includes(query)
-      );
+    currentBlock() {
+      if (!this.editor) return "paragraph";
+      for (const level of [1, 2, 3]) {
+        if (this.editor.isActive("heading", { level })) {
+          return `h${level}`;
+        }
+      }
+      return "paragraph";
     },
   },
-
   watch: {
-    "documentData.id"() {
-      this.loadDocument();
+    modelValue: {
+      deep: true,
+      handler(value) {
+        if (!this.editor || this.externalUpdate) return;
+
+        if (
+          JSON.stringify(this.editor.getJSON()) ===
+          JSON.stringify(value)
+        ) return;
+
+        this.externalUpdate = true;
+        this.editor.commands.setContent(value || EMPTY, {
+          emitUpdate: false,
+        });
+        this.externalUpdate = false;
+        this.refreshLinkedTasks();
+      },
     },
   },
-
   mounted() {
-    this.createEditor();
-  },
+    this.editor = new Editor({
+      content: this.modelValue || EMPTY,
+      extensions: [
+        StarterKit.configure({
+          heading: { levels: [1, 2, 3] },
+          link: {
+            openOnClick: false,
+            autolink: true,
+            linkOnPaste: true,
+          },
+        }),
+        Placeholder.configure({
+          placeholder:
+            "开始记录。输入 / 或 、插入内容……",
+        }),
+        TaskList,
+        TaskItem.configure({ nested: true }),
+        Highlight,
+        Details.configure({ persist: true }),
+        DetailsSummary,
+        DetailsContent,
+        Markdown.configure({
+          markedOptions: { gfm: true, breaks: false },
+        }),
+        LinkedTask,
+        SlashCommands.configure({
+          items: createSlashCommandItems(() =>
+            this.$emit("request-task")
+          ),
+        }),
+      ],
+      editorProps: {
+        attributes: {
+          class: "focus-prosemirror",
+          spellcheck: "true",
+        },
+      },
+      onUpdate: ({ editor }) => {
+        if (!this.externalUpdate) {
+          this.$emit("update:modelValue", editor.getJSON());
+        }
+      },
+    });
 
+    window.addEventListener(
+      "focus-task-toggle",
+      this.onTaskToggle
+    );
+    window.addEventListener(
+      "focus-task-open",
+      this.onTaskOpen
+    );
+    window.addEventListener(
+      "focus-task-unlink",
+      this.onTaskUnlink
+    );
+    window.addEventListener(
+      "weektodo:task-changed",
+      this.onTaskChanged
+    );
+
+    this.refreshLinkedTasks();
+  },
   beforeUnmount() {
-    this.flushSave();
-
-    if (this.editor) {
-      this.editor.destroy();
-      this.editor = null;
-    }
+    window.removeEventListener(
+      "focus-task-toggle",
+      this.onTaskToggle
+    );
+    window.removeEventListener(
+      "focus-task-open",
+      this.onTaskOpen
+    );
+    window.removeEventListener(
+      "focus-task-unlink",
+      this.onTaskUnlink
+    );
+    window.removeEventListener(
+      "weektodo:task-changed",
+      this.onTaskChanged
+    );
+    this.editor?.destroy();
   },
-
   methods: {
-    createEditor() {
-      this.editor = new Editor({
-        content:
-          this.documentData.content || {
-            type: "doc",
-            content: [
-              { type: "paragraph" },
-            ],
-          },
+    run(command) {
+      this.editor?.chain().focus()[command]().run();
+    },
 
-        extensions: [
-          StarterKit.configure({
-            heading: {
-              levels: [2, 3],
-            },
-          }),
-          Placeholder.configure({
-            placeholder:
-              "输入内容，或在空行输入 / 插入内容块…",
-          }),
-          TaskList,
-          TaskItem.configure({
-            nested: true,
-          }),
-          Callout,
-          ToggleSummary,
-          ToggleDetails,
-        ],
+    setBlock(value) {
+      const chain = this.editor.chain().focus();
 
-        editorProps: {
-          attributes: {
-            class: "focus-prosemirror",
-          },
+      if (value === "paragraph") {
+        chain.setParagraph().run();
+      } else {
+        chain
+          .setHeading({ level: Number(value.slice(1)) })
+          .run();
+      }
+    },
 
-          handleKeyDown: (view, event) => {
-            if (!this.slashVisible) {
-              return false;
-            }
+    focus() {
+      this.editor?.commands.focus("end");
+    },
 
-            if (event.key === "ArrowDown") {
-              event.preventDefault();
+    insertLinkedTask(attrs) {
+      this.editor
+        ?.chain()
+        .focus()
+        .insertContent([
+          { type: "linkedTask", attrs },
+          { type: "paragraph" },
+        ])
+        .run();
+    },
 
-              this.slashIndex =
-                (this.slashIndex + 1) %
-                Math.max(
-                  this.filteredCommands.length,
-                  1
-                );
+    updateTaskNodes(taskId, attrs) {
+      if (!this.editor) return;
 
-              return true;
-            }
+      const transaction = this.editor.state.tr;
+      let changed = false;
 
-            if (event.key === "ArrowUp") {
-              event.preventDefault();
-
-              this.slashIndex =
-                (
-                  this.slashIndex -
-                  1 +
-                  Math.max(
-                    this.filteredCommands.length,
-                    1
-                  )
-                ) %
-                Math.max(
-                  this.filteredCommands.length,
-                  1
-                );
-
-              return true;
-            }
-
-            if (event.key === "Enter") {
-              const item =
-                this.filteredCommands[
-                  this.slashIndex
-                ];
-
-              if (item) {
-                event.preventDefault();
-                this.runSlashCommand(item);
-                return true;
-              }
-            }
-
-            if (event.key === "Escape") {
-              this.slashVisible = false;
-              return true;
-            }
-
-            return false;
-          },
-        },
-
-        onUpdate: ({ editor }) => {
-          this.detectSlash(editor);
-          this.scheduleSave();
-        },
-
-        onSelectionUpdate: ({ editor }) => {
-          this.detectSlash(editor);
-        },
+      this.editor.state.doc.descendants((node, pos) => {
+        if (
+          node.type.name === "linkedTask" &&
+          node.attrs.taskId === taskId
+        ) {
+          transaction.setNodeMarkup(pos, undefined, {
+            ...node.attrs,
+            ...attrs,
+          });
+          changed = true;
+        }
       });
+
+      if (changed) this.editor.view.dispatch(transaction);
     },
 
-    loadDocument() {
-      if (!this.editor) {
-        return;
-      }
+    async refreshLinkedTasks() {
+      if (!this.editor) return;
 
-      clearTimeout(this.saveTimer);
+      const nodes = [];
+      this.editor.state.doc.descendants((node) => {
+        if (node.type.name === "linkedTask") {
+          nodes.push(node.attrs);
+        }
+      });
 
-      this.editor.commands.setContent(
-        this.documentData.content || {
-          type: "doc",
-          content: [
-            { type: "paragraph" },
-          ],
-        },
-        { emitUpdate: false }
-      );
-
-      this.saveState = "saved";
-      this.slashVisible = false;
-    },
-
-    detectSlash(editor) {
-      const { $from } =
-        editor.state.selection;
-
-      if (!$from.parent.isTextblock) {
-        this.slashVisible = false;
-        return;
-      }
-
-      const text =
-        $from.parent.textBetween(
-          0,
-          $from.parentOffset,
-          "",
-          ""
+      for (const attrs of nodes) {
+        const task = await focusTaskService.resolveTask(
+          attrs.taskId,
+          attrs.listId
         );
 
-      if (!text.startsWith("/")) {
-        this.slashVisible = false;
-        return;
+        this.updateTaskNodes(
+          attrs.taskId,
+          task
+            ? {
+                title: task.text,
+                checked: task.checked,
+                listId: task.listId,
+                missing: false,
+              }
+            : { missing: true }
+        );
       }
-
-      this.slashQuery = text.slice(1);
-      this.slashRange = {
-        from: $from.start(),
-        to: $from.pos,
-      };
-      this.slashIndex = 0;
-      this.slashVisible = true;
     },
 
-    clearSlashText() {
-      if (!this.slashRange) {
-        return;
-      }
-
-      this.editor
-        .chain()
-        .focus()
-        .deleteRange(this.slashRange)
-        .run();
-    },
-
-    runSlashCommand(item) {
-      this.clearSlashText();
-      this.slashVisible = false;
-      this.slashQuery = "";
-      this.slashRange = null;
-
-      item.action();
-    },
-
-    insertCallout(tone) {
-      this.editor
-        .chain()
-        .focus()
-        .insertContent({
-          type: "callout",
-          attrs: { tone },
-          content: [
-            {
-              type: "paragraph",
-            },
-          ],
-        })
-        .run();
-    },
-
-    insertToggle() {
-      this.editor
-        .chain()
-        .focus()
-        .insertContent({
-          type: "toggleDetails",
-          content: [
-            {
-              type: "toggleSummary",
-              content: [
-                {
-                  type: "text",
-                  text: "折叠标题",
-                },
-              ],
-            },
-            {
-              type: "paragraph",
-            },
-          ],
-        })
-        .run();
-    },
-
-    scheduleSave() {
-      clearTimeout(this.saveTimer);
-      this.saveState = "waiting";
-
-      this.saveTimer = setTimeout(
-        () => this.flushSave(),
-        700
-      );
-    },
-
-    async flushSave() {
-      clearTimeout(this.saveTimer);
-
-      if (!this.editor) {
-        return;
-      }
-
-      this.saveState = "saving";
+    async onTaskToggle(event) {
+      const attrs = event.detail;
+      if (!attrs?.taskId) return;
 
       try {
-        await this.$emit("save", {
-          content: this.editor.getJSON(),
-          plainText: this.editor.getText(),
-        });
-
-        this.saveState = "saved";
-      } catch (error) {
-        console.error(
-          "[focus-editor] 保存失败：",
-          error
+        const task = await focusTaskService.toggleTask(
+          attrs.taskId,
+          attrs.listId
         );
 
-        this.saveState = "error";
+        this.updateTaskNodes(attrs.taskId, {
+          title: task.text,
+          checked: task.checked,
+          missing: false,
+        });
+      } catch (error) {
+        this.updateTaskNodes(attrs.taskId, {
+          missing: true,
+        });
       }
+    },
+
+    onTaskOpen(event) {
+      if (event.detail?.taskId) {
+        this.$emit("open-task", event.detail);
+      }
+    },
+
+    async onTaskUnlink(event) {
+      const attrs = event.detail;
+      if (!attrs?.taskId) return;
+
+      const deleteTask = window.confirm(
+        "是否同时删除每周事项？\n\n确定：删除事项及关联\n取消：仅解除文档关联"
+      );
+
+      await focusTaskService.unlink({
+        documentId: this.documentId,
+        ...attrs,
+        deleteTask,
+      });
+
+      this.editor
+        ?.chain()
+        .focus()
+        .deleteSelection()
+        .run();
+    },
+
+    onTaskChanged(event) {
+      const taskId = event.detail?.taskId;
+      if (!taskId) return;
+
+      this.refreshLinkedTasks();
+    },
+
+    editLink() {
+      const current =
+        this.editor.getAttributes("link").href || "";
+      const value = window.prompt(
+        "输入链接地址；留空移除链接",
+        current
+      );
+
+      if (value === null) return;
+
+      if (!value.trim()) {
+        this.editor
+          .chain()
+          .focus()
+          .extendMarkRange("link")
+          .unsetLink()
+          .run();
+      } else {
+        this.editor
+          .chain()
+          .focus()
+          .extendMarkRange("link")
+          .setLink({ href: value.trim() })
+          .run();
+      }
+    },
+
+    openMarkdown() {
+      this.markdownSource =
+        this.editor.markdown.serialize(
+          this.editor.getJSON()
+        );
+      this.markdownVisible = true;
+
+      this.$nextTick(() => this.$refs.markdown?.focus());
+    },
+
+    applyMarkdown() {
+      this.editor.commands.setContent(
+        this.markdownSource,
+        {
+          contentType: "markdown",
+          emitUpdate: true,
+        }
+      );
+      this.markdownVisible = false;
+      this.editor.commands.focus();
     },
   },
 };
 </script>
 
 <style lang="scss">
-.focus-editor-shell {
+.focus-editor {
   display: flex;
-  flex: 1;
   min-height: 0;
+  flex: 1;
   flex-direction: column;
+  background: #fff;
 }
 
 .focus-editor-toolbar {
+  position: sticky;
+  z-index: 5;
+  top: 0;
   display: flex;
+  min-height: 42px;
   align-items: center;
-  min-height: 38px;
-  padding: 4px 10px;
-  border-bottom: 1px solid #e5e7eb;
   gap: 3px;
+  padding: 5px 8px;
+  border-bottom: 1px solid #eceef1;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
 }
 
-.focus-editor-toolbar button {
-  width: 29px;
-  height: 29px;
+.focus-editor-toolbar button,
+.focus-editor-toolbar select,
+.focus-bubble button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: transparent;
-  color: #57606a;
+  color: #464b53;
+  cursor: pointer;
 }
 
 .focus-editor-toolbar button:hover,
-.focus-editor-toolbar button.active {
-  background: #eef1ff;
+.focus-editor-toolbar button.active,
+.focus-bubble button:hover {
+  background: #eef1f5;
   color: #4263eb;
 }
 
-.editor-save-state {
-  margin-left: auto;
-  color: #8c959f;
-  font-size: 11px;
+.focus-editor-toolbar .divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: #e2e5e9;
 }
 
-.focus-editor-area {
-  position: relative;
+.focus-editor-toolbar .spacer {
   flex: 1;
+}
+
+.focus-editor-content {
   min-height: 0;
+  flex: 1;
   overflow-y: auto;
 }
 
 .focus-prosemirror {
-  min-height: 100%;
-  padding: 16px 18px 100px;
-  color: #24292f;
-  font-size: 14px;
-  line-height: 1.75;
+  min-height: 320px;
+  padding: 24px 28px 80px;
   outline: none;
+  color: #292d33;
+  font-size: 15px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.focus-editor.spacious .focus-prosemirror {
+  width: min(780px, calc(100% - 56px));
+  min-height: 58vh;
+  margin: auto;
+  padding-top: 42px;
+  font-size: 16px;
+  line-height: 1.82;
 }
 
 .focus-prosemirror p {
-  margin: 0 0 8px;
+  margin: 0.45em 0;
+}
+
+.focus-prosemirror h1 {
+  margin: 1.35em 0 0.5em;
+  font-size: 2em;
 }
 
 .focus-prosemirror h2 {
-  margin: 22px 0 9px;
-  font-size: 21px;
+  margin: 1.25em 0 0.45em;
+  font-size: 1.55em;
 }
 
 .focus-prosemirror h3 {
-  margin: 18px 0 8px;
-  font-size: 17px;
-}
-
-.focus-prosemirror p.is-editor-empty:first-child::before {
-  float: left;
-  height: 0;
-  color: #a0a7b0;
-  content: attr(data-placeholder);
-  pointer-events: none;
+  margin: 1.1em 0 0.4em;
+  font-size: 1.25em;
 }
 
 .focus-prosemirror blockquote {
-  margin: 12px 0;
-  padding: 3px 14px;
-  border-left: 3px solid #9aa5b1;
-  color: #57606a;
+  margin: 1em 0;
+  padding: 4px 16px;
+  border-left: 3px solid #879de9;
+  background: #f7f8fc;
+  color: #626a75;
+}
+
+.focus-prosemirror pre {
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #20242b;
+  color: #edf0f3;
+  overflow-x: auto;
+}
+
+.focus-prosemirror mark {
+  padding: 1px 2px;
+  border-radius: 3px;
+  background: #fff0a6;
 }
 
 .focus-prosemirror ul[data-type="taskList"] {
@@ -776,156 +587,301 @@ export default {
 
 .focus-prosemirror ul[data-type="taskList"] li {
   display: flex;
-  align-items: flex-start;
   gap: 8px;
 }
 
-.focus-prosemirror ul[data-type="taskList"] li > div {
-  flex: 1;
-}
-
-.focus-prosemirror [data-callout] {
+.focus-prosemirror [data-type="details"] {
+  position: relative;
   margin: 12px 0;
-  padding: 11px 13px;
-  border-radius: 7px;
-  border-left: 4px solid #4c6ef5;
-  background: #eef3ff;
+  padding: 10px 12px 10px 38px;
+  border: 1px solid #e4e7eb;
+  border-radius: 8px;
+  background: #fafbfc;
 }
 
-.focus-prosemirror [data-callout="warning"] {
-  border-left-color: #f59f00;
-  background: #fff8db;
-}
-
-.focus-prosemirror [data-callout="danger"] {
-  border-left-color: #e03131;
-  background: #fff0f0;
-}
-
-.focus-prosemirror [data-callout="success"] {
-  border-left-color: #2f9e44;
-  background: #ebfbee;
-}
-
-.focus-prosemirror details {
-  margin: 12px 0;
-  padding: 9px 12px;
-  border: 1px solid #dfe3e8;
-  border-radius: 7px;
-}
-
-.focus-prosemirror summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.slash-command-menu {
+.focus-prosemirror [data-type="details"] > button {
   position: absolute;
-  z-index: 20;
-  top: 12px;
-  left: 18px;
-  width: 270px;
-  max-height: 360px;
-  padding: 6px;
-  overflow-y: auto;
-  border: 1px solid #dfe3e8;
-  border-radius: 9px;
-  background: #fff;
-  box-shadow: 0 10px 30px rgba(31, 35, 40, 0.16);
+  top: 11px;
+  left: 11px;
+  border: 0;
+  background: transparent;
 }
 
-.slash-command-menu button {
+.focus-prosemirror
+  [data-type="details"]:not(.is-open)
+  [data-type="detailsContent"] {
+  display: none;
+}
+
+.focus-prosemirror .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #a7acb4;
+  pointer-events: none;
+}
+
+.linked-task-block {
   display: flex;
-  width: 100%;
-  padding: 8px;
+  align-items: center;
+  gap: 9px;
+  margin: 10px 0;
+  padding: 9px 10px;
+  border: 1px solid #dfe4ef;
+  border-radius: 9px;
+  background: #f8f9fd;
+}
+
+.linked-task-check {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #9aa7c8;
+  border-radius: 50%;
+  background: #fff;
+  color: #fff;
+  cursor: pointer;
+}
+
+.linked-task-block.is-checked .linked-task-check {
+  border-color: #4263eb;
+  background: #4263eb;
+}
+
+.linked-task-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
   border: 0;
-  border-radius: 6px;
   background: transparent;
   text-align: left;
+  cursor: pointer;
+}
+
+.linked-task-main small {
+  color: #979da6;
+}
+
+.linked-task-block.is-checked .linked-task-title {
+  color: #969ca5;
+  text-decoration: line-through;
+}
+
+.linked-task-block.is-missing {
+  opacity: 0.58;
+}
+
+.linked-task-unlink {
+  border: 0;
+  background: transparent;
+  color: #999fa8;
+  cursor: pointer;
+}
+
+.focus-editor-help {
+  padding: 7px 14px;
+  border-top: 1px solid #eef0f2;
+  color: #969ca5;
+  font-size: 11px;
+}
+
+.focus-editor-help kbd,
+.focus-slash-title kbd {
+  padding: 1px 5px;
+  border: 1px solid #dfe2e7;
+  border-radius: 4px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 10px;
+}
+
+.focus-bubble {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid #e0e3e7;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(20, 25, 34, 0.17);
+}
+
+.focus-slash-menu {
+  position: fixed;
+  z-index: 13000;
+  width: 310px;
+  max-height: 420px;
+  padding: 7px;
+  border: 1px solid rgba(25, 30, 38, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 48px rgba(18, 24, 34, 0.18);
+  overflow-y: auto;
+}
+
+.focus-slash-title {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 8px 8px;
+  color: #9298a1;
+  font-size: 11px;
+}
+
+.focus-slash-menu > button {
+  display: flex;
+  width: 100%;
+  align-items: center;
   gap: 10px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
 
-.slash-command-menu button:hover,
-.slash-command-menu button.active {
-  background: #f1f3f5;
+.focus-slash-menu > button:hover,
+.focus-slash-menu > button.selected {
+  background: #f0f3f7;
 }
 
-.slash-command-menu button i {
-  width: 22px;
-  color: #4263eb;
-  font-size: 17px;
+.focus-slash-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border: 1px solid #e2e5e9;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 650;
 }
 
-.slash-command-menu button span {
+.focus-slash-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.focus-slash-copy small {
+  color: #9197a0;
+  font-size: 11px;
+}
+
+.markdown-backdrop {
+  position: fixed;
+  z-index: 14000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(18, 22, 28, 0.45);
+}
+
+.markdown-dialog {
+  display: flex;
+  width: min(900px, 92vw);
+  height: min(720px, 86vh);
+  flex-direction: column;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.markdown-dialog header,
+.markdown-dialog footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #eceef1;
+}
+
+.markdown-dialog header div {
   display: flex;
   flex-direction: column;
 }
 
-.slash-command-menu small {
-  color: #8c959f;
+.markdown-dialog header small {
+  color: #969ca5;
 }
 
-.slash-empty {
-  padding: 12px;
-  color: #8c959f;
-  text-align: center;
+.markdown-dialog textarea {
+  min-height: 0;
+  flex: 1;
+  padding: 20px;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: #fafbfc;
+  font: 14px/1.7 ui-monospace, monospace;
+}
+
+.markdown-dialog footer {
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #eceef1;
+  border-bottom: 0;
+}
+
+.markdown-dialog button {
+  padding: 7px 13px;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.markdown-dialog button.primary {
+  border-color: #4263eb;
+  background: #4263eb;
+  color: #fff;
+}
+
+.dark-theme .focus-editor,
+.dark-theme .focus-editor-toolbar {
+  background: #161b22;
+  color: #d8dce2;
 }
 
 .dark-theme .focus-editor-toolbar {
-  border-bottom-color: #30363d;
+  border-color: #30363d;
 }
 
-.dark-theme .focus-editor-toolbar button {
-  color: #9da7b3;
-}
-
-.dark-theme .focus-editor-toolbar button:hover,
-.dark-theme .focus-editor-toolbar button.active {
-  background: #212b40;
-  color: #8ea6ff;
+.dark-theme .focus-editor-toolbar button,
+.dark-theme .focus-editor-toolbar select {
+  color: #cbd0d7;
 }
 
 .dark-theme .focus-prosemirror {
-  color: #c9d1d9;
+  color: #d8dce2;
 }
 
-.dark-theme .focus-prosemirror blockquote {
-  color: #9da7b3;
-  border-left-color: #6e7681;
+.dark-theme .focus-prosemirror blockquote,
+.dark-theme .focus-prosemirror [data-type="details"],
+.dark-theme .linked-task-block {
+  border-color: #353d47;
+  background: #1d232b;
 }
 
-.dark-theme .focus-prosemirror [data-callout] {
-  background: rgba(76, 110, 245, 0.12);
+.dark-theme .focus-slash-menu,
+.dark-theme .focus-bubble {
+  border-color: #353d47;
+  background: #1d232b;
+  color: #e1e5ea;
 }
 
-.dark-theme .focus-prosemirror [data-callout="warning"] {
-  background: rgba(245, 159, 0, 0.12);
+.dark-theme .focus-slash-menu > button {
+  color: #e1e5ea;
 }
 
-.dark-theme .focus-prosemirror [data-callout="danger"] {
-  background: rgba(224, 49, 49, 0.12);
+.dark-theme .focus-slash-menu > button:hover,
+.dark-theme .focus-slash-menu > button.selected {
+  background: #29313b;
 }
 
-.dark-theme .focus-prosemirror [data-callout="success"] {
-  background: rgba(47, 158, 68, 0.12);
-}
-
-.dark-theme .focus-prosemirror details {
-  border-color: #30363d;
-}
-
-.dark-theme .slash-command-menu {
-  border-color: #30363d;
-  background: #1c2128;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-}
-
-.dark-theme .slash-command-menu button {
-  color: #c9d1d9;
-}
-
-.dark-theme .slash-command-menu button:hover,
-.dark-theme .slash-command-menu button.active {
-  background: #262c36;
+.dark-theme .focus-slash-icon {
+  border-color: #3a424d;
+  background: #252c35;
 }
 </style>

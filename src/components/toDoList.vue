@@ -21,7 +21,7 @@
     >
     </list-header>
     <ul class="to-do-list">
-      <li v-for="(toDo, index) in toDoListState" :key="index">
+      <li v-for="(toDo, index) in toDoListState" :key="toDo.id || index">
         <div class="drop-zone" @drop="onDrop($event, id, index)" @dragover.prevent @dragenter.prevent>
           <to-do-item :to-do="toDo" :index="index" :to-do-list-id="id"></to-do-item>
         </div>
@@ -56,6 +56,7 @@ import listHeader from "./listHeader";
 import notifications from "../helpers/notifications";
 import repeatingEventHelper from "../helpers/repeatingEvents.js";
 import tasksHelper from "../helpers/tasksHelper";
+import { createId } from "../helpers/idHelper";
 
 export default {
   components: {
@@ -105,6 +106,7 @@ export default {
     addToDo: function () {
       if (this.newToDo.text.trim() != "") {
         var newTodo = {
+          id: createId("task"),
           text: this.newToDo.text,
           checked: false,
           listId: this.id,

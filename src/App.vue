@@ -223,6 +223,7 @@ export default {
       archiveHistoryVisible: false,
       focusTaskJumpTarget: null,
       focusTaskChangedHandler: null,
+      anniversaryChangedHandler: null,
     };
   },
   beforeCreate() {
@@ -280,6 +281,17 @@ export default {
       this.focusTaskChangedHandler
     );
 
+    this.anniversaryChangedHandler = (event) => {
+      this.homeAnniversaryList =
+        event?.detail?.list ||
+        anniversaryRepository.load();
+    };
+
+    window.addEventListener(
+      "weektodo:anniversary-changed",
+      this.anniversaryChangedHandler
+    );
+
     document.onreadystatechange = () => {
       if (document.readyState == "complete") {
         setTimeout(this.hideSplash, 4500);
@@ -311,6 +323,14 @@ export default {
     this.resetAppOnDayChange();
   },
   beforeUnmount() {
+    if (this.anniversaryChangedHandler) {
+      window.removeEventListener(
+        "weektodo:anniversary-changed",
+        this.anniversaryChangedHandler
+      );
+      this.anniversaryChangedHandler = null;
+    }
+
     if (this.focusTaskChangedHandler) {
       window.removeEventListener(
         "weektodo:task-changed",
@@ -734,10 +754,16 @@ export default {
     closeCalendarHub: function () {
       this.showCalendarHub = false;
     },
+    /* CALENDAR_HUB_REDESIGN_20260907_V1: 日历日期穿透至每周事项 */
     jumpToDateFromHub: function (dateStr) {
+      this.activeModule = "week";
       this.showCalendarHub = false;
-      this.$nextTick(function () {
-        this.setSelectedDate({ date: dateStr, picked: true });
+
+      this.$nextTick(() => {
+        this.setSelectedDate({
+          date: dateStr,
+          picked: true,
+        });
       });
     },
     archiveCompletedTasks: function () {

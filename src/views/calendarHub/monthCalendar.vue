@@ -4,7 +4,27 @@
       <i class="bi-chevron-left nav-icon" @click="prevMonth"></i>
       <span class="month-label" ref="monthLabelBtn" @click="toggleYearMonthPicker">{{ monthLabel }}</span>
       <i class="bi-chevron-right nav-icon" @click="nextMonth"></i>
-      <button class="btn btn-sm today-btn" type="button" @click="backToToday">{{ $t("calendarHub.today") }}</button>
+      <div class="calendar-toolbar-actions">
+        <button
+          class="btn btn-sm today-btn"
+          type="button"
+          @click="backToToday"
+        >
+          {{ $t("calendarHub.today") }}
+        </button>
+
+        <button
+          class="btn btn-sm anniversary-center-btn"
+          type="button"
+          @click="$emit('open-anniversaries')"
+        >
+          <i class="bi-calendar-heart"></i>
+          {{ $t("calendarHub.anniversaries") }}
+          <span v-if="anniversaryCount">
+            {{ anniversaryCount }}
+          </span>
+        </button>
+      </div>
 
       <year-month-picker
         v-if="showYearMonthPicker"
@@ -48,6 +68,7 @@
 </template>
 
 <script>
+/* CALENDAR_HUB_REDESIGN_20260907_V1 */
 import moment from "moment";
 import { solar2lunar } from "../../helpers/solarLunarCore";
 import holidayHelper from "../../helpers/holidayHelper";
@@ -65,8 +86,16 @@ export default {
     pickedDate: { type: String, default: null }, // "YYYYMMDD"
     language: { type: String, default: "zh_cn" },
     showLunar: { type: Boolean, default: true },
+    anniversaryCount: {
+      type: Number,
+      default: 0,
+    },
   },
-  emits: ["update:month", "day-click"],
+  emits: [
+    "update:month",
+    "day-click",
+    "open-anniversaries",
+  ],
   data() {
     return {
       showYearMonthPicker: false,
@@ -203,15 +232,57 @@ export default {
     }
   }
 
-  .today-btn {
+  .calendar-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     margin-left: auto;
+  }
+
+  .today-btn,
+  .anniversary-center-btn {
+    display: inline-flex;
+    min-height: 30px;
+    align-items: center;
+    gap: 6px;
     border: 1px solid #dcdfe4;
-    border-radius: 6px;
-    font-size: 0.8rem;
+    border-radius: 7px;
+    color: #59606a;
+    font-size: 0.76rem;
+
+    &:hover {
+      border-color: #b9c4ea;
+      background: #f4f6ff;
+      color: #4263eb;
+    }
 
     .dark-theme & {
       border-color: #30363d;
       color: #c9d1d9;
+
+      &:hover {
+        border-color: #465986;
+        background: #20273a;
+        color: #8198ef;
+      }
+    }
+  }
+
+  .anniversary-center-btn span {
+    display: inline-flex;
+    min-width: 17px;
+    height: 17px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #fff0f5;
+    color: #d94e7a;
+    font-size: 9px;
+
+    .dark-theme & {
+      background: #3a2330;
+      color: #f08caf;
     }
   }
 }

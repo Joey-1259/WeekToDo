@@ -39,7 +39,9 @@
           :weekStartOnMonday="weekStartOnMonday"
           :pickedDate="pickedDate"
           :language="language"
+          :anniversaryCount="anniversaryList.length"
           @day-click="onDayClick"
+          @open-anniversaries="openAnniversaryCenter"
         ></month-calendar>
 
         <upcoming-events-tile
@@ -52,9 +54,21 @@
       </div>
 
       <div class="hub-right">
-        <anniversary-list :list="anniversaryList" @add="openAddModal" @edit="openEditModal"></anniversary-list>
+        <calendar-insight-panel
+          :anniversaryList="anniversaryList"
+          @day-click="onDayClick"
+          @open-anniversaries="openAnniversaryCenter"
+        />
       </div>
     </div>
+
+    <anniversary-center-modal
+      :visible="anniversaryCenterVisible"
+      :list="anniversaryList"
+      @close="closeAnniversaryCenter"
+      @add="openAddModal"
+      @edit="openEditModal"
+    />
 
     <anniversary-edit-modal
       :visible="editModalVisible"
@@ -67,10 +81,12 @@
 </template>
 
 <script>
+/* CALENDAR_HUB_REDESIGN_20260907_V1 */
 import moment from "moment";
 import monthCalendar from "./monthCalendar.vue";
-import anniversaryList from "./anniversaryList.vue";
 import anniversaryEditModal from "./anniversaryEditModal.vue";
+import AnniversaryCenterModal from "./AnniversaryCenterModal.vue";
+import CalendarInsightPanel from "./CalendarInsightPanel.vue";
 import upcomingEventsTile from "./upcomingEventsTile.vue";
 import anniversaryRepository from "../../repositories/anniversaryRepository";
 import holidayHelper from "../../helpers/holidayHelper";
@@ -81,9 +97,10 @@ export default {
   name: "CalendarHubView",
   components: {
     monthCalendar,
-    anniversaryList,
     anniversaryEditModal,
     upcomingEventsTile,
+    AnniversaryCenterModal,
+    CalendarInsightPanel,
   },
   emits: ["close", "jump-to-date"],
   data() {
@@ -95,6 +112,8 @@ export default {
       countryList: countryListData,
       editModalVisible: false,
       editingItem: null,
+      anniversaryCenterVisible: false,
+      returnToAnniversaryCenter: false,
     };
   },
   mounted() {
@@ -125,16 +144,40 @@ export default {
       configRepository.update(this.$store.getters.config);
       holidayHelper.checkForUpdate(this.selectedCountries);
     },
+    openAnniversaryCenter: function () {
+      this.anniversaryCenterVisible = true;
+    },
+
+    closeAnniversaryCenter: function () {
+      this.anniversaryCenterVisible = false;
+    },
+
     openAddModal: function () {
+      this.returnToAnniversaryCenter =
+        this.anniversaryCenterVisible;
+      this.anniversaryCenterVisible = false;
       this.editingItem = null;
       this.editModalVisible = true;
     },
+
     openEditModal: function (item) {
+      this.returnToAnniversaryCenter =
+        this.anniversaryCenterVisible;
+      this.anniversaryCenterVisible = false;
       this.editingItem = item;
       this.editModalVisible = true;
     },
+
     closeEditModal: function () {
       this.editModalVisible = false;
+
+      if (this.returnToAnniversaryCenter) {
+        this.$nextTick(() => {
+          this.anniversaryCenterVisible = true;
+        });
+      }
+
+      this.returnToAnniversaryCenter = false;
     },
     onSaveAnniversary: function (payload) {
       let list = anniversaryRepository.load();
@@ -147,12 +190,28 @@ export default {
       anniversaryRepository.update(list);
       this.anniversaryList = list;
       this.editModalVisible = false;
+
+      if (this.returnToAnniversaryCenter) {
+        this.$nextTick(() => {
+          this.anniversaryCenterVisible = true;
+        });
+      }
+
+      this.returnToAnniversaryCenter = false;
     },
     onRemoveAnniversary: function (id) {
       let list = anniversaryRepository.load().filter((x) => x.id !== id);
       anniversaryRepository.update(list);
       this.anniversaryList = list;
       this.editModalVisible = false;
+
+      if (this.returnToAnniversaryCenter) {
+        this.$nextTick(() => {
+          this.anniversaryCenterVisible = true;
+        });
+      }
+
+      this.returnToAnniversaryCenter = false;
     },
   },
   computed: {
@@ -272,20 +331,31 @@ export default {
 }
 
 .hub-left {
-  flex: 0 0 62%;
   display: flex;
-  flex-direction: column;
+  min-width: 0;
   min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
 }
 
 .hub-right {
-  flex: 1;
+  flex: 0 0 clamp(270px, 31%, 340px);
+  min-width: 0;
   min-height: 0;
-  border-left: 1px solid #eaecef;
-  padding-left: 20px;
+  padding-left: 2px;
+}
 
-  .dark-theme & {
-    border-left-color: #30363d;
+@media (max-width: 980px) {
+  .hub-body {
+    overflow-y: auto;
+  }
+
+  .hub-left {
+    min-width: 610px;
+  }
+
+  .hub-right {
+    flex-basis: 280px;
   }
 }
 </style>

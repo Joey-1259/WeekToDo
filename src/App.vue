@@ -57,29 +57,87 @@
               @todo-list-mounted="todoListMounted"
             ></to-do-list>
             <div v-if="homeCustomList" class="home-custom-list-slot flex-grow-1 position-relative">
-              <!-- ★ 删除了原来的 home-custom-list-switcher div，切换器移到了 listHeader 内部 -->
               <to-do-list
                 :key="homeCustomList.listId"
                 :id="homeCustomList.listId"
                 :customTodoList="true"
                 :cTodoListIndex="homeCustomListIndex"
-                :totalCustomLists="customListCount"
                 :columnsOverride="4"
                 @todo-list-mounted="todoListMounted"
                 @reorderCustomList="resetCustomList"
                 @addCustomList="onCustomListAdded"
-                @cycleCustomList="cycleHomeCustomList"
               ></to-do-list>
-              <!-- 归档操作栏 -->
-              <div class="archive-action-bar">
-                <span class="archive-link" @click="archiveCompletedTasks">
-                  <i class="bi-archive"></i> {{ $t("ui.archive") }}
-                </span>
-                <span class="archive-separator">·</span>
-                <span class="archive-link" @click="archiveHistoryVisible = true">
-                  <i class="bi-clock-history"></i> {{ $t("ui.viewHistory") }}
-                </span>
-              </div>
+
+              <nav
+                class="archive-action-bar"
+                aria-label="自定义列表操作"
+              >
+                <div
+                  v-if="customListCount > 1"
+                  class="custom-list-bottom-pager"
+                  role="group"
+                  aria-label="切换自定义列表"
+                >
+                  <button
+                    type="button"
+                    class="custom-list-page-button"
+                    title="上一个自定义列表"
+                    aria-label="上一个自定义列表"
+                    @click="cycleHomeCustomList(-1)"
+                  >
+                    <i class="bi-chevron-left"></i>
+                  </button>
+
+                  <span
+                    class="custom-list-page-status"
+                    aria-live="polite"
+                    :aria-label="
+                      `第 ${homeCustomListIndex + 1} 个列表，共 ${customListCount} 个`
+                    "
+                  >
+                    {{ homeCustomListIndex + 1 }}/{{ customListCount }}
+                  </span>
+
+                  <button
+                    type="button"
+                    class="custom-list-page-button"
+                    title="下一个自定义列表"
+                    aria-label="下一个自定义列表"
+                    @click="cycleHomeCustomList(1)"
+                  >
+                    <i class="bi-chevron-right"></i>
+                  </button>
+                </div>
+
+                <span
+                  v-if="customListCount > 1"
+                  class="archive-separator"
+                  aria-hidden="true"
+                ></span>
+
+                <button
+                  type="button"
+                  class="archive-link"
+                  @click="archiveCompletedTasks"
+                >
+                  <i class="bi-archive"></i>
+                  <span>{{ $t("ui.archive") }}</span>
+                </button>
+
+                <span
+                  class="archive-separator"
+                  aria-hidden="true"
+                ></span>
+
+                <button
+                  type="button"
+                  class="archive-link"
+                  @click="archiveHistoryVisible = true"
+                >
+                  <i class="bi-clock-history"></i>
+                  <span>{{ $t("ui.viewHistory") }}</span>
+                </button>
+              </nav>
             </div>
           </div>
         </div>
@@ -1013,42 +1071,174 @@ body {
   min-height: 0;
 }
 
-/* ★ 已删除 .home-custom-list-switcher 样式块，切换器移到了 listHeader 组件内部 */
-
-/* 归档操作栏 */
+/* 自定义列表底部操作栏 */
 .archive-action-bar {
+  display: flex;
+  min-height: 38px;
   flex: 0 0 auto;
-  text-align: center;
-  padding: 5px 0 2px;
-  font-size: 12px;
-  color: #9aa0a8;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 2px 2px;
+  color: #969da7;
+  font-size: 11px;
   user-select: none;
 }
 
-.archive-action-bar .archive-link {
+.custom-list-bottom-pager {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 1px;
+  padding: 1px 3px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.custom-list-page-button {
+  display: inline-flex;
+  width: 32px;
+  height: 28px;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9299a2;
   cursor: pointer;
-  transition: color 0.2s;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.1s ease;
 
   i {
-    font-size: 11px;
-    margin-right: 2px;
+    font-size: 12px;
+    line-height: 1;
   }
 
   &:hover {
+    background: #eef1f5;
     color: #4263eb;
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(66, 99, 235, 0.38);
+    outline-offset: 1px;
   }
 }
 
-.dark-theme .archive-action-bar .archive-link:hover {
-  color: #6c8fff;
+.custom-list-page-status {
+  min-width: 37px;
+  padding: 0 3px;
+  color: #858c96;
+  font-variant-numeric: tabular-nums;
+  line-height: 28px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.archive-action-bar .archive-link {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #969da7;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 28px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+
+  i {
+    margin: 0;
+    font-size: 11px;
+  }
+
+  &:hover {
+    background: #f2f4f7;
+    color: #4263eb;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(66, 99, 235, 0.38);
+    outline-offset: 1px;
+  }
 }
 
 .archive-separator {
-  margin: 0 8px;
-  color: #ccc;
+  width: 1px;
+  height: 14px;
+  flex: 0 0 1px;
+  margin: 0 2px;
+  background: #dfe3e8;
 }
 
-.dark-theme .archive-separator {
-  color: #444;
+.dark-theme {
+  .custom-list-page-button {
+    color: #8e98a4;
+
+    &:hover {
+      background: #252c35;
+      color: #8da2fb;
+    }
+
+    &:focus-visible {
+      outline-color: rgba(108, 143, 255, 0.5);
+    }
+  }
+
+  .custom-list-page-status {
+    color: #929ca8;
+  }
+
+  .archive-action-bar .archive-link {
+    color: #929ca8;
+
+    &:hover {
+      background: #252c35;
+      color: #8da2fb;
+    }
+
+    &:focus-visible {
+      outline-color: rgba(108, 143, 255, 0.5);
+    }
+  }
+
+  .archive-separator {
+    background: #343c46;
+  }
+}
+
+@media (max-width: 1120px) {
+  .archive-action-bar {
+    gap: 2px;
+  }
+
+  .custom-list-page-button {
+    width: 28px;
+    flex-basis: 28px;
+  }
+
+  .archive-action-bar .archive-link {
+    padding: 0 4px;
+  }
+
+  .archive-separator {
+    margin: 0;
+  }
 }
 </style>

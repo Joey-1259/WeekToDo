@@ -14,10 +14,8 @@
       :cTodoListIndex="cTodoListIndex"
       :toDoList="toDoListState"
       :pickedDate="pickedDate"
-      :totalCustomLists="totalCustomLists"
       @reorderCustomList="$emit('reorderCustomList')"
       @addCustomList="$emit('addCustomList')"
-      @cycleCustomList="$emit('cycleCustomList', $event)"
     >
     </list-header>
     <ul class="to-do-list">
@@ -70,9 +68,8 @@ export default {
     showCustomList: { required: false, type: Boolean },
     pickedDate: { required: false, type: String, default: null },
     columnsOverride: { required: false, type: Number, default: null },
-    totalCustomLists: { required: false, type: Number, default: 1 },
   },
-  emits: ["todoListMounted", "reorderCustomList", "addCustomList", "cycleCustomList"],
+  emits: ["todoListMounted", "reorderCustomList", "addCustomList"],
   data() {
     return {
       newToDo: { text: "", checked: false },

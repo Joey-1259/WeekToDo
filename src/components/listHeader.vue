@@ -76,21 +76,12 @@
           @keyup.esc="cancelEdit()"
         />
 
-        <span v-if="totalCustomLists > 1" class="weekly-to-do-subheader custom-list-pager">
-          <i
-            class="bi-chevron-left pager-arrow"
-            @click.stop="$emit('cycleCustomList', -1)"
-          ></i>
-
-          {{ cTodoListIndex + 1 }}/{{ totalCustomLists }}
-
-          <i
-            class="bi-chevron-right pager-arrow"
-            @click.stop="$emit('cycleCustomList', 1)"
-          ></i>
+        <span
+          class="weekly-to-do-subheader custom-list-title-spacer"
+          aria-hidden="true"
+        >
+          &nbsp;
         </span>
-
-        <span v-else class="weekly-to-do-subheader">&nbsp;</span>
 
         <!-- 与日期列表的日历标识行保持等高 -->
         <div class="calendar-marker-row">
@@ -226,10 +217,9 @@ export default {
     cTodoListIndex: { required: false, type: Number },
     toDoList: { required: false, type: Array },
     pickedDate: { required: false, type: String, default: null },
-    totalCustomLists: { required: false, type: Number, default: 1 },
   },
 
-  emits: ["reorderCustomList", "addCustomList", "cycleCustomList"],
+  emits: ["reorderCustomList", "addCustomList"],
 
   data() {
     return {
@@ -892,27 +882,9 @@ export default {
   background-color: #0c0d14;
 }
 
-.custom-list-pager {
+.custom-list-title-spacer {
+  pointer-events: none;
   user-select: none;
-}
-
-.pager-arrow {
-  cursor: pointer;
-  padding: 0 4px;
-  border-radius: 4px;
-  font-size: 10px;
-  transition: background-color 0.2s;
-  vertical-align: middle;
-}
-
-.pager-arrow:hover {
-  background-color: #eaecef;
-  color: #333;
-}
-
-.dark-theme .pager-arrow:hover {
-  background-color: #21262d;
-  color: #dedede;
 }
 
 .custom-todo-input {

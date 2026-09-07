@@ -226,17 +226,13 @@ const todoTaskRepository = {
         text: input.text,
         checked: false,
         desc: input.desc || "",
-        subTaskList: Array.isArray(input.subTaskList)
-          ? clone(input.subTaskList)
-          : [],
-        color: input.color || "none",
+        subTaskList: [],
+        color: "none",
         priority: Number(input.priority || 0),
-        tags: Array.isArray(input.tags) ? clone(input.tags) : [],
+        tags: [],
         time: input.time || null,
         alarm: Boolean(input.alarm),
-        reminders: Array.isArray(input.reminders)
-          ? clone(input.reminders)
-          : [],
+        reminders: [],
         repeatingEvent: null,
       },
       listId

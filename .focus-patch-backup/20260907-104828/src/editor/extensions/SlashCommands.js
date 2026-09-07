@@ -3,7 +3,6 @@ import Suggestion, {
   exitSuggestion,
 } from "@tiptap/suggestion";
 import { PluginKey } from "@tiptap/pm/state";
-import { shift, size } from "@floating-ui/dom";
 
 const slashKey = new PluginKey("focusSlash");
 const dunhaoKey = new PluginKey("focusDunhao");
@@ -352,45 +351,6 @@ function plugin(editor, items, char, pluginKey) {
       crossAxis: -4,
     },
     dismissOnOutsideClick: true,
-    flip: true,
-    floatingUi: {
-      strategy: "fixed",
-      middleware: [
-        shift({ padding: 10 }),
-        size({
-          padding: 10,
-          apply({
-            availableWidth,
-            availableHeight,
-            elements,
-          }) {
-            Object.assign(elements.floating.style, {
-              maxWidth: `${Math.max(
-                280,
-                availableWidth
-              )}px`,
-              maxHeight: `${Math.max(
-                180,
-                availableHeight
-              )}px`,
-            });
-
-            const scroll =
-              elements.floating.querySelector(
-                ".focus-command-scroll"
-              );
-
-            if (scroll) {
-              scroll.style.maxHeight = `${Math.max(
-                120,
-                availableHeight - 56
-              )}px`;
-              scroll.style.overflowY = "auto";
-            }
-          },
-        }),
-      ],
-    },
     items: ({ query }) => filterItems(items, query),
     command: ({ editor, range, props: item }) =>
       item.command({ editor, range }),

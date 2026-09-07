@@ -33,13 +33,8 @@ export default {
       let textArea = this.$refs["descriptionInput"];
       if (!textArea) return;
       textArea.style.height = "auto";
-      const height = Math.max(
-        72,
-        Math.min(textArea.scrollHeight, 132)
-      );
-      textArea.style.height = height + "px";
-      textArea.style.overflowY =
-        textArea.scrollHeight > 132 ? "auto" : "hidden";
+      // 最小高度从 90px 提升到 170px，让"任务细节"这一块有更宽裕的书写空间
+      textArea.style.height = Math.max(textArea.scrollHeight, 170) + "px";
     },
     doneEditDescription: function () {
       this.$emit("updatedDescription", this.desc);
@@ -64,9 +59,8 @@ export default {
 .todo-description-textarea {
   font-size: 14px;
   line-height: 20px;
-  min-height: 72px;
-  max-height: 132px;
-  overflow-y: auto;
+  min-height: 170px;
+  overflow: hidden;
   width: 100%;
   resize: none;
   background: unset;

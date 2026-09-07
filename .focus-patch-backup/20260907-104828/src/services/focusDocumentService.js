@@ -25,10 +25,6 @@ function normalize(record) {
     content: record.content || clone(EMPTY_CONTENT),
     draft: Boolean(record.draft),
     pinned: Boolean(record.pinned),
-    folderId: record.folderId || null,
-    manualOrder: Number.isFinite(record.manualOrder)
-      ? record.manualOrder
-      : Number.MAX_SAFE_INTEGER,
     archivedAt: record.archivedAt || null,
     deletedAt: record.deletedAt || null,
     createdAt: record.createdAt || now,
@@ -84,7 +80,7 @@ const focusDocumentService = {
     return clone(EMPTY_CONTENT);
   },
 
-  createDraftRecord(folderId = null) {
+  createDraftRecord() {
     const now = new Date().toISOString();
 
     return normalize({
@@ -93,8 +89,6 @@ const focusDocumentService = {
       tags: [],
       content: clone(EMPTY_CONTENT),
       draft: true,
-      folderId,
-      manualOrder: Date.now(),
       createdAt: now,
       updatedAt: now,
       lastOpenedAt: now,
@@ -118,11 +112,6 @@ const focusDocumentService = {
       )
       .sort((a, b) => {
         if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-
-        if (a.manualOrder !== b.manualOrder) {
-          return a.manualOrder - b.manualOrder;
-        }
-
         return String(b.updatedAt).localeCompare(
           String(a.updatedAt)
         );
@@ -178,64 +167,6 @@ const focusDocumentService = {
     return this.updateDocument(id, {
       archivedAt: new Date().toISOString(),
     });
-  },
-
-  async duplicateDocument(id) {
-    const source = await this.getDocument(id);
-    if (!source) throw new Error(`文档不存在：${id}`);
-
-    const copy = this.createDraftRecord(source.folderId);
-
-    return this.saveDocument(
-      {
-        ...copy,
-        title: source.title
-          ? `${source.title} 副本`
-          : "未命名文档 副本",
-        tags: clone(source.tags),
-        content: clone(source.content),
-        draft: source.draft,
-        manualOrder: Date.now(),
-      },
-      { final: !source.draft }
-    );
-  },
-
-  async moveDocument(id, folderId = null) {
-    return this.updateDocument(id, {
-      folderId: folderId || null,
-    });
-  },
-
-  async reorderDocuments(orderedIds) {
-    const ids = Array.isArray(orderedIds) ? orderedIds : [];
-
-    const saved = await Promise.all(
-      ids.map((id, index) =>
-        this.updateDocument(id, {
-          manualOrder: index,
-        })
-      )
-    );
-
-    return saved;
-  },
-
-  async releaseFolder(folderId) {
-    const documents = await this.listDocuments({
-      includeArchived: true,
-      includeDeleted: true,
-    });
-
-    return Promise.all(
-      documents
-        .filter((item) => item.folderId === folderId)
-        .map((item) =>
-          this.updateDocument(item.id, {
-            folderId: null,
-          })
-        )
-    );
   },
 
   async deleteDocument(id) {

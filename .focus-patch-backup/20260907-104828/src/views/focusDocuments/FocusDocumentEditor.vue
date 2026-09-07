@@ -1,47 +1,11 @@
 <template>
   <div class="focus-editor" :class="{ spacious }">
     <div v-if="editor" class="focus-editor-toolbar">
-      <button
-        title="撤销"
-        :disabled="!editor.can().undo()"
-        @click="run('undo')"
-      >↶</button>
-      <button
-        title="重做"
-        :disabled="!editor.can().redo()"
-        @click="run('redo')"
-      >↷</button>
-
-      <span class="divider"></span>
-
-      <select
-        class="focus-block-select"
-        :value="currentBlock"
-        title="文字样式"
-        @change="setBlock($event.target.value)"
-      >
+      <select :value="currentBlock" @change="setBlock($event.target.value)">
         <option value="paragraph">正文</option>
         <option value="h1">一级标题</option>
         <option value="h2">二级标题</option>
         <option value="h3">三级标题</option>
-      </select>
-
-      <select
-        class="focus-size-select"
-        :value="currentFontSize"
-        title="字体大小"
-        @change="setFontSize($event.target.value)"
-      >
-        <option value="">默认</option>
-        <option value="12px">12px</option>
-        <option value="14px">14px</option>
-        <option value="16px">16px</option>
-        <option value="18px">18px</option>
-        <option value="20px">20px</option>
-        <option value="24px">24px</option>
-        <option value="28px">28px</option>
-        <option value="32px">32px</option>
-        <option value="40px">40px</option>
       </select>
 
       <span class="divider"></span>
@@ -178,14 +142,6 @@
 
       <span class="divider"></span>
 
-      <button
-        title="减少缩进（Shift + Tab）"
-        @click="decreaseIndent"
-      >⇤</button>
-      <button
-        title="增加缩进（Tab）"
-        @click="increaseIndent"
-      >⇥</button>
       <button title="无序列表" @click="run('toggleBulletList')">☷</button>
       <button title="有序列表" @click="run('toggleOrderedList')">1.</button>
       <button title="待办清单" @click="run('toggleTaskList')">☑</button>
@@ -195,6 +151,8 @@
       <span class="spacer"></span>
 
       <button title="Markdown 源码" @click="openMarkdown">MD</button>
+      <button title="撤销" @click="run('undo')">↶</button>
+      <button title="重做" @click="run('redo')">↷</button>
     </div>
 
     <BubbleMenu
@@ -338,7 +296,6 @@ import Highlight from "@tiptap/extension-highlight";
 import {
   TextStyle,
   Color,
-  FontSize,
 } from "@tiptap/extension-text-style";
 import {
   Details,
@@ -348,7 +305,6 @@ import {
 import { Markdown } from "@tiptap/markdown";
 import SlashCommands from "../../editor/extensions/SlashCommands";
 import LinkedTask from "../../editor/extensions/LinkedTask";
-import SmartFormatting from "../../editor/extensions/SmartFormatting";
 import { createSlashCommandItems } from "../../editor/slashCommandItems";
 import focusTaskService from "../../services/focusTaskService";
 
@@ -422,13 +378,6 @@ export default {
       }
       return "paragraph";
     },
-
-    currentFontSize() {
-      if (!this.editor) return "";
-      return (
-        this.editor.getAttributes("textStyle").fontSize || ""
-      );
-    },
   },
   watch: {
     modelValue: {
@@ -481,8 +430,6 @@ export default {
         TaskItem.configure({ nested: true }),
         TextStyle,
         Color,
-        FontSize,
-        SmartFormatting,
         Highlight.configure({ multicolor: true }),
         Details.configure({ persist: true }),
         DetailsSummary,
@@ -644,66 +591,6 @@ export default {
           .setHeading({ level: Number(value.slice(1)) })
           .run();
       }
-    },
-
-    setFontSize(value) {
-      if (!this.editor) return;
-
-      const chain = this.editor.chain().focus();
-
-      if (!value) {
-        chain.unsetFontSize().run();
-      } else {
-        chain.setFontSize(value).run();
-      }
-    },
-
-    increaseIndent() {
-      if (!this.editor) return;
-
-      if (this.editor.isActive("taskItem")) {
-        this.editor
-          .chain()
-          .focus()
-          .sinkListItem("taskItem")
-          .run();
-        return;
-      }
-
-      if (this.editor.isActive("listItem")) {
-        this.editor
-          .chain()
-          .focus()
-          .sinkListItem("listItem")
-          .run();
-        return;
-      }
-
-      this.editor.chain().focus().increaseIndent().run();
-    },
-
-    decreaseIndent() {
-      if (!this.editor) return;
-
-      if (this.editor.isActive("taskItem")) {
-        this.editor
-          .chain()
-          .focus()
-          .liftListItem("taskItem")
-          .run();
-        return;
-      }
-
-      if (this.editor.isActive("listItem")) {
-        this.editor
-          .chain()
-          .focus()
-          .liftListItem("listItem")
-          .run();
-        return;
-      }
-
-      this.editor.chain().focus().decreaseIndent().run();
     },
 
     focus() {
@@ -901,9 +788,6 @@ export default {
   padding: 5px 8px;
   border-bottom: 1px solid #eceef1;
   background: rgba(255, 255, 255, 0.94);
-  overflow-x: auto;
-  overflow-y: visible;
-  scrollbar-width: thin;
   backdrop-filter: blur(12px);
 }
 
@@ -917,21 +801,7 @@ export default {
   border-radius: 6px;
   background: transparent;
   color: #464b53;
-  flex: 0 0 auto;
   cursor: pointer;
-}
-
-.focus-editor-toolbar select.focus-block-select {
-  min-width: 92px;
-}
-
-.focus-editor-toolbar select.focus-size-select {
-  min-width: 72px;
-}
-
-.focus-editor-toolbar button:disabled {
-  cursor: default;
-  opacity: 0.35;
 }
 
 .focus-editor-toolbar button:hover,

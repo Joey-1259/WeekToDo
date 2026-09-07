@@ -1,84 +1,134 @@
 <template>
-  <div class="task-composer-backdrop" @mousedown.self="$emit('close')">
+  <div
+    class="task-composer-backdrop"
+    @mousedown.self="$emit('close')"
+  >
     <section class="task-composer">
       <header>
         <div>
           <strong>关联到每周事项</strong>
-          <small>创建后，文档与周视图使用同一条事项</small>
+          <small>与每周事项共用同一条任务数据</small>
         </div>
         <button type="button" @click="$emit('close')">×</button>
       </header>
 
       <div class="task-composer-body">
-        <textarea
-          ref="title"
-          v-model="form.text"
-          rows="2"
-          maxlength="500"
-          placeholder="准备做什么？"
-          @keydown.meta.enter.prevent="createTask"
-          @keydown.ctrl.enter.prevent="createTask"
-        ></textarea>
+        <div class="task-main-row">
+          <span class="task-checkbox"></span>
 
-        <div class="quick-dates">
-          <button
-            v-for="target in quickTargets"
-            :key="target.listId"
-            type="button"
-            :class="{ active: form.listId === target.listId }"
-            @click="selectTarget(target)"
-          >
-            {{ target.label }}
-          </button>
-        </div>
-
-        <label>
-          <span>日期或列表</span>
-          <select v-model="form.listId">
-            <option
-              v-for="target in targets"
-              :key="target.listId"
-              :value="target.listId"
-            >
-              {{ target.label }}
-            </option>
-          </select>
-        </label>
-
-        <div class="task-composer-row">
-          <label>
-            <span>时间</span>
-            <input v-model="form.time" type="time" />
-          </label>
-
-          <label>
-            <span>优先级</span>
-            <select v-model.number="form.priority">
-              <option :value="0">普通</option>
-              <option :value="1">重要</option>
-              <option :value="2">紧急</option>
-            </select>
-          </label>
-
-          <label class="alarm-option">
-            <input
-              v-model="form.alarm"
-              type="checkbox"
-              :disabled="!form.time"
-            />
-            <span>提醒</span>
-          </label>
+          <input
+            ref="title"
+            v-model="form.text"
+            class="task-title-input"
+            maxlength="500"
+            placeholder="任务内容"
+            @keydown.meta.enter.prevent="createTask"
+            @keydown.ctrl.enter.prevent="createTask"
+          />
         </div>
 
         <textarea
           v-model="form.desc"
-          rows="2"
-          placeholder="补充说明（可选）"
+          class="task-detail-input"
+          rows="3"
+          placeholder="任务细节（可选）"
         ></textarea>
+
+        <div class="task-targets">
+          <div class="quick-dates">
+            <button
+              v-for="target in quickTargets"
+              :key="target.listId"
+              type="button"
+              :class="{ active: form.listId === target.listId }"
+              @click="form.listId = target.listId"
+            >
+              {{ target.label }}
+            </button>
+          </div>
+
+          <label>
+            <span>日期或列表</span>
+            <select v-model="form.listId">
+              <option
+                v-for="target in targets"
+                :key="target.listId"
+                :value="target.listId"
+              >
+                {{ target.label }}
+              </option>
+            </select>
+          </label>
+        </div>
+
+        <div class="task-attributes">
+          <tag-picker
+            :model-value="form.tags"
+            :all-tags="allTags"
+            @update:modelValue="form.tags = $event"
+          />
+
+          <div class="task-attribute-tools">
+            <time-picker
+              :time="form.time"
+              @time-selected="changeTime"
+            />
+            <reminder-picker
+              :model-value="form.reminders"
+              @update:modelValue="changeReminders"
+            />
+            <color-picker
+              :color="form.color"
+              @color-selected="form.color = $event"
+            />
+          </div>
+        </div>
+
+        <section class="task-subtasks">
+          <div class="task-section-title">
+            <span>☑</span>
+            <span>子任务</span>
+          </div>
+
+          <div
+            v-for="(subtask, index) in form.subTaskList"
+            :key="index"
+            class="task-subtask"
+          >
+            <input
+              v-model="subtask.checked"
+              type="checkbox"
+            />
+            <input
+              v-model="subtask.text"
+              type="text"
+              placeholder="子任务内容"
+            />
+            <button
+              type="button"
+              title="删除子任务"
+              @click="form.subTaskList.splice(index, 1)"
+            >
+              ×
+            </button>
+          </div>
+
+          <div class="task-new-subtask">
+            <span>＋</span>
+            <input
+              v-model="newSubtask"
+              type="text"
+              placeholder="添加子任务"
+              @keydown.enter.prevent="addSubtask"
+              @blur="addSubtask"
+            />
+          </div>
+        </section>
       </div>
 
       <footer>
         <span>⌘/Ctrl + Enter 创建</span>
+
         <div>
           <button type="button" @click="$emit('close')">
             取消
@@ -99,9 +149,20 @@
 
 <script>
 import focusTaskService from "../../services/focusTaskService";
+import tagPicker from "../toDoModal/tagPicker.vue";
+import timePicker from "../toDoModal/timePicker.vue";
+import reminderPicker from "../toDoModal/reminderPicker.vue";
+import colorPicker from "../toDoModal/colorPicker.vue";
+import defaultTaskTags from "../../data/defaultTaskTags";
 
 export default {
   name: "FocusTaskComposer",
+  components: {
+    tagPicker,
+    timePicker,
+    reminderPicker,
+    colorPicker,
+  },
   props: {
     documentId: {
       type: String,
@@ -115,6 +176,7 @@ export default {
     return {
       targets,
       saving: false,
+      newSubtask: "",
       form: {
         text: "",
         desc: "",
@@ -122,6 +184,10 @@ export default {
         time: null,
         priority: 0,
         alarm: false,
+        reminders: [],
+        tags: [],
+        color: "none",
+        subTaskList: [],
       },
     };
   },
@@ -131,18 +197,65 @@ export default {
         .filter((item) => item.type === "date")
         .slice(0, 3);
     },
+
+    allTags() {
+      return defaultTaskTags.getDefaultTags(this);
+    },
   },
   mounted() {
     this.$refs.title?.focus();
   },
   methods: {
-    selectTarget(target) {
-      this.form.listId = target.listId;
+    addSubtask() {
+      const text = this.newSubtask.trim();
+      if (!text) return;
+
+      this.form.subTaskList.push({
+        text,
+        checked: false,
+        editing: false,
+      });
+
+      this.newSubtask = "";
+    },
+
+    changeTime(time) {
+      this.form.time = time;
+
+      if (!time) {
+        this.form.alarm = false;
+        this.form.reminders = [];
+      }
+    },
+
+    changeReminders(reminders) {
+      this.form.reminders = reminders || [];
+      this.form.alarm = this.form.reminders.length > 0;
+    },
+
+    async syncLoadedWeekList(attrs) {
+      const task = await focusTaskService.resolveTask(
+        attrs.taskId,
+        attrs.listId
+      );
+
+      if (!task) return;
+
+      const loaded =
+        this.$store?.getters?.todoLists?.[attrs.listId];
+
+      if (
+        Array.isArray(loaded) &&
+        !loaded.some((item) => item?.id === task.id)
+      ) {
+        loaded.push(task);
+      }
     },
 
     async createTask() {
       if (!this.form.text.trim() || this.saving) return;
 
+      this.addSubtask();
       this.saving = true;
 
       try {
@@ -152,10 +265,15 @@ export default {
             {
               ...this.form,
               text: this.form.text.trim(),
-              alarm: this.form.alarm && Boolean(this.form.time),
+              desc: this.form.desc.trim(),
+              alarm:
+                this.form.reminders.length > 0 ||
+                (this.form.alarm &&
+                  Boolean(this.form.time)),
             }
           );
 
+        await this.syncLoadedWeekList(attrs);
         this.$emit("created", attrs);
       } catch (error) {
         console.error(error);
@@ -181,8 +299,11 @@ export default {
 }
 
 .task-composer {
-  width: min(560px, 92vw);
-  border-radius: 14px;
+  display: flex;
+  width: min(620px, 94vw);
+  max-height: min(760px, 92vh);
+  flex-direction: column;
+  border-radius: 16px;
   background: #fff;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.25);
   overflow: hidden;
@@ -200,7 +321,7 @@ export default {
   border-bottom: 1px solid #eceef1;
 }
 
-.task-composer header div {
+.task-composer header > div {
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -221,14 +342,45 @@ export default {
 
 .task-composer-body {
   display: flex;
+  min-height: 0;
   flex-direction: column;
   gap: 14px;
-  padding: 18px;
+  padding: 20px;
+  overflow-y: auto;
 }
 
-.task-composer textarea,
-.task-composer select,
-.task-composer input[type="time"] {
+.task-main-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.task-checkbox {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+  border: 1.5px solid #9ba6b5;
+  border-radius: 50%;
+}
+
+.task-title-input {
+  width: 100%;
+  padding: 5px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  outline: none;
+  background: transparent;
+  color: #292d33;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.task-title-input:focus {
+  border-bottom-color: #4263eb;
+}
+
+.task-detail-input,
+.task-targets select {
   width: 100%;
   padding: 9px 10px;
   border: 1px solid #dfe2e7;
@@ -239,44 +391,44 @@ export default {
   font: inherit;
 }
 
-.task-composer textarea:focus,
-.task-composer select:focus,
-.task-composer input:focus {
+.task-detail-input {
+  min-height: 76px;
+  max-height: 116px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.task-detail-input:focus,
+.task-targets select:focus {
   border-color: #6d86e8;
   box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.1);
 }
 
-.task-composer label {
+.task-targets {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  align-items: end;
+  gap: 12px;
+}
+
+.task-targets label {
   display: flex;
-  flex: 1;
   flex-direction: column;
   gap: 5px;
   color: #737a84;
   font-size: 11px;
 }
 
-.task-composer-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-}
-
-.task-composer .alarm-option {
-  flex: 0 0 auto;
-  flex-direction: row;
-  align-items: center;
-  padding-bottom: 9px;
-}
-
 .quick-dates {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .quick-dates button {
-  padding: 5px 11px;
+  padding: 6px 12px;
   border: 1px solid #dfe2e7;
-  border-radius: 14px;
+  border-radius: 15px;
   background: #fff;
   color: #626a75;
   cursor: pointer;
@@ -286,6 +438,58 @@ export default {
   border-color: #4263eb;
   background: #eef1ff;
   color: #4263eb;
+}
+
+.task-attributes {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.task-attribute-tools {
+  display: flex;
+  align-items: center;
+}
+
+.task-subtasks {
+  padding-top: 14px;
+  border-top: 1px solid #eef0f2;
+}
+
+.task-section-title {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 7px;
+  color: #8a9099;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.task-subtask,
+.task-new-subtask {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 9px;
+  padding: 2px 5px;
+  border-bottom: 1px solid #f0f1f3;
+}
+
+.task-subtask > input[type="text"],
+.task-new-subtask input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+
+.task-subtask button {
+  border: 0;
+  background: transparent;
+  color: #a1a6ad;
+  cursor: pointer;
 }
 
 .task-composer footer {
@@ -311,21 +515,42 @@ export default {
   color: #fff;
 }
 
+.task-composer footer button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .dark-theme .task-composer {
   background: #1b2129;
   color: #e1e5ea;
 }
 
 .dark-theme .task-composer header,
-.dark-theme .task-composer footer {
+.dark-theme .task-composer footer,
+.dark-theme .task-subtasks,
+.dark-theme .task-subtask,
+.dark-theme .task-new-subtask {
   border-color: #343b45;
 }
 
-.dark-theme .task-composer textarea,
-.dark-theme .task-composer select,
-.dark-theme .task-composer input[type="time"] {
+.dark-theme .task-title-input,
+.dark-theme .task-detail-input,
+.dark-theme .task-targets select,
+.dark-theme .task-subtask input,
+.dark-theme .task-new-subtask input {
+  background: transparent;
+  color: #dce1e7;
+}
+
+.dark-theme .task-detail-input,
+.dark-theme .task-targets select {
   border-color: #3a424d;
   background: #14191f;
-  color: #dce1e7;
+}
+
+@media (max-width: 620px) {
+  .task-targets {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

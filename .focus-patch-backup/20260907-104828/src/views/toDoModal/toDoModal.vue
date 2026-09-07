@@ -85,16 +85,16 @@
               <input class="form-check-input" type="checkbox" value="" id="todo-header" v-model="todo.checked"
                 @change="checkTodoClickhandler(false)" />
               <div class="title-container">
-                <input
-                  class="todo-title-input todo-title-input-always"
-                  type="text"
-                  v-model="todo.text"
-                  ref="titleInput"
-                  :class="{ 'completed-task': todo.checked }"
-                  :placeholder="$t('todoDetails.taskTitle')"
-                  @blur="doneEditTitle()"
-                  @keyup.enter="$event.target.blur()"
-                />
+                <label v-show="!editingTitle" class="form-check-label todo-title" for="todo-header"
+                  :class="{ 'completed-task': todo.checked }" @dblclick="editTitle">
+                  <span v-html="todoText"></span>
+                </label>
+                <label v-show="!editingTitle && todo.text == ''" class="form-check-label todo-title todo-title-empty-title"
+                  for="todo-header" @dblclick="editTitle">
+                  {{ $t("todoDetails.taskTitle") }}
+                </label>
+                <input v-show="editingTitle" class="todo-title-input" type="text" v-model="todo.text" ref="titleInput"
+                  :placeholder="$t('todoDetails.taskTitle')" @blur="doneEditTitle()" @keyup.enter="doneEditTitle()" />
                 <description-text-area :todoDesc="todo.desc"
                   @updated-description="changeDescription"></description-text-area>
                 <div class="attribute-toolbar mt-2">
@@ -330,17 +330,6 @@ export default {
     updateTodoList: function (todoListId, TodoList) {
       notifications.refreshDayNotifications(this, todoListId);
       toDoListRepository.update(todoListId, TodoList);
-
-      window.dispatchEvent(
-        new CustomEvent("weektodo:task-changed", {
-          detail: {
-            action: "updated",
-            taskId: this.todo?.id || null,
-            listId: todoListId,
-            task: this.todo || null,
-          },
-        })
-      );
     },
 
     // ============ 原有方法 ============
@@ -659,12 +648,6 @@ export default {
       this.todo = this.todoList[this.index];
 
       // 初始化缺失字段
-      if (!this.todo.id) {
-        this.todo.id = `task-${Date.now()}-${Math.random()
-          .toString(16)
-          .slice(2)}`;
-      }
-
       if (this.todo["desc"] == undefined) {
         this.todo["desc"] = "";
         this.todo["subTaskList"] = [];
@@ -821,20 +804,6 @@ export default {
   font-size: 19px; line-height: 26px; width: 100%; font-weight: 600;
   outline: unset; border: 2px solid #4263eb; border-radius: 6px; padding: 0 4px;
   .dark-theme & { border: 2px solid #6c8fff; background-color: unset; }
-}
-
-.todo-title-input-always {
-  min-height: 34px;
-  border-color: transparent;
-  background: transparent;
-
-  &:hover {
-    border-color: rgba(66, 99, 235, 0.25);
-  }
-
-  &:focus {
-    border-color: #4263eb;
-  }
 }
 .todo-title-empty-title { color: grey; margin-left: -8px; }
 .dropdown-item { color: #3c3c3c; }

@@ -396,8 +396,6 @@ export default {
 .dark-theme .focus-modal > footer {
   border-color: #30363d;
 }
-</style>
-
 
 .focus-document-location {
   display: flex;
@@ -431,3 +429,4 @@ export default {
   background: #1d232b;
   color: #d7dce2;
 }
+</style>

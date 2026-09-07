@@ -1,18 +1,6 @@
 <template>
   <div class="focus-editor" :class="{ spacious }">
     <div v-if="editor" class="focus-editor-toolbar">
-      <button
-        title="撤销"
-        :disabled="!editor.can().undo()"
-        @click="run('undo')"
-      >↶</button>
-      <button
-        title="重做"
-        :disabled="!editor.can().redo()"
-        @click="run('redo')"
-      >↷</button>
-
-      <span class="divider"></span>
 
       <select
         class="focus-block-select"
@@ -32,7 +20,7 @@
         title="字体大小"
         @change="setFontSize($event.target.value)"
       >
-        <option value="">默认</option>
+        <option value="">16px</option>
         <option value="12px">12px</option>
         <option value="14px">14px</option>
         <option value="16px">16px</option>
@@ -1852,6 +1840,97 @@ export default {
   color: #cbd0d7;
 }
 
+/*
+ * 三栏窄宽度工具栏：
+ * 历史操作交给系统快捷键，释放横向空间。
+ */
+.focus-editor-toolbar {
+  min-height: 38px;
+  gap: 2px;
+  padding: 4px 6px;
+}
+
+.focus-editor-toolbar button,
+.focus-editor-toolbar select {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+}
+
+.focus-editor-toolbar select.focus-block-select {
+  width: 66px;
+  min-width: 66px;
+  max-width: 66px;
+}
+
+.focus-editor-toolbar select.focus-size-select {
+  width: 58px;
+  min-width: 58px;
+  max-width: 58px;
+}
+
+.focus-editor-toolbar .divider {
+  margin: 0 2px;
+}
+
+/*
+ * 文档中的关联事项只使用一行。
+ */
+.linked-task-block {
+  min-height: 28px;
+  gap: 7px;
+  margin: 3px 0;
+  padding: 2px 4px;
+  border-radius: 5px;
+}
+
+.linked-task-check {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  padding: 0;
+  border-width: 1px;
+  font-size: 9px;
+  line-height: 13px;
+}
+
+.linked-task-main {
+  display: block;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: #454c55;
+  font-size: 12px;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linked-task-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linked-task-unlink {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0;
+  border-radius: 5px;
+  opacity: 0;
+}
+
+.linked-task-block:hover .linked-task-unlink,
+.linked-task-unlink:focus-visible {
+  opacity: 1;
+}
+
+.linked-task-unlink:hover {
+  background: #e7eaee;
+  color: #c84444;
+}
 </style>
 
 

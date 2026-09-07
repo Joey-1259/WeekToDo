@@ -43,14 +43,31 @@ export default Node.create({
         dom.classList.toggle("is-missing", attrs.missing);
 
         dom.innerHTML = `
-          <button class="linked-task-check" type="button">
+          <button
+            class="linked-task-check"
+            type="button"
+            title="${attrs.checked ? "标记为未完成" : "标记为完成"}"
+          >
             ${attrs.checked ? "✓" : ""}
           </button>
-          <button class="linked-task-main" type="button">
+          <button
+            class="linked-task-main"
+            type="button"
+            title="${
+              attrs.missing
+                ? "原事项已不存在"
+                : "打开事项详情"
+            }"
+          >
             <span class="linked-task-title"></span>
-            <small>${attrs.missing ? "原事项已不存在" : "关联事项"}</small>
           </button>
-          <button class="linked-task-unlink" type="button" title="解除关联">×</button>
+          <button
+            class="linked-task-unlink"
+            type="button"
+            title="解除关联"
+          >
+            ×
+          </button>
         `;
 
         dom.querySelector(".linked-task-title").textContent =

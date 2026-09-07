@@ -53,7 +53,7 @@
 
           <button
             class="folder-name"
-            @click="$emit('select-folder', entry.folder.id)"
+            @click="activateFolder(entry.folder)"
           >
             <span>▱</span>
             <span>{{ entry.folder.name }}</span>
@@ -113,10 +113,30 @@
 
       <section class="focus-tree-uncategorized">
         <div class="focus-tree-folder static">
-          <span class="folder-toggle">⌄</span>
+          <button
+            class="folder-toggle"
+            type="button"
+            :title="
+              uncategorizedCollapsed
+                ? '展开未分类'
+                : '折叠未分类'
+            "
+            @click.stop="
+              uncategorizedCollapsed =
+                !uncategorizedCollapsed
+            "
+          >
+            {{ uncategorizedCollapsed ? "›" : "⌄" }}
+          </button>
+
           <button
             class="folder-name"
-            @click="$emit('select-folder', '__root__')"
+            @click="
+              compact
+                ? uncategorizedCollapsed =
+                    !uncategorizedCollapsed
+                : $emit('select-folder', '__root__')
+            "
           >
             <span>▱</span>
             <span>未分类</span>
@@ -124,7 +144,10 @@
           </button>
         </div>
 
-        <div class="focus-tree-documents">
+        <div
+          v-if="!uncategorizedCollapsed"
+          class="focus-tree-documents"
+        >
           <button
             v-for="document in documentsForFolder(null)"
             :key="document.id"
@@ -186,6 +209,7 @@ export default {
       folders: [],
       openMenuId: null,
       draggedDocumentId: null,
+      uncategorizedCollapsed: false,
     };
   },
   computed: {
@@ -280,6 +304,15 @@ export default {
       this.$emit("delete-folder", folder.id);
       this.openMenuId = null;
       this.reloadFolders();
+    },
+
+    activateFolder(folder) {
+      if (this.compact) {
+        this.toggleFolder(folder.id);
+        return;
+      }
+
+      this.$emit("select-folder", folder.id);
     },
 
     toggleFolder(id) {
@@ -679,5 +712,32 @@ export default {
   .focus-tree-document.open {
   background: transparent;
   color: #737d88;
+}
+
+.focus-tree.focus-tree-compact .folder-name {
+  min-height: 28px;
+}
+
+.focus-tree.focus-tree-compact .folder-toggle {
+  border-radius: 5px;
+}
+
+.focus-tree.focus-tree-compact .folder-toggle:hover {
+  background: #e8ebef;
+  color: #4263eb;
+}
+
+.focus-tree.focus-tree-compact
+  .focus-tree-folder:hover {
+  background: #f3f5f7;
+}
+
+.dark-theme
+  .focus-tree.focus-tree-compact
+  .folder-toggle:hover,
+.dark-theme
+  .focus-tree.focus-tree-compact
+  .focus-tree-folder:hover {
+  background: #252c35;
 }
 </style>

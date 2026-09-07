@@ -110,6 +110,7 @@
       :selectedTodo="selectedTodo"
       :focusJumpTarget="focusTaskJumpTarget"
       @jump-week="jumpFromTaskDetail"
+      @closed="closeFocusTaskDetail"
     ></to-do-modal>
     <active-to-do :activeTodo="activeTodo"> </active-to-do>
     <importing-modal :id="'importingModal'" :text="$t('settings.importing')"></importing-modal>
@@ -343,10 +344,38 @@ export default {
     jumpFromTaskDetail(payload) {
       const modalElement =
         document.getElementById("toDoModal");
+      const modal = Modal.getInstance(modalElement);
 
-      Modal.getInstance(modalElement)?.hide();
+      if (!modalElement || !modal) {
+        this.closeFocusTaskDetail();
+        this.openFocusTaskDate(payload);
+        return;
+      }
+
+      modalElement.addEventListener(
+        "hidden.bs.modal",
+        () => this.openFocusTaskDate(payload),
+        { once: true }
+      );
+
+      modal.hide();
+    },
+
+    closeFocusTaskDetail() {
       this.focusTaskJumpTarget = null;
-      this.openFocusTaskDate(payload);
+
+      this.$nextTick(() => {
+        if (document.querySelector(".modal.show")) {
+          return;
+        }
+
+        document.body.classList.remove("modal-open");
+        document.body.style.removeProperty("padding-right");
+
+        document
+          .querySelectorAll(".modal-backdrop")
+          .forEach((backdrop) => backdrop.remove());
+      });
     },
 
     openFocusTaskDate: function (payload) {

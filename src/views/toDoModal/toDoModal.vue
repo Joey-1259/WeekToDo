@@ -54,10 +54,10 @@
               type="button"
               class="focus-jump-week"
               title="在每周事项看板中定位"
+              aria-label="在每周事项看板中定位"
               @click="$emit('jump-week', focusJumpTarget)"
             >
               <i class="bi-arrow-up-right-square"></i>
-              <span>前往每周看板</span>
             </button>
 
             <i id="btnTaskOptionMenu" class="bi-three-dots-vertical header-menu-icons" type="button"
@@ -239,12 +239,44 @@ export default {
       default: null,
     },
   },
-  emits: ["jump-week"],
+  emits: ["jump-week", "closed"],
   components: {
     colorPicker, toastMessage, timePicker, repeatingEvent,
     comfirmModal, descriptionTextArea, tagPicker, reminderPicker,
   },
+  mounted() {
+    document
+      .getElementById("toDoModal")
+      ?.addEventListener(
+        "hidden.bs.modal",
+        this.onModalHidden
+      );
+  },
+  beforeUnmount() {
+    document
+      .getElementById("toDoModal")
+      ?.removeEventListener(
+        "hidden.bs.modal",
+        this.onModalHidden
+      );
+  },
   methods: {
+    onModalHidden() {
+      this.$emit("closed");
+
+      this.$nextTick(() => {
+        if (document.querySelector(".modal.show")) {
+          return;
+        }
+
+        document.body.classList.remove("modal-open");
+        document.body.style.removeProperty("padding-right");
+
+        document
+          .querySelectorAll(".modal-backdrop")
+          .forEach((backdrop) => backdrop.remove());
+      });
+    },
     // ============ 日期区间处理 ============
     onStartDateChange: function () {
       if (this.loadingView) return;
@@ -927,8 +959,6 @@ export default {
   color: #16a34a; text-decoration: none;
   .dark-theme & { color: #4ade80; }
 }
-</style>
-
 
 .focus-jump-week {
   display: inline-flex;
@@ -959,3 +989,33 @@ export default {
   background: #27304a;
   color: #93a8ff;
 }
+
+.focus-jump-week {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #69717c;
+  cursor: pointer;
+}
+
+.focus-jump-week i {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.focus-jump-week:hover {
+  border-color: transparent;
+  background: #eef2ff;
+  color: #4263eb;
+}
+
+.dark-theme .focus-jump-week {
+  border-color: transparent;
+  color: #c9cfd6;
+}
+</style>

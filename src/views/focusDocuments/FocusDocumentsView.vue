@@ -23,34 +23,23 @@
             :class="{ active: treeVisible }"
             :aria-expanded="String(treeVisible)"
             aria-haspopup="dialog"
-            title="文档目录"
+            title="管理文档目录"
             @click.stop="toggleDirectory"
           >
             ☷
           </button>
 
           <Teleport to="body">
-            <div
+            <FocusDirectoryManager
               v-if="treeVisible"
-              ref="directoryPopover"
-              class="focus-directory-popover"
-              :style="directoryStyle"
-              role="dialog"
-              aria-label="文档目录"
-              @mousedown.stop
-            >
-              <FocusDocumentTree
-                :documents="filteredDocuments"
-                :open-ids="openIds"
-                :selected-folder-id="selectedFolderId"
-                @close="closeDirectory"
-                @select-folder="selectedFolderId = $event"
-                @open-document="openDocumentFromTree"
-                @move-document="moveDocument"
-                @delete-folder="releaseFolder"
-                @create-document="createDocument"
-              />
-            </div>
+              :documents="documents"
+              :open-ids="openIds"
+              :columns="columns"
+              @close="closeDirectory"
+              @changed="reload"
+              @open-in-pane="openDirectoryDocument"
+              @create-document="createFromDirectory"
+            />
           </Teleport>
         </div>
 
@@ -159,6 +148,7 @@
 import FocusDocumentPane from "./FocusDocumentPane.vue";
 import FocusDocumentModal from "./FocusDocumentModal.vue";
 import FocusDocumentTree from "./FocusDocumentTree.vue";
+import FocusDirectoryManager from "./FocusDirectoryManager.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 import focusFolderService from "../../services/focusFolderService";
 import focusTaskService from "../../services/focusTaskService";
@@ -265,6 +255,7 @@ export default {
     FocusDocumentPane,
     FocusDocumentModal,
     FocusDocumentTree,
+    FocusDirectoryManager,
   },
   emits: ["open-week", "open-task-detail"],
   data() {
@@ -276,7 +267,6 @@ export default {
       modalDocument: null,
       modalIsNew: false,
       treeVisible: false,
-      directoryStyle: {},
       selectedFolderId: null,
       draggedDocumentId: null,
       emptyDropIndex: null,
@@ -366,24 +356,6 @@ export default {
       this.reload
     );
     window.addEventListener("focus", this.reload);
-
-    document.addEventListener(
-      "mousedown",
-      this.handleDirectoryOutsidePointer
-    );
-    document.addEventListener(
-      "keydown",
-      this.handleDirectoryKeydown
-    );
-    window.addEventListener(
-      "resize",
-      this.handleDirectoryViewportChange
-    );
-    window.addEventListener(
-      "scroll",
-      this.handleDirectoryViewportChange,
-      true
-    );
   },
   beforeUnmount() {
     window.removeEventListener(
@@ -391,129 +363,27 @@ export default {
       this.reload
     );
     window.removeEventListener("focus", this.reload);
-
-    document.removeEventListener(
-      "mousedown",
-      this.handleDirectoryOutsidePointer
-    );
-    document.removeEventListener(
-      "keydown",
-      this.handleDirectoryKeydown
-    );
-    window.removeEventListener(
-      "resize",
-      this.handleDirectoryViewportChange
-    );
-    window.removeEventListener(
-      "scroll",
-      this.handleDirectoryViewportChange,
-      true
-    );
   },
   methods: {
     toggleDirectory() {
-      if (this.treeVisible) {
-        this.closeDirectory();
-        return;
-      }
-
-      this.treeVisible = true;
-      this.$nextTick(this.positionDirectory);
+      this.treeVisible = !this.treeVisible;
     },
 
     closeDirectory() {
       this.treeVisible = false;
-      this.directoryStyle = {};
-    },
-
-    positionDirectory() {
-      if (!this.treeVisible) return;
-
-      const button = this.$refs.directoryButton;
-      const rect = button?.getBoundingClientRect();
-
-      if (!rect) return;
-
-      const viewportPadding = 12;
-      const gap = 8;
-      const width = Math.min(
-        292,
-        window.innerWidth - viewportPadding * 2
-      );
-
-      const spaceBelow =
-        window.innerHeight - rect.bottom - viewportPadding;
-      const spaceAbove = rect.top - viewportPadding;
-
-      const openAbove =
-        spaceBelow < 280 && spaceAbove > spaceBelow;
-
-      const availableSpace = openAbove
-        ? spaceAbove
-        : spaceBelow;
-
-      const maxHeight = Math.max(
-        180,
-        Math.min(440, availableSpace - gap)
-      );
-
-      const left = Math.max(
-        viewportPadding,
-        Math.min(
-          window.innerWidth - width - viewportPadding,
-          rect.right - width
-        )
-      );
-
-      const top = openAbove
-        ? Math.max(
-            viewportPadding,
-            rect.top - maxHeight - gap
-          )
-        : rect.bottom + gap;
-
-      this.directoryStyle = {
-        position: "fixed",
-        width: `${width}px`,
-        left: `${left}px`,
-        top: `${top}px`,
-        maxHeight: `${maxHeight}px`,
-        "--directory-height": `${maxHeight}px`,
-      };
-    },
-
-    handleDirectoryOutsidePointer(event) {
-      if (!this.treeVisible) return;
-
-      const button = this.$refs.directoryButton;
-      const popover = this.$refs.directoryPopover;
-
-      if (
-        button?.contains(event.target) ||
-        popover?.contains(event.target)
-      ) {
-        return;
-      }
-
-      this.closeDirectory();
-    },
-
-    handleDirectoryKeydown(event) {
-      if (event.key !== "Escape" || !this.treeVisible) {
-        return;
-      }
-
-      this.closeDirectory();
 
       this.$nextTick(() => {
         this.$refs.directoryButton?.focus();
       });
     },
 
-    handleDirectoryViewportChange() {
-      if (this.treeVisible) {
-        this.positionDirectory();
-      }
+    openDirectoryDocument({ id, index }) {
+      this.selectDocument(id, index);
+    },
+
+    createFromDirectory(folderId) {
+      this.closeDirectory();
+      this.createDocument(folderId);
     },
 
     clearEmptyDrag(index, event) {
@@ -1317,5 +1187,18 @@ export default {
 
 .dark-theme .focus-empty-create:hover {
   background: #252c35;
+}
+
+/* 目录入口只显示状态，不再承担浮层定位。 */
+.focus-directory-anchor {
+  position: static;
+}
+
+.focus-directory-anchor > button {
+  display: grid;
+  width: 34px;
+  place-items: center;
+  padding: 0;
+  font-size: 15px;
 }
 </style>

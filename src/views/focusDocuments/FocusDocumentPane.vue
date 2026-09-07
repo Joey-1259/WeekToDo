@@ -38,26 +38,40 @@
               :style="menuStyle"
               @mousedown.stop
             >
-            <button @click="runAction('duplicate')">
-              <span>▣</span>
-              <span>复制文档</span>
-            </button>
-            <button @click="runAction('move')">
-              <span>↗</span>
-              <span>移动到目录</span>
-            </button>
-            <button @click="runAction('export')">
-              <span>⇩</span>
-              <span>导出 Markdown</span>
-            </button>
-            <div class="menu-divider"></div>
-            <button
-              class="danger"
-              @click="runAction('delete')"
-            >
-              <span>⌫</span>
-              <span>删除文档</span>
-            </button>
+              <button @click="runAction('duplicate')">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <rect x="6" y="6" width="10" height="10" rx="1.5" />
+                  <path d="M4 13H3.5A1.5 1.5 0 0 1 2 11.5v-8A1.5 1.5 0 0 1 3.5 2h8A1.5 1.5 0 0 1 13 3.5V4" />
+                </svg>
+                <span>复制文档</span>
+              </button>
+
+              <button @click="runAction('move')">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M3 5h5l1.5 2H17v8H3Z" />
+                  <path d="m9 11 2-2 2 2M11 9v5" />
+                </svg>
+                <span>移动到目录</span>
+              </button>
+
+              <button @click="runAction('export')">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M10 2v10M6 8l4 4 4-4M3 15v2h14v-2" />
+                </svg>
+                <span>导出 Markdown</span>
+              </button>
+
+              <div class="menu-divider"></div>
+
+              <button
+                class="danger"
+                @click="runAction('delete')"
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M5 6h10M8 6V4h4v2M6.5 6l.7 10h5.6l.7-10" />
+                </svg>
+                <span>删除文档</span>
+              </button>
             </div>
           </Teleport>
         </div>
@@ -606,5 +620,64 @@ export default {
 .dark-theme .focus-pane-hint kbd {
   border-color: #3a424d;
   background: #20262e;
+}
+
+.focus-document-menu > button {
+  display: grid;
+  place-items: center;
+  color: #737b86;
+  font-size: 0;
+}
+
+.focus-document-menu > button::before {
+  content: "";
+  width: 17px;
+  height: 4px;
+  background:
+    radial-gradient(
+      circle,
+      currentColor 1.4px,
+      transparent 1.6px
+    )
+    0 0 / 6px 4px;
+}
+
+.focus-document-menu-popover {
+  width: 190px;
+  padding: 6px;
+  border-color: rgba(31, 35, 41, 0.12);
+  border-radius: 10px;
+  box-shadow:
+    0 16px 42px rgba(20, 25, 34, 0.16),
+    0 3px 10px rgba(20, 25, 34, 0.07);
+}
+
+.focus-document-menu-popover button {
+  min-height: 36px;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: #505863;
+  font-size: 11px;
+  font-weight: 450;
+}
+
+.focus-document-menu-popover svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.focus-document-menu-popover button.danger {
+  color: #c84444;
+}
+
+.focus-document-menu-popover .menu-divider {
+  margin: 4px 6px;
 }
 </style>

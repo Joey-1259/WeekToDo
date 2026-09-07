@@ -1,6 +1,6 @@
 <template>
   <aside class="focus-tree">
-    <header v-if="!compact">
+    <header>
       <strong>文档目录</strong>
 
       <div>
@@ -14,7 +14,6 @@
     </header>
 
     <button
-      v-if="!compact"
       class="focus-tree-root"
       :class="{ active: selectedFolderId === null }"
       @click="$emit('select-folder', null)"
@@ -61,7 +60,6 @@
           </button>
 
           <button
-            v-if="!compact"
             class="folder-more"
             title="目录操作"
             @click.stop="toggleMenu(entry.folder.id)"
@@ -142,7 +140,7 @@
       </section>
     </div>
 
-    <footer v-if="!compact">
+    <footer>
       <button @click="$emit('create-document', selectedFolderId)">
         ＋ 新建文档
       </button>
@@ -166,10 +164,6 @@ export default {
     },
     selectedFolderId: {
       default: null,
-    },
-    compact: {
-      type: Boolean,
-      default: false,
     },
   },
   emits: [
@@ -316,10 +310,9 @@ export default {
 .focus-tree {
   position: relative;
   display: flex;
-  width: 280px;
-  min-width: 240px;
-  max-width: min(340px, calc(100vw - 32px));
-  max-height: min(520px, calc(100vh - 110px));
+  width: 260px;
+  min-width: 220px;
+  max-width: 320px;
   min-height: 0;
   flex-direction: column;
   border: 1px solid #e0e4e8;
@@ -549,27 +542,3 @@ export default {
   background: #1d232b;
 }
 </style>
-
-
-.focus-tree.focus-tree-compact {
-  width: 100%;
-  min-width: 0;
-  max-width: none;
-  max-height: 100%;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.focus-tree.focus-tree-compact .focus-tree-scroll {
-  padding: 4px;
-}
-
-.focus-tree.focus-tree-compact .focus-tree-folder {
-  margin: 2px 4px;
-}
-
-.focus-tree.focus-tree-compact .focus-tree-document {
-  padding-top: 7px;
-  padding-bottom: 7px;
-}

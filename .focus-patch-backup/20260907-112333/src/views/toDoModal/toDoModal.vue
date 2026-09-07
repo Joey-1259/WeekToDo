@@ -49,17 +49,6 @@
             </div>
           </div>
           <div class="d-flex ms-auto align-items-center">
-            <button
-              v-if="focusJumpTarget"
-              type="button"
-              class="focus-jump-week"
-              title="在每周事项看板中定位"
-              @click="$emit('jump-week', focusJumpTarget)"
-            >
-              <i class="bi-arrow-up-right-square"></i>
-              <span>前往每周看板</span>
-            </button>
-
             <i id="btnTaskOptionMenu" class="bi-three-dots-vertical header-menu-icons" type="button"
               data-bs-toggle="dropdown" :title="$t('todoDetails.actions')"></i>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="btnTaskOptionMenu">
@@ -234,12 +223,7 @@ export default {
   },
   props: {
     selectedTodo: { required: true, type: Object },
-    focusJumpTarget: {
-      type: Object,
-      default: null,
-    },
   },
-  emits: ["jump-week"],
   components: {
     colorPicker, toastMessage, timePicker, repeatingEvent,
     comfirmModal, descriptionTextArea, tagPicker, reminderPicker,
@@ -928,34 +912,3 @@ export default {
   .dark-theme & { color: #4ade80; }
 }
 </style>
-
-
-.focus-jump-week {
-  display: inline-flex;
-  height: 32px;
-  align-items: center;
-  gap: 6px;
-  padding: 0 10px;
-  border: 1px solid #dfe3e8;
-  border-radius: 7px;
-  background: transparent;
-  color: #59616c;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.focus-jump-week:hover {
-  border-color: #9aacec;
-  background: #eef2ff;
-  color: #4263eb;
-}
-
-.dark-theme .focus-jump-week {
-  border-color: #38414b;
-  color: #c9cfd6;
-}
-
-.dark-theme .focus-jump-week:hover {
-  background: #27304a;
-  color: #93a8ff;
-}

@@ -35,7 +35,7 @@
       class="bi-journal-richtext"
       :class="{ 'active-icon': activeModule === 'focus' }"
       @click="$emit('openFocusDocuments')"
-      title="重点事项"
+      title="重点客户 / 项目"
     ></i>
 
     <span style="flex-grow: 1"></span>

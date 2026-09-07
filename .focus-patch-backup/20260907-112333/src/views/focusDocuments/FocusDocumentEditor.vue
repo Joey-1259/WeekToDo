@@ -52,19 +52,16 @@
         @click="run('toggleBold')"
       ><strong>B</strong></button>
       <button
-        v-if="spacious"
         :class="{ active: editor.isActive('italic') }"
         title="斜体"
         @click="run('toggleItalic')"
       ><em>I</em></button>
       <button
-        v-if="spacious"
         :class="{ active: editor.isActive('underline') }"
         title="下划线"
         @click="run('toggleUnderline')"
       ><u>U</u></button>
       <button
-        v-if="spacious"
         :class="{ active: editor.isActive('strike') }"
         title="删除线"
         @click="run('toggleStrike')"
@@ -75,7 +72,7 @@
           :class="{ active: activeColorMenu === 'toolbarText' }"
           title="文字颜色"
           @mousedown.prevent
-          @click.stop="toggleColorMenu('toolbarText', $event)"
+          @click.stop="toggleColorMenu('toolbarText')"
         >
           <span class="focus-color-letter">A</span>
           <i
@@ -87,7 +84,6 @@
         <div
           v-if="activeColorMenu === 'toolbarText'"
           class="focus-color-menu"
-          :style="colorMenuStyle"
           @mousedown.stop
           @click.stop
         >
@@ -132,7 +128,7 @@
           }"
           title="高亮颜色"
           @mousedown.prevent
-          @click.stop="toggleColorMenu('toolbarHighlight', $event)"
+          @click.stop="toggleColorMenu('toolbarHighlight')"
         >
           <span class="focus-highlight-letter">A</span>
           <i
@@ -144,7 +140,6 @@
         <div
           v-if="activeColorMenu === 'toolbarHighlight'"
           class="focus-color-menu"
-          :style="colorMenuStyle"
           @mousedown.stop
           @click.stop
         >
@@ -184,32 +179,22 @@
       <span class="divider"></span>
 
       <button
-        v-if="spacious"
         title="减少缩进（Shift + Tab）"
         @click="decreaseIndent"
       >⇤</button>
       <button
-        v-if="spacious"
         title="增加缩进（Tab）"
         @click="increaseIndent"
       >⇥</button>
       <button title="无序列表" @click="run('toggleBulletList')">☷</button>
       <button title="有序列表" @click="run('toggleOrderedList')">1.</button>
       <button title="待办清单" @click="run('toggleTaskList')">☑</button>
-      <button
-        v-if="spacious"
-        title="引用"
-        @click="run('toggleBlockquote')"
-      >❝</button>
+      <button title="引用" @click="run('toggleBlockquote')">❝</button>
       <button title="关联事项" @click="$emit('request-task')">↗</button>
 
       <span class="spacer"></span>
 
-      <button
-        v-if="spacious"
-        title="Markdown 源码"
-        @click="openMarkdown"
-      >MD</button>
+      <button title="Markdown 源码" @click="openMarkdown">MD</button>
     </div>
 
     <BubbleMenu
@@ -228,7 +213,7 @@
           class="focus-color-trigger"
           title="文字颜色"
           @mousedown.prevent
-          @click.stop="toggleColorMenu('bubbleText', $event)"
+          @click.stop="toggleColorMenu('bubbleText')"
         >
           <span class="focus-color-letter">A</span>
           <i
@@ -240,7 +225,6 @@
         <div
           v-if="activeColorMenu === 'bubbleText'"
           class="focus-color-menu is-bubble"
-          :style="colorMenuStyle"
           @mousedown.stop
           @click.stop
         >
@@ -268,7 +252,7 @@
           class="focus-color-trigger"
           title="高亮颜色"
           @mousedown.prevent
-          @click.stop="toggleColorMenu('bubbleHighlight', $event)"
+          @click.stop="toggleColorMenu('bubbleHighlight')"
         >
           <span class="focus-highlight-letter">A</span>
           <i
@@ -280,7 +264,6 @@
         <div
           v-if="activeColorMenu === 'bubbleHighlight'"
           class="focus-color-menu is-bubble"
-          :style="colorMenuStyle"
           @mousedown.stop
           @click.stop
         >
@@ -425,7 +408,6 @@ export default {
       activeColorMenu: null,
       selectedTextColor: "#292d33",
       selectedHighlightColor: "#fff0a6",
-      colorMenuStyle: {},
       textColors: TEXT_COLORS,
       highlightColors: HIGHLIGHT_COLORS,
     };
@@ -581,46 +563,9 @@ export default {
       this.editor?.chain().focus()[command]().run();
     },
 
-    toggleColorMenu(name, event) {
-      if (this.activeColorMenu === name) {
-        this.activeColorMenu = null;
-        return;
-      }
-
-      const trigger =
-        event?.currentTarget?.getBoundingClientRect();
-
-      if (trigger) {
-        const width = 224;
-        const height = 176;
-
-        const left = Math.max(
-          10,
-          Math.min(
-            window.innerWidth - width - 10,
-            trigger.left
-          )
-        );
-
-        const openAbove =
-          trigger.bottom + height >
-          window.innerHeight - 10;
-
-        this.colorMenuStyle = {
-          position: "fixed",
-          width: `${width}px`,
-          left: `${left}px`,
-          top: openAbove
-            ? "auto"
-            : `${trigger.bottom + 7}px`,
-          bottom: openAbove
-            ? `${window.innerHeight - trigger.top + 7}px`
-            : "auto",
-          transform: "none",
-        };
-      }
-
-      this.activeColorMenu = name;
+    toggleColorMenu(name) {
+      this.activeColorMenu =
+        this.activeColorMenu === name ? null : name;
 
       if (!this.editor) return;
 
@@ -959,6 +904,7 @@ export default {
   overflow-x: auto;
   overflow-y: visible;
   scrollbar-width: thin;
+  backdrop-filter: blur(12px);
 }
 
 .focus-editor-toolbar button,
@@ -1115,19 +1061,13 @@ export default {
 
 .linked-task-block {
   display: flex;
-  min-height: 34px;
   align-items: center;
-  gap: 8px;
-  margin: 5px 0;
-  padding: 3px 4px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  transition: background-color 0.15s ease;
-}
-
-.linked-task-block:hover {
-  background: #f4f6f9;
+  gap: 9px;
+  margin: 10px 0;
+  padding: 9px 10px;
+  border: 1px solid #dfe4ef;
+  border-radius: 9px;
+  background: #f8f9fd;
 }
 
 .linked-task-check {
@@ -1716,8 +1656,10 @@ export default {
 }
 
 .focus-color-menu {
-  position: fixed;
+  position: absolute;
   z-index: 15000;
+  top: calc(100% + 7px);
+  left: 0;
   width: 224px;
   padding: 11px;
   border: 1px solid #e1e4e8;
@@ -1729,7 +1671,9 @@ export default {
 }
 
 .focus-color-menu.is-bubble {
-  position: fixed;
+  top: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .focus-color-menu strong {
@@ -1858,32 +1802,3 @@ export default {
 }
 
 </style>
-
-
-.focus-editor:not(.spacious) .focus-editor-toolbar {
-  min-height: 40px;
-  gap: 1px;
-  padding: 4px 6px;
-}
-
-.focus-editor:not(.spacious) .focus-editor-toolbar button,
-.focus-editor:not(.spacious) .focus-editor-toolbar select {
-  min-width: 28px;
-  height: 29px;
-  padding-right: 6px;
-  padding-left: 6px;
-}
-
-.focus-editor:not(.spacious) .focus-editor-toolbar select.focus-block-select {
-  min-width: 76px;
-  max-width: 92px;
-}
-
-.focus-editor:not(.spacious) .focus-editor-toolbar select.focus-size-select {
-  min-width: 60px;
-  max-width: 72px;
-}
-
-.dark-theme .linked-task-block:hover {
-  background: #202730;
-}

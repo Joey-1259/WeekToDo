@@ -38,21 +38,7 @@
       />
 
       <footer>
-        <label class="focus-document-location">
-          <span>存储位置</span>
-          <select v-model="selectedFolder">
-            <option value="" disabled>请选择目录</option>
-            <option value="__root__">未分类</option>
-            <option
-              v-for="folder in folders"
-              :key="folder.id"
-              :value="folder.id"
-            >
-              {{ folder.name }}
-            </option>
-          </select>
-        </label>
-
+        <span>草稿自动保存 · ⌘/Ctrl + S 完成</span>
         <div>
           <button @click="close">稍后继续</button>
           <button
@@ -79,7 +65,6 @@
 import FocusDocumentEditor from "./FocusDocumentEditor.vue";
 import FocusTaskComposer from "./FocusTaskComposer.vue";
 import focusDocumentService from "../../services/focusDocumentService";
-import focusFolderService from "../../services/focusFolderService";
 
 export default {
   name: "FocusDocumentModal",
@@ -92,10 +77,6 @@ export default {
       type: Object,
       required: true,
     },
-    requireFolder: {
-      type: Boolean,
-      default: false,
-    },
   },
   emits: ["close", "saved", "open-task"],
   data() {
@@ -105,10 +86,6 @@ export default {
       saving: false,
       saveState: "saved",
       taskComposerVisible: false,
-      folders: focusFolderService.listFolders(),
-      selectedFolder: this.requireFolder
-        ? ""
-        : this.document.folderId || "__root__",
     };
   },
   computed: {
@@ -176,18 +153,7 @@ export default {
       this.timer = setTimeout(() => this.persist(false), 800);
     },
 
-    ensureFolderSelected() {
-      if (this.selectedFolder) return true;
-
-      window.alert("请先选择文档的存储目录。");
-      return false;
-    },
-
     async persist(final) {
-      if (!this.ensureFolderSelected()) {
-        throw new Error("DOCUMENT_FOLDER_REQUIRED");
-      }
-
       clearTimeout(this.timer);
       this.saving = true;
       this.saveState = "saving";
@@ -198,10 +164,6 @@ export default {
             {
               ...this.draft,
               title: this.draft.title.trim(),
-              folderId:
-                this.selectedFolder === "__root__"
-                  ? null
-                  : this.selectedFolder,
             },
             { final }
           );
@@ -237,10 +199,8 @@ export default {
       try {
         const saved = await this.persist(true);
         this.$emit("saved", saved);
-      } catch (error) {
-        if (error?.message !== "DOCUMENT_FOLDER_REQUIRED") {
-          window.alert("文档保存失败，请重试。");
-        }
+      } catch {
+        window.alert("文档保存失败，请重试。");
       }
     },
 
@@ -248,11 +208,7 @@ export default {
       try {
         const saved = await this.persist(false);
         this.$emit("close", saved);
-      } catch (error) {
-        if (error?.message === "DOCUMENT_FOLDER_REQUIRED") {
-          return;
-        }
-
+      } catch {
         if (window.confirm("保存失败，仍要关闭吗？")) {
           this.$emit("close", this.draft);
         }
@@ -397,37 +353,3 @@ export default {
   border-color: #30363d;
 }
 </style>
-
-
-.focus-document-location {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.focus-document-location > span {
-  color: #8f969f;
-  font-size: 11px;
-}
-
-.focus-document-location select {
-  min-width: 150px;
-  height: 32px;
-  padding: 0 28px 0 9px;
-  border: 1px solid #dfe2e7;
-  border-radius: 7px;
-  outline: none;
-  background: #fff;
-  color: #505761;
-  font-size: 12px;
-}
-
-.focus-document-location select:focus {
-  border-color: #4263eb;
-}
-
-.dark-theme .focus-document-location select {
-  border-color: #38414b;
-  background: #1d232b;
-  color: #d7dce2;
-}

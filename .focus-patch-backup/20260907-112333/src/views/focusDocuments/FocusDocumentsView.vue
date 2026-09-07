@@ -2,7 +2,7 @@
   <main class="focus-workspace">
     <header class="focus-workspace-header">
       <div>
-        <h1>重点事项</h1>
+        <h1>重点档案</h1>
         <span>{{ documents.length }} 篇文档</span>
       </div>
 
@@ -16,29 +16,12 @@
           />
         </label>
 
-        <div class="focus-directory-anchor">
-          <button
-            :class="{ active: treeVisible }"
-            title="文档目录"
-            @click.stop="treeVisible = !treeVisible"
-          >
-            ☷
-          </button>
-
-          <FocusDocumentTree
-            v-if="treeVisible"
-            class="focus-directory-popover"
-            :documents="filteredDocuments"
-            :open-ids="openIds"
-            :selected-folder-id="selectedFolderId"
-            @close="treeVisible = false"
-            @select-folder="selectedFolderId = $event"
-            @open-document="openDocumentFromTree"
-            @move-document="moveDocument"
-            @delete-folder="releaseFolder"
-            @create-document="createDocument"
-          />
-        </div>
+        <button
+          :class="{ active: treeVisible }"
+          @click="treeVisible = !treeVisible"
+        >
+          ☷ 目录
+        </button>
 
         <select v-model.number="columns">
           <option :value="1">1 列</option>
@@ -54,7 +37,18 @@
     </header>
 
     <div class="focus-workspace-body">
-
+      <FocusDocumentTree
+        v-if="treeVisible"
+        :documents="filteredDocuments"
+        :open-ids="openIds"
+        :selected-folder-id="selectedFolderId"
+        @close="treeVisible = false"
+        @select-folder="selectedFolderId = $event"
+        @open-document="openDocumentFromTree"
+        @move-document="moveDocument"
+        @delete-folder="releaseFolder"
+        @create-document="createDocument"
+      />
 
       <section
         class="focus-grid"
@@ -73,38 +67,46 @@
             "
             @dragend="draggedDocumentId = null"
             @dragover.prevent
-            @drop="dropPane(index - 1, $event)"
+            @drop="dropPane(index - 1)"
             @saved="replaceDocument"
             @edit="editDocument"
             @document-action="handleDocumentAction"
             @open-task="openTask"
-            @swap="swapPane(index - 1, $event)"
           />
 
           <div
             v-else
             class="focus-empty-pane"
             @dragover.prevent
-            @drop="dropPane(index - 1, $event)"
+            @drop="dropPane(index - 1)"
           >
-            <div class="focus-empty-tree">
-              <div class="focus-empty-heading">
-                <span>选择文档</span>
-                <button @click="createDocument()">
-                  ＋ 新建
+            <div>
+              <span class="empty-icon">⌑</span>
+              <strong>选择一篇文档</strong>
+              <small>在这里并排查看和编辑</small>
+
+              <div class="focus-picker">
+                <button
+                  v-for="document in visiblePickerDocuments"
+                  :key="document.id"
+                  @click="selectDocument(document.id, index - 1)"
+                >
+                  <span>
+                    {{ document.title || "未命名文档" }}
+                    <em v-if="document.draft">草稿</em>
+                  </span>
+                  <small>
+                    {{ formatDate(document.updatedAt) }}
+                  </small>
                 </button>
               </div>
 
-              <FocusDocumentTree
-                class="focus-tree-compact"
-                compact
-                :documents="filteredDocuments"
-                :open-ids="openIds"
-                :selected-folder-id="selectedFolderId"
-                @open-document="
-                  selectDocument($event, index - 1)
-                "
-              />
+              <button
+                class="create-link"
+                @click="createDocument()"
+              >
+                ＋ 新建文档
+              </button>
             </div>
           </div>
         </template>
@@ -114,7 +116,6 @@
     <FocusDocumentModal
       v-if="modalDocument"
       :document="modalDocument"
-      :require-folder="modalIsNew"
       @close="closeModal"
       @saved="finishModal"
       @open-task="openTask"
@@ -233,7 +234,7 @@ export default {
     FocusDocumentModal,
     FocusDocumentTree,
   },
-  emits: ["open-week", "open-task-detail"],
+  emits: ["open-week"],
   data() {
     return {
       documents: [],
@@ -241,8 +242,9 @@ export default {
       columns: 3,
       search: "",
       modalDocument: null,
-      modalIsNew: false,
-      treeVisible: false,
+      treeVisible:
+        localStorage.getItem("focusDocumentTreeVisible") !==
+        "false",
       selectedFolderId: null,
       draggedDocumentId: null,
     };
@@ -386,7 +388,6 @@ export default {
     },
 
     openDocumentFromTree(id) {
-      this.treeVisible = false;
       if (this.openIds.includes(id)) return;
 
       const next = [...this.openIds];
@@ -400,8 +401,6 @@ export default {
     },
 
     createDocument(folderId = undefined) {
-      this.modalIsNew = true;
-
       const targetFolder =
         folderId === undefined
           ? this.selectedFolderId
@@ -416,7 +415,6 @@ export default {
     },
 
     editDocument(id) {
-      this.modalIsNew = false;
       this.modalDocument =
         this.documents.find((item) => item.id === id) ||
         null;
@@ -424,7 +422,6 @@ export default {
 
     async closeModal(saved) {
       this.modalDocument = null;
-      this.modalIsNew = false;
 
       if (saved?.id) {
         this.replaceDocument(saved);
@@ -436,7 +433,6 @@ export default {
     finishModal(saved) {
       this.replaceDocument(saved);
       this.modalDocument = null;
-      this.modalIsNew = false;
       this.openDocumentFromTree(saved.id);
     },
 
@@ -466,18 +462,9 @@ export default {
       event.currentTarget.classList.add("is-dragging");
     },
 
-    async dropPane(targetIndex, event) {
-      const transferredId =
-        event?.dataTransfer?.getData(
-          "application/x-weektodo-document"
-        ) ||
-        event?.dataTransfer?.getData(
-          "application/x-weektodo-pane"
-        );
-
-      const id = transferredId || this.draggedDocumentId;
+    async dropPane(targetIndex) {
+      const id = this.draggedDocumentId;
       this.draggedDocumentId = null;
-
       document
         .querySelectorAll(".focus-pane.is-dragging")
         .forEach((item) =>
@@ -486,62 +473,26 @@ export default {
 
       if (!id) return;
 
-      const next = Array.from(
-        { length: this.columns },
-        (_, index) => this.openIds[index] || null
-      );
+      const next = [...this.openIds];
+      const fromIndex = next.indexOf(id);
 
-      const sourceIndex = next.indexOf(id);
-      const targetId = next[targetIndex];
-
-      if (sourceIndex >= 0 && sourceIndex !== targetIndex) {
-        // 已在其他栏：交换两栏。
-        next[sourceIndex] = targetId || null;
-        next[targetIndex] = id;
-      } else {
-        // 从目录拖入：替换目标栏。
-        next[targetIndex] = id;
+      if (fromIndex >= 0) {
+        next.splice(fromIndex, 1);
       }
 
-      this.openIds = next.filter(
-        (item, index) =>
-          item || next.slice(index + 1).some(Boolean)
-      );
+      next.splice(targetIndex, 0, id);
+      this.openIds = next.slice(0, this.columns);
 
       const remaining = this.documents
         .map((item) => item.id)
         .filter((item) => !this.openIds.includes(item));
 
       await focusDocumentService.reorderDocuments([
-        ...this.openIds.filter(Boolean),
+        ...this.openIds,
         ...remaining,
       ]);
 
       await this.reload();
-    },
-
-    swapPane(index, step) {
-      const target = index + Number(step);
-
-      if (
-        target < 0 ||
-        target >= this.columns ||
-        !this.openIds[index]
-      ) {
-        return;
-      }
-
-      const next = Array.from(
-        { length: this.columns },
-        (_, itemIndex) => this.openIds[itemIndex] || null
-      );
-
-      [next[index], next[target]] = [
-        next[target],
-        next[index],
-      ];
-
-      this.openIds = next;
     },
 
     async moveDocument({ documentId, folderId }) {
@@ -659,14 +610,21 @@ export default {
     },
 
     openTask(task) {
-      if (!task?.taskId || !task?.listId) {
-        window.alert("关联事项不存在或已经被删除。");
+      if (!task.listId) {
+        window.alert("该事项的日期或列表信息缺失。");
         return;
       }
 
-      this.$emit("open-task-detail", {
-        taskId: task.taskId,
+      if (!/^\d{8}$/.test(task.listId)) {
+        window.alert(
+          "该事项位于自定义列表，请在每周视图右下角的自定义列表中查看。"
+        );
+        return;
+      }
+
+      this.$emit("open-week", {
         listId: task.listId,
+        taskId: task.taskId,
       });
     },
 
@@ -927,58 +885,3 @@ export default {
   }
 }
 </style>
-
-
-.focus-directory-anchor {
-  position: relative;
-}
-
-.focus-directory-popover {
-  position: absolute !important;
-  z-index: 14000;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 300px !important;
-  height: min(520px, calc(100vh - 120px));
-  box-shadow:
-    0 18px 48px rgba(25, 30, 40, 0.16),
-    0 3px 10px rgba(25, 30, 40, 0.08);
-}
-
-.focus-empty-tree {
-  display: flex;
-  width: 100% !important;
-  height: 100%;
-  max-height: none !important;
-  align-items: stretch !important;
-  flex-direction: column;
-}
-
-.focus-empty-heading {
-  display: flex;
-  min-height: 42px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 13px;
-  border-bottom: 1px solid #eceff2;
-  color: #6f7680;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.focus-empty-heading button {
-  border: 0;
-  background: transparent;
-  color: #4263eb;
-  cursor: pointer;
-}
-
-.focus-empty-pane {
-  align-items: stretch;
-  justify-items: stretch;
-  overflow: hidden;
-}
-
-.dark-theme .focus-empty-heading {
-  border-color: #303740;
-}

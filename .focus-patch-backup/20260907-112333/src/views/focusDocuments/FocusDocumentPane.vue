@@ -24,20 +24,16 @@
 
         <div class="focus-document-menu">
           <button
-            ref="menuButton"
             title="文档操作"
-            @click.stop="toggleDocumentMenu"
+            @click.stop="menuVisible = !menuVisible"
           >
             ⋯
           </button>
 
-          <Teleport to="body">
-            <div
-              v-if="menuVisible"
-              class="focus-document-menu-popover"
-              :style="menuStyle"
-              @mousedown.stop
-            >
+          <div
+            v-if="menuVisible"
+            class="focus-document-menu-popover"
+          >
             <button @click="runAction('duplicate')">
               <span>▣</span>
               <span>复制文档</span>
@@ -58,8 +54,7 @@
               <span>⌫</span>
               <span>删除文档</span>
             </button>
-            </div>
-          </Teleport>
+          </div>
         </div>
       </div>
     </header>
@@ -79,28 +74,6 @@
       @request-task="taskComposerVisible = true"
       @open-task="$emit('open-task', $event)"
     />
-
-    <footer class="focus-pane-footer">
-      <button
-        type="button"
-        title="与左侧文档交换位置"
-        @click="$emit('swap', -1)"
-      >
-        ‹
-      </button>
-
-      <span>
-        输入 <kbd>/</kbd> 插入进阶内容
-      </span>
-
-      <button
-        type="button"
-        title="与右侧文档交换位置"
-        @click="$emit('swap', 1)"
-      >
-        ›
-      </button>
-    </footer>
 
     <FocusTaskComposer
       v-if="taskComposerVisible"
@@ -133,7 +106,6 @@ export default {
     "edit",
     "document-action",
     "open-task",
-    "swap",
   ],
   data() {
     return {
@@ -143,7 +115,6 @@ export default {
       saveState: "saved",
       taskComposerVisible: false,
       menuVisible: false,
-      menuStyle: {},
     };
   },
   computed: {
@@ -180,46 +151,6 @@ export default {
       if (!event.target.closest(".focus-document-menu")) {
         this.menuVisible = false;
       }
-    },
-
-    toggleDocumentMenu() {
-      if (this.menuVisible) {
-        this.menuVisible = false;
-        return;
-      }
-
-      const rect =
-        this.$refs.menuButton?.getBoundingClientRect();
-
-      if (!rect) return;
-
-      const width = 176;
-      const estimatedHeight = 174;
-      const left = Math.max(
-        10,
-        Math.min(
-          window.innerWidth - width - 10,
-          rect.right - width
-        )
-      );
-
-      const openAbove =
-        rect.bottom + estimatedHeight >
-        window.innerHeight - 10;
-
-      this.menuStyle = {
-        position: "fixed",
-        width: `${width}px`,
-        left: `${left}px`,
-        top: openAbove
-          ? "auto"
-          : `${rect.bottom + 6}px`,
-        bottom: openAbove
-          ? `${window.innerHeight - rect.top + 6}px`
-          : "auto",
-      };
-
-      this.menuVisible = true;
     },
 
     runAction(action) {
@@ -340,9 +271,11 @@ export default {
 }
 
 .focus-document-menu-popover {
-  position: fixed;
-  z-index: 16000;
-  width: 176px;
+  position: absolute;
+  z-index: 80;
+  top: 34px;
+  right: 0;
+  width: 170px;
   padding: 5px;
   border: 1px solid #e0e4e8;
   border-radius: 9px;
@@ -426,53 +359,3 @@ export default {
   background: #343b45;
 }
 </style>
-
-
-.focus-pane-footer {
-  display: grid;
-  min-height: 34px;
-  grid-template-columns: 34px minmax(0, 1fr) 34px;
-  align-items: center;
-  border-top: 1px solid #eef0f2;
-  color: #969ca5;
-  font-size: 11px;
-}
-
-.focus-pane-footer > span {
-  overflow: hidden;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.focus-pane-footer button {
-  height: 28px;
-  margin: 3px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #8d949e;
-  font-size: 21px;
-  cursor: pointer;
-}
-
-.focus-pane-footer button:hover {
-  background: #eef1f5;
-  color: #4263eb;
-}
-
-.focus-pane-footer kbd {
-  padding: 1px 5px;
-  border: 1px solid #dfe3e8;
-  border-radius: 4px;
-  background: transparent;
-  font: inherit;
-}
-
-.dark-theme .focus-pane-footer {
-  border-color: #30363d;
-}
-
-.dark-theme .focus-pane-footer button:hover {
-  background: #252c35;
-}

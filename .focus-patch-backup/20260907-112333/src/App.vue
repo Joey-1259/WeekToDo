@@ -92,9 +92,7 @@
         @jump-to-date="jumpToDateFromHub"
       ></calendar-hub-view>
 
-      <focus-documents-view
-        @open-week="openFocusTaskDate"
-        @open-task-detail="openFocusTaskDetail"
+      <focus-documents-view @open-week="openFocusTaskDate"
         v-if="activeModule === 'focus'"
         class="flex-grow-1"
       ></focus-documents-view>
@@ -106,11 +104,7 @@
     <clear-data-modal></clear-data-modal>
     <clear-list-modal></clear-list-modal>
     <welcome-modal></welcome-modal>
-    <to-do-modal
-      :selectedTodo="selectedTodo"
-      :focusJumpTarget="focusTaskJumpTarget"
-      @jump-week="jumpFromTaskDetail"
-    ></to-do-modal>
+    <to-do-modal :selectedTodo="selectedTodo"></to-do-modal>
     <active-to-do :activeTodo="activeTodo"> </active-to-do>
     <importing-modal :id="'importingModal'" :text="$t('settings.importing')"></importing-modal>
     <importing-modal :id="'exportingModal'" :text="$t('settings.exporting')"></importing-modal>
@@ -184,7 +178,6 @@ import anniversaryHelper from "./helpers/anniversaryHelper";
 import archiveRepository from "./repositories/archiveRepository";
 import archiveHistoryModal from "./views/ArchiveHistoryModal.vue";
 import focusDocumentsView from "./views/focusDocuments/FocusDocumentsView.vue";
-import todoTaskRepository from "./repositories/todoTaskRepository";
 
 export default {
   name: "App",
@@ -220,7 +213,6 @@ export default {
       homeAnniversaryList: anniversaryRepository.load(),
       homeCustomListIndex: 0,
       archiveHistoryVisible: false,
-      focusTaskJumpTarget: null,
     };
   },
   beforeCreate() {
@@ -295,60 +287,6 @@ export default {
     }
   },
   methods: {
-    async openFocusTaskDetail(payload) {
-      const found = await todoTaskRepository.getTask(
-        payload.taskId,
-        payload.listId
-      );
-
-      if (!found) {
-        window.alert("关联事项不存在或已经被删除。");
-        return;
-      }
-
-      await this.$store.dispatch(
-        "loadTodoLists",
-        found.listId
-      );
-
-      const list =
-        this.$store.getters.todoLists[found.listId] || [];
-      const index = list.findIndex(
-        (item) => item?.id === payload.taskId
-      );
-
-      if (index < 0) {
-        window.alert("无法加载关联事项详情。");
-        return;
-      }
-
-      this.focusTaskJumpTarget = {
-        taskId: payload.taskId,
-        listId: found.listId,
-      };
-
-      this.$store.commit("actionsSelectedTodoIdUpdate", {
-        toDo: list[index],
-        index,
-      });
-
-      this.$nextTick(() => {
-        const modal = new Modal(
-          document.getElementById("toDoModal")
-        );
-        modal.show();
-      });
-    },
-
-    jumpFromTaskDetail(payload) {
-      const modalElement =
-        document.getElementById("toDoModal");
-
-      Modal.getInstance(modalElement)?.hide();
-      this.focusTaskJumpTarget = null;
-      this.openFocusTaskDate(payload);
-    },
-
     openFocusTaskDate: function (payload) {
       this.activeModule = "week";
       this.showCalendarHub = false;

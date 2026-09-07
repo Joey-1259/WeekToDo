@@ -1,31 +1,28 @@
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
 
-const pluginKey = new PluginKey("focusSmartFormatting");
 const MAX_INDENT = 8;
 
-const CHINESE_NUMBERS = [
-  "一",
-  "二",
-  "三",
-  "四",
-  "五",
-  "六",
-  "七",
-  "八",
-  "九",
-  "十",
+const CHINESE_DIGITS = [
+  "一", "二", "三", "四", "五",
+  "六", "七", "八", "九", "十",
 ];
 
-function incrementChinese(value) {
-  const index = CHINESE_NUMBERS.indexOf(value);
-  return index >= 0 && index < CHINESE_NUMBERS.length - 1
-    ? CHINESE_NUMBERS[index + 1]
+const CIRCLED_DIGITS = [
+  "①", "②", "③", "④", "⑤",
+  "⑥", "⑦", "⑧", "⑨", "⑩",
+  "⑪", "⑫", "⑬", "⑭", "⑮",
+  "⑯", "⑰", "⑱", "⑲", "⑳",
+];
+
+function nextArrayValue(values, current) {
+  const index = values.indexOf(current);
+  return index >= 0 && index < values.length - 1
+    ? values[index + 1]
     : null;
 }
 
 function incrementDecimalPath(value) {
-  const parts = value.split(".").map(Number);
+  const parts = String(value).split(".").map(Number);
 
   if (
     !parts.length ||
@@ -38,114 +35,135 @@ function incrementDecimalPath(value) {
   return parts.join(".");
 }
 
+function nextAlphabet(value) {
+  if (!/^[A-Za-z]$/.test(value)) return null;
+
+  const code = value.charCodeAt(0);
+  const end = value === value.toUpperCase() ? 90 : 122;
+
+  return code < end ? String.fromCharCode(code + 1) : null;
+}
+
+/**
+ * 常见中文办公文档与笔记编号：
+ * 1. / 1、 / 1) / （1）
+ * 1.2.3. / 1.2.3、
+ * 一、 / （一）
+ * A. / a)
+ * ① / ②
+ */
 function nextMarker(text) {
   const value = String(text || "");
 
-  const decimal = value.match(
-    /^(\s*)(\d+(?:\.\d+)*)([.．、])\s+(.+)$/
+  let match = value.match(
+    /^(\s*)(\d+(?:\.\d+)*)([.．、])\s*(.+)$/
   );
 
-  if (decimal) {
-    const next = incrementDecimalPath(decimal[2]);
+  if (match) {
+    const next = incrementDecimalPath(match[2]);
+
     return next
-      ? `${decimal[1]}${next}${decimal[3]} `
+      ? `${match[1]}${next}${match[3]} `
       : null;
   }
 
-  const wrappedNumber = value.match(
-    /^(\s*)([(（])(\d+)([)）])\s+(.+)$/
+  match = value.match(
+    /^(\s*)([(（])(\d+)([)）])\s*(.+)$/
   );
 
-  if (wrappedNumber) {
+  if (match) {
     return (
-      `${wrappedNumber[1]}${wrappedNumber[2]}` +
-      `${Number(wrappedNumber[3]) + 1}` +
-      `${wrappedNumber[4]} `
+      `${match[1]}${match[2]}` +
+      `${Number(match[3]) + 1}${match[4]} `
     );
   }
 
-  const rightNumber = value.match(
-    /^(\s*)(\d+)([)）])\s+(.+)$/
-  );
+  match = value.match(/^(\s*)(\d+)([)）])\s*(.+)$/);
 
-  if (rightNumber) {
+  if (match) {
     return (
-      `${rightNumber[1]}${Number(rightNumber[2]) + 1}` +
-      `${rightNumber[3]} `
+      `${match[1]}${Number(match[2]) + 1}` +
+      `${match[3]} `
     );
   }
 
-  const chinese = value.match(
-    /^(\s*)([一二三四五六七八九十])([、.．])\s+(.+)$/
+  match = value.match(
+    /^(\s*)([一二三四五六七八九十])([、.．])\s*(.+)$/
   );
 
-  if (chinese) {
-    const next = incrementChinese(chinese[2]);
+  if (match) {
+    const next = nextArrayValue(CHINESE_DIGITS, match[2]);
+
     return next
-      ? `${chinese[1]}${next}${chinese[3]} `
+      ? `${match[1]}${next}${match[3]} `
       : null;
   }
 
-  const wrappedChinese = value.match(
-    /^(\s*)([(（])([一二三四五六七八九十])([)）])\s+(.+)$/
+  match = value.match(
+    /^(\s*)([(（])([一二三四五六七八九十])([)）])\s*(.+)$/
   );
 
-  if (wrappedChinese) {
-    const next = incrementChinese(wrappedChinese[3]);
+  if (match) {
+    const next = nextArrayValue(CHINESE_DIGITS, match[3]);
 
     return next
-      ? `${wrappedChinese[1]}${wrappedChinese[2]}` +
-          `${next}${wrappedChinese[4]} `
+      ? `${match[1]}${match[2]}${next}${match[4]} `
       : null;
   }
 
-  const alphabet = value.match(
-    /^(\s*)([A-Za-z])([.．、)）])\s+(.+)$/
+  match = value.match(
+    /^(\s*)([A-Za-z])([.．、)）])\s*(.+)$/
   );
 
-  if (alphabet) {
-    const code = alphabet[2].charCodeAt(0);
-    const upper = alphabet[2] === alphabet[2].toUpperCase();
-    const end = upper ? 90 : 122;
+  if (match) {
+    const next = nextAlphabet(match[2]);
 
-    if (code < end) {
-      return (
-        `${alphabet[1]}${String.fromCharCode(code + 1)}` +
-        `${alphabet[3]} `
-      );
-    }
+    return next
+      ? `${match[1]}${next}${match[3]} `
+      : null;
   }
 
-  const wrappedAlphabet = value.match(
-    /^(\s*)([(（])([A-Za-z])([)）])\s+(.+)$/
+  match = value.match(
+    /^(\s*)([(（])([A-Za-z])([)）])\s*(.+)$/
   );
 
-  if (wrappedAlphabet) {
-    const code = wrappedAlphabet[3].charCodeAt(0);
-    const upper =
-      wrappedAlphabet[3] === wrappedAlphabet[3].toUpperCase();
-    const end = upper ? 90 : 122;
+  if (match) {
+    const next = nextAlphabet(match[3]);
 
-    if (code < end) {
-      return (
-        `${wrappedAlphabet[1]}${wrappedAlphabet[2]}` +
-        `${String.fromCharCode(code + 1)}` +
-        `${wrappedAlphabet[4]} `
-      );
-    }
+    return next
+      ? `${match[1]}${match[2]}${next}${match[4]} `
+      : null;
+  }
+
+  match = value.match(
+    /^(\s*)([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])\s*(.+)$/
+  );
+
+  if (match) {
+    const next = nextArrayValue(CIRCLED_DIGITS, match[2]);
+    return next ? `${match[1]}${next} ` : null;
   }
 
   return null;
 }
 
 function activeTextBlock(editor) {
-  if (editor.isActive("heading")) return "heading";
-  return "paragraph";
+  return editor.isActive("heading")
+    ? "heading"
+    : "paragraph";
+}
+
+function currentIndent(editor) {
+  const type = activeTextBlock(editor);
+  return Number(editor.getAttributes(type).indent || 0);
 }
 
 export default Extension.create({
   name: "focusSmartFormatting",
-  priority: 120,
+
+  // 必须高于 StarterKit 默认键盘映射，
+  // 保证 Backspace 优先执行缩进降级。
+  priority: 1000,
 
   addGlobalAttributes() {
     return [
@@ -189,12 +207,12 @@ export default Extension.create({
         () =>
         ({ editor, commands }) => {
           const type = activeTextBlock(editor);
-          const current = Number(
-            editor.getAttributes(type).indent || 0
-          );
 
           return commands.updateAttributes(type, {
-            indent: Math.min(MAX_INDENT, current + 1),
+            indent: Math.min(
+              MAX_INDENT,
+              currentIndent(editor) + 1
+            ),
           });
         },
 
@@ -202,12 +220,12 @@ export default Extension.create({
         () =>
         ({ editor, commands }) => {
           const type = activeTextBlock(editor);
-          const current = Number(
-            editor.getAttributes(type).indent || 0
-          );
 
           return commands.updateAttributes(type, {
-            indent: Math.max(0, current - 1),
+            indent: Math.max(
+              0,
+              currentIndent(editor) - 1
+            ),
           });
         },
     };
@@ -239,6 +257,31 @@ export default Extension.create({
         return this.editor.commands.decreaseIndent();
       },
 
+      Backspace: () => {
+        const { state } = this.editor;
+        const { $from, empty } = state.selection;
+
+        if (!empty || $from.parentOffset !== 0) {
+          return false;
+        }
+
+        if (this.editor.isActive("taskItem")) {
+          return this.editor.commands.liftListItem("taskItem");
+        }
+
+        if (this.editor.isActive("listItem")) {
+          return this.editor.commands.liftListItem("listItem");
+        }
+
+        if (currentIndent(this.editor) > 0) {
+          return this.editor.commands.decreaseIndent();
+        }
+
+        // 已经处于最小缩进时交回 StarterKit，
+        // 此时才允许合并到上一行。
+        return false;
+      },
+
       Enter: () => {
         const { state } = this.editor;
         const { $from, empty } = state.selection;
@@ -264,13 +307,5 @@ export default Extension.create({
           .run();
       },
     };
-  },
-
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: pluginKey,
-      }),
-    ];
   },
 });

@@ -2114,7 +2114,7 @@ export default {
 /* FOCUS SLASH MENU DENSITY V2
  * Slash 菜单是工具选择器，不是内容展示卡片。
  */
-:global(.focus-command-menu) {
+.focus-command-menu {
   box-sizing: border-box;
   width: min(320px, calc(100vw - 24px)) !important;
   max-width: 320px !important;
@@ -2128,7 +2128,7 @@ export default {
   backdrop-filter: blur(14px);
 }
 
-:global(.focus-command-header) {
+.focus-command-header {
   min-height: 30px;
   padding: 0 7px 6px;
   color: #969da6;
@@ -2136,7 +2136,7 @@ export default {
   font-weight: 450;
 }
 
-:global(.focus-command-header kbd) {
+.focus-command-header kbd {
   padding: 1px 4px;
   border: 1px solid #dfe3e8;
   border-radius: 4px;
@@ -2145,23 +2145,23 @@ export default {
   font: inherit;
 }
 
-:global(.focus-command-scroll) {
+.focus-command-scroll {
   max-height: min(350px, calc(100vh - 140px));
   padding: 0 1px 2px;
   overscroll-behavior: contain;
 }
 
-:global(.focus-command-section) {
+.focus-command-section {
   padding: 3px 0;
 }
 
-:global(.focus-command-section + .focus-command-section) {
+.focus-command-section + .focus-command-section {
   margin-top: 3px;
   padding-top: 7px;
   border-top: 1px solid #eceef1;
 }
 
-:global(.focus-command-section-title) {
+.focus-command-section-title {
   min-height: 23px;
   padding: 4px 7px;
   color: #979ea8;
@@ -2170,13 +2170,13 @@ export default {
   letter-spacing: 0;
 }
 
-:global(.focus-command-list) {
+.focus-command-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-:global(.focus-command-item) {
+.focus-command-item {
   display: grid;
   width: 100%;
   min-height: 48px;
@@ -2192,16 +2192,16 @@ export default {
   cursor: pointer;
 }
 
-:global(.focus-command-item:hover),
-:global(.focus-command-item.is-selected) {
+.focus-command-item:hover,
+.focus-command-item.is-selected {
   background: #f0f2f5;
 }
 
-:global(.focus-command-item.is-selected) {
+.focus-command-item.is-selected {
   box-shadow: inset 2px 0 0 #7288dc;
 }
 
-:global(.focus-command-icon) {
+.focus-command-icon {
   display: grid;
   width: 32px;
   height: 32px;
@@ -2214,14 +2214,14 @@ export default {
   font-weight: 560;
 }
 
-:global(.focus-command-copy) {
+.focus-command-copy {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 2px;
 }
 
-:global(.focus-command-copy strong) {
+.focus-command-copy strong {
   overflow: hidden;
   color: #343a42;
   font-size: 13px;
@@ -2231,7 +2231,7 @@ export default {
   white-space: nowrap;
 }
 
-:global(.focus-command-copy small) {
+.focus-command-copy small {
   overflow: hidden;
   color: #969da7;
   font-size: 11px;
@@ -2241,20 +2241,20 @@ export default {
   white-space: nowrap;
 }
 
-:global(.focus-command-shortcut) {
+.focus-command-shortcut {
   padding-left: 7px;
   color: #afb5bd;
   font-size: 10px;
   font-weight: 400;
 }
 
-:global(.focus-command-recent) {
+.focus-command-recent {
   display: flex;
   gap: 5px;
   padding: 0 4px 4px;
 }
 
-:global(.focus-command-item.is-compact) {
+.focus-command-item.is-compact {
   display: flex;
   width: auto;
   min-width: 0;
@@ -2266,10 +2266,8 @@ export default {
   background: #fafbfc;
 }
 
-:global(
-  .focus-command-item.is-compact
-  .focus-command-icon
-) {
+.focus-command-item.is-compact
+  .focus-command-icon {
   width: 23px;
   height: 23px;
   flex: 0 0 23px;
@@ -2278,7 +2276,7 @@ export default {
   font-size: 12px;
 }
 
-:global(.focus-command-compact-title) {
+.focus-command-compact-title {
   overflow: hidden;
   color: #565e68;
   font-size: 11px;
@@ -2287,58 +2285,46 @@ export default {
   white-space: nowrap;
 }
 
-:global(.focus-command-empty),
-:global(.focus-command-loading) {
+.focus-command-empty,
+.focus-command-loading {
   padding: 24px 14px;
   color: #9299a3;
   font-size: 11px;
   text-align: center;
 }
 
-:global(.dark-theme .focus-command-menu) {
+.dark-theme .focus-command-menu {
   border-color: #343d47;
   background: rgba(27, 32, 39, 0.985);
 }
 
-:global(
-  .dark-theme
+.dark-theme
   .focus-command-section
-  + .focus-command-section
-) {
+  + .focus-command-section {
   border-color: #333b45;
 }
 
-:global(
-  .dark-theme
-  .focus-command-item:hover
-),
-:global(
-  .dark-theme
-  .focus-command-item.is-selected
-) {
+.dark-theme
+  .focus-command-item:hover,
+.dark-theme
+  .focus-command-item.is-selected {
   background: #272e37;
 }
 
-:global(
-  .dark-theme
-  .focus-command-icon
-) {
+.dark-theme
+  .focus-command-icon {
   border-color: #3a434d;
   background: #20262e;
   color: #cbd1d8;
 }
 
-:global(
-  .dark-theme
-  .focus-command-copy strong
-) {
+.dark-theme
+  .focus-command-copy strong {
   color: #dce1e7;
 }
 
-:global(
-  .dark-theme
-  .focus-command-item.is-compact
-) {
+.dark-theme
+  .focus-command-item.is-compact {
   border-color: #333b45;
   background: #20262e;
 }

@@ -83,22 +83,39 @@
     <footer class="focus-pane-footer">
       <button
         type="button"
+        class="focus-pane-swap"
+        :disabled="!canSwapLeft"
+        :aria-disabled="String(!canSwapLeft)"
         title="与左侧文档交换位置"
         @click="$emit('swap', -1)"
       >
-        ‹
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M10 3.5 5.5 8 10 12.5" />
+        </svg>
       </button>
-
-      <span>
-        输入 <kbd>/</kbd> 插入进阶内容
-      </span>
 
       <button
         type="button"
+        class="focus-pane-hint"
+        title="聚焦编辑器"
+        @click="focusEditor"
+      >
+        <span>输入</span>
+        <kbd>/</kbd>
+        <span>插入进阶内容</span>
+      </button>
+
+      <button
+        type="button"
+        class="focus-pane-swap"
+        :disabled="!canSwapRight"
+        :aria-disabled="String(!canSwapRight)"
         title="与右侧文档交换位置"
         @click="$emit('swap', 1)"
       >
-        ›
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M6 3.5 10.5 8 6 12.5" />
+        </svg>
       </button>
     </footer>
 
@@ -126,6 +143,14 @@ export default {
     document: {
       type: Object,
       required: true,
+    },
+    canSwapLeft: {
+      type: Boolean,
+      default: true,
+    },
+    canSwapRight: {
+      type: Boolean,
+      default: true,
     },
   },
   emits: [
@@ -176,6 +201,12 @@ export default {
     );
   },
   methods: {
+    focusEditor() {
+      this.$el
+        .querySelector(".ProseMirror")
+        ?.focus();
+    },
+
     closeDocumentMenu(event) {
       if (!event.target.closest(".focus-document-menu")) {
         this.menuVisible = false;
@@ -425,8 +456,6 @@ export default {
 .dark-theme .menu-divider {
   background: #343b45;
 }
-</style>
-
 
 .focus-pane-footer {
   display: grid;
@@ -476,3 +505,106 @@ export default {
 .dark-theme .focus-pane-footer button:hover {
   background: #252c35;
 }
+
+/*
+ * 文档底部只保留一条 32px 的灰色功能栏。
+ */
+.focus-pane-footer {
+  display: grid;
+  min-height: 32px;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  align-items: center;
+  border-top: 1px solid #eef0f2;
+  background: #fafbfc;
+  color: #969ca5;
+}
+
+.focus-pane-footer button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+}
+
+.focus-pane-swap {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  margin: auto;
+  place-items: center;
+  padding: 0;
+  border-radius: 6px;
+  color: #8e959f;
+  cursor: pointer;
+}
+
+.focus-pane-swap svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.focus-pane-swap:hover:not(:disabled) {
+  background: #eceff3;
+  color: #4263eb;
+}
+
+.focus-pane-swap:disabled {
+  color: #d2d6db;
+  cursor: default;
+  opacity: 0.62;
+}
+
+.focus-pane-hint {
+  display: flex;
+  min-width: 0;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: #999fa7;
+  font-size: 10px;
+  cursor: text;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.focus-pane-hint:hover {
+  background: #f1f3f5;
+  color: #737b86;
+}
+
+.focus-pane-hint kbd {
+  display: inline-grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  padding: 0 4px;
+  border: 1px solid #dfe3e8;
+  border-radius: 4px;
+  background: #fff;
+  color: #777f89;
+  font: inherit;
+  line-height: 1;
+}
+
+.dark-theme .focus-pane-footer {
+  border-color: #30363d;
+  background: #181e25;
+}
+
+.dark-theme .focus-pane-swap:hover:not(:disabled),
+.dark-theme .focus-pane-hint:hover {
+  background: #252c35;
+}
+
+.dark-theme .focus-pane-hint kbd {
+  border-color: #3a424d;
+  background: #20262e;
+}
+</style>

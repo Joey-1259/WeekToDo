@@ -18,26 +18,40 @@
 
         <div class="focus-directory-anchor">
           <button
+            ref="directoryButton"
+            type="button"
             :class="{ active: treeVisible }"
+            :aria-expanded="String(treeVisible)"
+            aria-haspopup="dialog"
             title="文档目录"
-            @click.stop="treeVisible = !treeVisible"
+            @click.stop="toggleDirectory"
           >
             ☷
           </button>
 
-          <FocusDocumentTree
-            v-if="treeVisible"
-            class="focus-directory-popover"
-            :documents="filteredDocuments"
-            :open-ids="openIds"
-            :selected-folder-id="selectedFolderId"
-            @close="treeVisible = false"
-            @select-folder="selectedFolderId = $event"
-            @open-document="openDocumentFromTree"
-            @move-document="moveDocument"
-            @delete-folder="releaseFolder"
-            @create-document="createDocument"
-          />
+          <Teleport to="body">
+            <div
+              v-if="treeVisible"
+              ref="directoryPopover"
+              class="focus-directory-popover"
+              :style="directoryStyle"
+              role="dialog"
+              aria-label="文档目录"
+              @mousedown.stop
+            >
+              <FocusDocumentTree
+                :documents="filteredDocuments"
+                :open-ids="openIds"
+                :selected-folder-id="selectedFolderId"
+                @close="closeDirectory"
+                @select-folder="selectedFolderId = $event"
+                @open-document="openDocumentFromTree"
+                @move-document="moveDocument"
+                @delete-folder="releaseFolder"
+                @create-document="createDocument"
+              />
+            </div>
+          </Teleport>
         </div>
 
         <select v-model.number="columns">
@@ -64,6 +78,8 @@
           <FocusDocumentPane
             v-if="documentForPane(index - 1)"
             :document="documentForPane(index - 1)"
+            :can-swap-left="index > 1"
+            :can-swap-right="index < columns"
             draggable="true"
             @dragstart="
               startPaneDrag(
@@ -84,16 +100,25 @@
           <div
             v-else
             class="focus-empty-pane"
-            @dragover.prevent
-            @drop="dropPane(index - 1, $event)"
+            :class="{
+              'is-drop-target': emptyDropIndex === index - 1,
+            }"
+            @dragover.prevent="emptyDropIndex = index - 1"
+            @dragleave="
+              clearEmptyDrag(index - 1, $event)
+            "
+            @drop="dropIntoPane(index - 1, $event)"
           >
-            <div class="focus-empty-tree">
-              <div class="focus-empty-heading">
-                <span>选择文档</span>
-                <button @click="createDocument()">
-                  ＋ 新建
-                </button>
-              </div>
+            <div class="focus-empty-state">
+              <span
+                class="focus-empty-icon"
+                aria-hidden="true"
+              >
+                ▤
+              </span>
+
+              <strong>选择一篇文档</strong>
+              <small>从目录拖入，或在下方直接选择</small>
 
               <FocusDocumentTree
                 class="focus-tree-compact"
@@ -105,6 +130,14 @@
                   selectDocument($event, index - 1)
                 "
               />
+
+              <button
+                type="button"
+                class="focus-empty-create"
+                @click="createDocument()"
+              >
+                ＋ 新建文档
+              </button>
             </div>
           </div>
         </template>
@@ -243,8 +276,10 @@ export default {
       modalDocument: null,
       modalIsNew: false,
       treeVisible: false,
+      directoryStyle: {},
       selectedFolderId: null,
       draggedDocumentId: null,
+      emptyDropIndex: null,
     };
   },
   computed: {
@@ -295,13 +330,6 @@ export default {
       );
     },
 
-    treeVisible(value) {
-      localStorage.setItem(
-        "focusDocumentTreeVisible",
-        String(value)
-      );
-    },
-
     openIds: {
       deep: true,
       handler(value) {
@@ -338,6 +366,24 @@ export default {
       this.reload
     );
     window.addEventListener("focus", this.reload);
+
+    document.addEventListener(
+      "mousedown",
+      this.handleDirectoryOutsidePointer
+    );
+    document.addEventListener(
+      "keydown",
+      this.handleDirectoryKeydown
+    );
+    window.addEventListener(
+      "resize",
+      this.handleDirectoryViewportChange
+    );
+    window.addEventListener(
+      "scroll",
+      this.handleDirectoryViewportChange,
+      true
+    );
   },
   beforeUnmount() {
     window.removeEventListener(
@@ -345,8 +391,145 @@ export default {
       this.reload
     );
     window.removeEventListener("focus", this.reload);
+
+    document.removeEventListener(
+      "mousedown",
+      this.handleDirectoryOutsidePointer
+    );
+    document.removeEventListener(
+      "keydown",
+      this.handleDirectoryKeydown
+    );
+    window.removeEventListener(
+      "resize",
+      this.handleDirectoryViewportChange
+    );
+    window.removeEventListener(
+      "scroll",
+      this.handleDirectoryViewportChange,
+      true
+    );
   },
   methods: {
+    toggleDirectory() {
+      if (this.treeVisible) {
+        this.closeDirectory();
+        return;
+      }
+
+      this.treeVisible = true;
+      this.$nextTick(this.positionDirectory);
+    },
+
+    closeDirectory() {
+      this.treeVisible = false;
+      this.directoryStyle = {};
+    },
+
+    positionDirectory() {
+      if (!this.treeVisible) return;
+
+      const button = this.$refs.directoryButton;
+      const rect = button?.getBoundingClientRect();
+
+      if (!rect) return;
+
+      const viewportPadding = 12;
+      const gap = 8;
+      const width = Math.min(
+        292,
+        window.innerWidth - viewportPadding * 2
+      );
+
+      const spaceBelow =
+        window.innerHeight - rect.bottom - viewportPadding;
+      const spaceAbove = rect.top - viewportPadding;
+
+      const openAbove =
+        spaceBelow < 280 && spaceAbove > spaceBelow;
+
+      const availableSpace = openAbove
+        ? spaceAbove
+        : spaceBelow;
+
+      const maxHeight = Math.max(
+        180,
+        Math.min(440, availableSpace - gap)
+      );
+
+      const left = Math.max(
+        viewportPadding,
+        Math.min(
+          window.innerWidth - width - viewportPadding,
+          rect.right - width
+        )
+      );
+
+      const top = openAbove
+        ? Math.max(
+            viewportPadding,
+            rect.top - maxHeight - gap
+          )
+        : rect.bottom + gap;
+
+      this.directoryStyle = {
+        position: "fixed",
+        width: `${width}px`,
+        left: `${left}px`,
+        top: `${top}px`,
+        maxHeight: `${maxHeight}px`,
+        "--directory-height": `${maxHeight}px`,
+      };
+    },
+
+    handleDirectoryOutsidePointer(event) {
+      if (!this.treeVisible) return;
+
+      const button = this.$refs.directoryButton;
+      const popover = this.$refs.directoryPopover;
+
+      if (
+        button?.contains(event.target) ||
+        popover?.contains(event.target)
+      ) {
+        return;
+      }
+
+      this.closeDirectory();
+    },
+
+    handleDirectoryKeydown(event) {
+      if (event.key !== "Escape" || !this.treeVisible) {
+        return;
+      }
+
+      this.closeDirectory();
+
+      this.$nextTick(() => {
+        this.$refs.directoryButton?.focus();
+      });
+    },
+
+    handleDirectoryViewportChange() {
+      if (this.treeVisible) {
+        this.positionDirectory();
+      }
+    },
+
+    clearEmptyDrag(index, event) {
+      if (
+        this.emptyDropIndex === index &&
+        !event.currentTarget.contains(event.relatedTarget)
+      ) {
+        this.emptyDropIndex = null;
+      }
+    },
+
+    async dropIntoPane(index, event) {
+      this.emptyDropIndex = null;
+      await this.dropPane(index, event);
+    },
+
     async reload() {
       const documents =
         await focusDocumentService.listDocuments();
@@ -380,8 +563,25 @@ export default {
     },
 
     selectDocument(id, index) {
-      const next = [...this.openIds];
+      const next = Array.from(
+        { length: this.columns },
+        (_, paneIndex) =>
+          this.openIds[paneIndex] || null
+      );
+
+      const sourceIndex = next.indexOf(id);
+      const targetId = next[index];
+
+      if (sourceIndex >= 0 && sourceIndex !== index) {
+        next[sourceIndex] = targetId || null;
+      }
+
       next[index] = id;
+
+      while (next.length && !next[next.length - 1]) {
+        next.pop();
+      }
+
       this.openIds = next;
     },
 
@@ -926,8 +1126,6 @@ export default {
     max-height: 280px;
   }
 }
-</style>
-
 
 .focus-directory-anchor {
   position: relative;
@@ -982,3 +1180,142 @@ export default {
 .dark-theme .focus-empty-heading {
   border-color: #303740;
 }
+
+/*
+ * 顶部目录按钮只保留为浮层定位锚点。
+ * Teleport 后的目录不参与页面布局。
+ */
+.focus-directory-anchor {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.focus-directory-anchor > button {
+  width: 34px;
+  padding: 0;
+  font-size: 15px;
+}
+
+.focus-directory-popover {
+  z-index: 16000;
+  box-sizing: border-box;
+  border-radius: 11px;
+  filter:
+    drop-shadow(0 18px 38px rgba(24, 29, 38, 0.14))
+    drop-shadow(0 3px 9px rgba(24, 29, 38, 0.08));
+}
+
+.focus-directory-popover :deep(.focus-tree) {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  max-height: var(--directory-height, 440px);
+  border-color: rgba(31, 35, 41, 0.12);
+  box-shadow: none;
+}
+
+/*
+ * 空栏自身就是文档选择界面。
+ * 不再在大面板中嵌套第二张卡片。
+ */
+.focus-empty-pane {
+  display: flex;
+  min-width: 290px;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #d9dde3;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.46);
+  overflow: hidden;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.focus-empty-pane.is-drop-target {
+  border-color: #8fa5ee;
+  background: rgba(238, 242, 255, 0.78);
+  box-shadow:
+    inset 0 0 0 2px rgba(66, 99, 235, 0.08);
+}
+
+.focus-empty-state {
+  display: flex;
+  width: min(250px, calc(100% - 38px));
+  max-height: calc(100% - 44px);
+  flex-direction: column;
+  align-items: center;
+  color: #656d78;
+}
+
+.focus-empty-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 8px;
+  place-items: center;
+  border-radius: 10px;
+  background: #f0f2f5;
+  color: #969da7;
+  font-size: 17px;
+}
+
+.focus-empty-state > strong {
+  color: #555d67;
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.focus-empty-state > small {
+  margin: 4px 0 14px;
+  color: #a0a6ae;
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.focus-empty-state :deep(.focus-tree-compact) {
+  width: 100%;
+  max-height: min(270px, 45vh);
+}
+
+.focus-empty-create {
+  margin-top: 10px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #687181;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.focus-empty-create:hover {
+  background: #eef1f5;
+  color: #4263eb;
+}
+
+.dark-theme .focus-empty-pane {
+  border-color: #343b45;
+  background: rgba(22, 27, 34, 0.48);
+}
+
+.dark-theme .focus-empty-pane.is-drop-target {
+  border-color: #738ce3;
+  background: rgba(39, 48, 74, 0.58);
+}
+
+.dark-theme .focus-empty-icon {
+  background: #252c35;
+  color: #9ca5b0;
+}
+
+.dark-theme .focus-empty-state > strong {
+  color: #c7cdd4;
+}
+
+.dark-theme .focus-empty-create:hover {
+  background: #252c35;
+}
+</style>

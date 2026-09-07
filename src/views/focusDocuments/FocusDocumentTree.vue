@@ -548,8 +548,6 @@ export default {
   border-color: #3a424d;
   background: #1d232b;
 }
-</style>
-
 
 .focus-tree.focus-tree-compact {
   width: 100%;
@@ -573,3 +571,113 @@ export default {
   padding-top: 7px;
   padding-bottom: 7px;
 }
+
+/*
+ * compact 模式只负责空栏快速选择，不承担目录管理。
+ */
+.focus-tree.focus-tree-compact {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  max-height: 270px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #626a75;
+  overflow: hidden;
+}
+
+.focus-tree.focus-tree-compact .focus-tree-scroll {
+  width: 100%;
+  padding: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.focus-tree.focus-tree-compact
+  .focus-tree-folder-section {
+  margin: 0;
+}
+
+.focus-tree.focus-tree-compact .focus-tree-folder {
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding-right: 4px;
+  padding-left:
+    calc(2px + var(--depth, 0) * 12px);
+  border-radius: 5px;
+  color: #7b838d;
+  font-size: 10px;
+}
+
+.focus-tree.focus-tree-compact
+  .focus-tree-folder.active {
+  background: transparent;
+  color: #626b77;
+}
+
+.focus-tree.focus-tree-compact .folder-toggle {
+  width: 18px;
+  height: 22px;
+  flex-basis: 18px;
+}
+
+.focus-tree.focus-tree-compact .folder-name {
+  gap: 5px;
+}
+
+.focus-tree.focus-tree-compact .folder-name small {
+  font-size: 9px;
+  opacity: 0.72;
+}
+
+.focus-tree.focus-tree-compact
+  .focus-tree-documents {
+  padding-left:
+    calc(21px + var(--depth, 0) * 12px);
+}
+
+.focus-tree.focus-tree-compact
+  .focus-tree-document {
+  width: 100%;
+  min-height: 28px;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: 5px;
+  color: #626a75;
+  font-size: 11px;
+}
+
+.focus-tree.focus-tree-compact
+  .focus-tree-document:hover {
+  background: #eef1f5;
+  color: #343a42;
+}
+
+.focus-tree.focus-tree-compact
+  .focus-tree-document.open {
+  background: transparent;
+  color: #a0a6ae;
+}
+
+.focus-tree.focus-tree-compact
+  .focus-tree-document.open:hover {
+  background: #eef1f5;
+  color: #626a75;
+}
+
+.dark-theme
+  .focus-tree.focus-tree-compact
+  .focus-tree-folder.active {
+  background: transparent;
+  color: #adb5bf;
+}
+
+.dark-theme
+  .focus-tree.focus-tree-compact
+  .focus-tree-document.open {
+  background: transparent;
+  color: #737d88;
+}
+</style>

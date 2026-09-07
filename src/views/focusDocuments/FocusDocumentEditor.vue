@@ -308,11 +308,6 @@
 
     <EditorContent :editor="editor" class="focus-editor-content" />
 
-    <div class="focus-editor-help">
-      输入 <kbd>/</kbd> 或 <kbd>、</kbd> 插入内容；
-      <kbd>/sx</kbd> 创建关联事项
-    </div>
-
     <div
       v-if="markdownVisible"
       class="markdown-backdrop"

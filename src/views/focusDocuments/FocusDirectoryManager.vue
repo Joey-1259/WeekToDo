@@ -433,12 +433,10 @@
               class="directory-document-row"
               :class="{
                 'is-open': openIds.includes(document.id),
-              }"
-              draggable="true"
-              :class="{
                 'is-reorder-target':
                   dropDocumentId === document.id,
               }"
+              draggable="true"
               @dragstart="
                 startDocumentDrag($event, document.id)
               "

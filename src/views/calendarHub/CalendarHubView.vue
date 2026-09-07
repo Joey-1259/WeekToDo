@@ -54,11 +54,7 @@
       </div>
 
       <div class="hub-right">
-        <calendar-insight-panel
-          :anniversaryList="anniversaryList"
-          @day-click="onDayClick"
-          @open-anniversaries="openAnniversaryCenter"
-        />
+        <calendar-insight-panel />
       </div>
     </div>
 
@@ -82,6 +78,7 @@
 
 <script>
 /* CALENDAR_HUB_REDESIGN_20260907_V1 */
+/* CALENDAR_WEATHER_SYSTEM_20260907_V1 */
 import moment from "moment";
 import monthCalendar from "./monthCalendar.vue";
 import anniversaryEditModal from "./anniversaryEditModal.vue";

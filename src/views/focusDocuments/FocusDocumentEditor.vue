@@ -2967,6 +2967,167 @@ export default {
   background: #4263eb;
   color: #fff;
 }
+
+/* FOCUS_FOLDER_TREE_SYSTEM_20260907_V1: stable details block */
+
+/*
+ * 折叠块不再因鼠标悬停改变背景、边框或几何尺寸。
+ * 展开和收起共用同一标题布局。
+ */
+.focus-prosemirror [data-type="details"],
+.focus-prosemirror [data-type="details"]:hover,
+.focus-prosemirror [data-type="details"].is-open {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 12px 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: #f7f8fa;
+  transform: none;
+  transition: none;
+}
+
+/*
+ * 箭头按钮固定在 40px 标题行中垂直居中。
+ * 不再使用随展开内容变化的 top/padding 关系。
+ */
+.focus-prosemirror [data-type="details"] > button {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  left: 10px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  box-sizing: border-box;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  outline: none;
+  background: transparent;
+  color: #6d747e;
+  cursor: pointer;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  > button:hover {
+  background: transparent;
+  color: #4f5761;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  > button:focus-visible {
+  box-shadow: 0 0 0 2px rgba(66, 99, 235, 0.18);
+}
+
+/*
+ * 统一由伪元素绘制箭头，清除按钮原内容可能造成的基线干扰。
+ */
+.focus-prosemirror
+  [data-type="details"]
+  > button::before {
+  content: "";
+  display: block;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid currentColor;
+  transform: translateX(1px) rotate(0deg);
+  transform-origin: 3px 5px;
+  transition: transform 0.14s ease;
+}
+
+.focus-prosemirror
+  [data-type="details"].is-open
+  > button::before {
+  transform: translateX(1px) rotate(90deg);
+}
+
+/*
+ * 标题固定 40px，文字基线不受正文出现影响。
+ */
+.focus-prosemirror
+  [data-type="details"]
+  summary {
+  display: flex;
+  min-height: 40px;
+  box-sizing: border-box;
+  align-items: center;
+  margin: 0;
+  padding: 7px 12px 7px 40px;
+  outline: none;
+  color: #343940;
+  font-weight: 600;
+  line-height: 24px;
+  cursor: text;
+  list-style: none;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  summary > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  summary::-webkit-details-marker {
+  display: none;
+}
+
+/*
+ * 正文独立占据标题下方区域，不反向影响标题与箭头。
+ */
+.focus-prosemirror
+  [data-type="details"]
+  [data-type="detailsContent"] {
+  box-sizing: border-box;
+  margin: 0 12px 10px 40px;
+  padding: 9px 4px 2px;
+  border-top: 1px solid #e8eaed;
+  color: #505761;
+}
+
+.focus-prosemirror
+  [data-type="details"]:not(.is-open)
+  [data-type="detailsContent"] {
+  display: none;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"],
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]:hover,
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"].is-open {
+  border-color: transparent;
+  background: #1b2129;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]
+  > button {
+  color: #9aa3ad;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]
+  > button:hover {
+  background: transparent;
+  color: #c7cdd5;
+}
 </style>
 
 

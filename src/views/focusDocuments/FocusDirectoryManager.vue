@@ -539,27 +539,20 @@
                 </svg>
               </button>
 
-              <select
-                class="directory-move-select"
-                :data-document-id="document.id"
-                :value="document.folderId || '__root__'"
-                title="移动到目录"
-                @change="
-                  moveDocument(
-                    document,
-                    $event.target.value
-                  )
+              <button
+                type="button"
+                class="directory-move-button"
+                title="移动到其他目录"
+                @click.stop="
+                  openMoveDocumentDialog(document)
                 "
               >
-                <option value="__root__">未分类</option>
-                <option
-                  v-for="folder in folders"
-                  :key="folder.id"
-                  :value="folder.id"
-                >
-                  {{ folder.name }}
-                </option>
-              </select>
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M3 5h5l1.5 2H17v8H3Z" />
+                  <path d="m9 11 2-2 2 2M11 9v5" />
+                </svg>
+                <span>移动</span>
+              </button>
 
               <div class="directory-more">
                 <button
@@ -602,7 +595,7 @@
                   <button
                     type="button"
                     @click="
-                      focusMoveSelect(document.id);
+                      openMoveDocumentDialog(document);
                       closeMenus()
                     "
                   >
@@ -662,6 +655,86 @@
         </main>
       </div>
 
+      <div
+        v-if="moveDocumentTarget"
+        class="directory-move-overlay"
+        @mousedown.self="closeMoveDocumentDialog"
+      >
+        <section
+          class="directory-move-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="directory-move-title"
+          @keydown.esc.stop.prevent="
+            closeMoveDocumentDialog
+          "
+        >
+          <header>
+            <div>
+              <strong id="directory-move-title">
+                移动到目录
+              </strong>
+              <small>
+                {{
+                  moveDocumentTarget.title ||
+                  "未命名文档"
+                }}
+              </small>
+            </div>
+
+            <button
+              type="button"
+              aria-label="关闭"
+              :disabled="moveDocumentSaving"
+              @click="closeMoveDocumentDialog"
+            >
+              ×
+            </button>
+          </header>
+
+          <div class="directory-move-dialog-body">
+            <FocusFolderPicker
+              ref="directoryMovePicker"
+              v-model="moveDocumentFolderId"
+              :folders="folders"
+              :current-folder-id="
+                moveDocumentTarget.folderId
+              "
+            />
+          </div>
+
+          <footer>
+            <button
+              type="button"
+              :disabled="moveDocumentSaving"
+              @click="closeMoveDocumentDialog"
+            >
+              取消
+            </button>
+
+            <button
+              type="button"
+              class="primary"
+              :disabled="
+                moveDocumentSaving ||
+                moveDocumentFolderId ===
+                  (
+                    moveDocumentTarget.folderId ||
+                    '__root__'
+                  )
+              "
+              @click="confirmMoveDocumentDialog"
+            >
+              {{
+                moveDocumentSaving
+                  ? "移动中…"
+                  : "确认移动"
+              }}
+            </button>
+          </footer>
+        </section>
+      </div>
+
       <footer class="directory-manager-footer">
         <span>
           双击名称重命名 · 拖动文档到左侧目录
@@ -675,6 +748,7 @@
 
 <script>
 import focusFolderService from "../../services/focusFolderService";
+import FocusFolderPicker from "./FocusFolderPicker.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 
 function extractText(node) {
@@ -719,6 +793,7 @@ function safeFilename(value) {
 
 export default {
   name: "FocusDirectoryManager",
+  components: { FocusFolderPicker },
   props: {
     documents: {
       type: Array,
@@ -757,6 +832,9 @@ export default {
       menuFolderId: null,
       draggedFolderId: null,
       dropDocumentId: null,
+      moveDocumentTarget: null,
+      moveDocumentFolderId: "__root__",
+      moveDocumentSaving: false,
     };
   },
   computed: {
@@ -1167,25 +1245,65 @@ export default {
       }
     },
 
-    focusMoveSelect(documentId) {
+    openMoveDocumentDialog(document) {
+      this.moveDocumentTarget = document;
+      this.moveDocumentFolderId =
+        document.folderId || "__root__";
+      this.moveDocumentSaving = false;
+      this.closeMenus();
+
       this.$nextTick(() => {
-        const rows = Array.from(
-          this.$el.querySelectorAll(
-            ".directory-document-row"
-          )
-        );
-
-        const row = rows.find(
-          (item) =>
-            item.querySelector(
-              `[data-document-id="${documentId}"]`
-            )
-        );
-
-        row
-          ?.querySelector(".directory-move-select")
-          ?.focus();
+        this.$refs.directoryMovePicker?.focus();
       });
+    },
+
+    closeMoveDocumentDialog() {
+      if (this.moveDocumentSaving) return;
+
+      this.moveDocumentTarget = null;
+      this.moveDocumentFolderId = "__root__";
+    },
+
+    async confirmMoveDocumentDialog() {
+      if (
+        !this.moveDocumentTarget ||
+        this.moveDocumentSaving
+      ) {
+        return;
+      }
+
+      const currentFolderId =
+        this.moveDocumentTarget.folderId ||
+        "__root__";
+
+      if (
+        this.moveDocumentFolderId ===
+        currentFolderId
+      ) {
+        return;
+      }
+
+      this.moveDocumentSaving = true;
+
+      try {
+        await focusDocumentService.moveDocument(
+          this.moveDocumentTarget.id,
+          this.moveDocumentFolderId === "__root__"
+            ? null
+            : this.moveDocumentFolderId
+        );
+
+        this.moveDocumentTarget = null;
+        this.moveDocumentFolderId = "__root__";
+        this.$emit("changed");
+      } catch (error) {
+        console.error(error);
+        window.alert(
+          error?.message || "移动文档失败，请重试。"
+        );
+      } finally {
+        this.moveDocumentSaving = false;
+      }
     },
 
     reloadFolders() {
@@ -1194,6 +1312,11 @@ export default {
 
     onKeydown(event) {
       if (event.key !== "Escape") return;
+
+      if (this.moveDocumentTarget) {
+        this.closeMoveDocumentDialog();
+        return;
+      }
 
       if (this.editingFolderId) {
         this.cancelFolderRename();
@@ -2528,4 +2651,190 @@ export default {
   }
 }
 
+
+/* FOCUS_FOLDER_TREE_SYSTEM_20260907_V1: directory manager */
+.directory-move-button {
+  display: inline-flex;
+  height: 30px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 1px solid #e2e5e9;
+  border-radius: 7px;
+  background: #fff;
+  color: #69717d;
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.directory-move-button:hover {
+  border-color: #cfd7f3;
+  background: #f1f4ff;
+  color: #4263eb;
+}
+
+.directory-move-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.directory-move-overlay {
+  position: absolute;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(18, 22, 28, 0.38);
+  backdrop-filter: blur(4px);
+}
+
+.directory-move-dialog {
+  display: flex;
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  flex-direction: column;
+  border: 1px solid rgba(31, 35, 41, 0.13);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow:
+    0 24px 70px rgba(18, 22, 28, 0.24),
+    0 4px 14px rgba(18, 22, 28, 0.08);
+  overflow: hidden;
+}
+
+.directory-move-dialog > header {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 15px 11px 18px;
+  border-bottom: 1px solid #eceef1;
+}
+
+.directory-move-dialog > header > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.directory-move-dialog > header strong {
+  color: #282d34;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.directory-move-dialog > header small {
+  overflow: hidden;
+  color: #969ca5;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directory-move-dialog > header button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #747c87;
+  font-size: 21px;
+  cursor: pointer;
+}
+
+.directory-move-dialog > header button:hover {
+  background: #eef1f5;
+}
+
+.directory-move-dialog-body {
+  min-height: 0;
+  padding: 16px 18px 18px;
+  overflow-y: auto;
+}
+
+.directory-move-dialog > footer {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid #eceef1;
+  background: #fafbfc;
+}
+
+.directory-move-dialog > footer button {
+  min-width: 76px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  background: #fff;
+  color: #505761;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.directory-move-dialog > footer button.primary {
+  border-color: #4263eb;
+  background: #4263eb;
+  color: #fff;
+}
+
+.directory-move-dialog > footer button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.dark-theme .directory-move-button {
+  border-color: #39414b;
+  background: #20262e;
+  color: #bdc4cd;
+}
+
+.dark-theme .directory-move-dialog {
+  border-color: #38414b;
+  background: #1d232b;
+}
+
+.dark-theme .directory-move-dialog > header,
+.dark-theme .directory-move-dialog > footer {
+  border-color: #343b45;
+}
+
+.dark-theme .directory-move-dialog > header strong {
+  color: #e1e5ea;
+}
+
+.dark-theme .directory-move-dialog > header button:hover {
+  background: #29313b;
+}
+
+.dark-theme .directory-move-dialog > footer {
+  background: #181e25;
+}
+
+.dark-theme .directory-move-dialog > footer button {
+  border-color: #3a424d;
+  background: #20262e;
+  color: #d8dde3;
+}
+
+.dark-theme
+  .directory-move-dialog
+  > footer
+  button.primary {
+  border-color: #5573dc;
+  background: #4263eb;
+  color: #fff;
+}
 </style>

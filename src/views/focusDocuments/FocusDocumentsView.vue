@@ -178,26 +178,16 @@
         </header>
 
         <div class="focus-move-dialog-body">
-          <label for="focus-move-folder">
-            目标目录
-          </label>
-
-          <select
-            id="focus-move-folder"
-            ref="moveFolderSelect"
+          <FocusFolderPicker
+            ref="moveFolderPicker"
             v-model="moveFolderId"
-          >
-            <option value="__root__">未分类</option>
-            <option
-              v-for="folder in moveFolders"
-              :key="folder.id"
-              :value="folder.id"
-            >
-              {{ folder.name }}
-            </option>
-          </select>
+            :folders="moveFolders"
+            :current-folder-id="
+              moveDialogDocument.folderId
+            "
+          />
 
-          <p>
+          <p class="focus-move-dialog-hint">
             文档内容和关联事项不会改变，仅调整目录归属。
           </p>
         </div>
@@ -214,7 +204,11 @@
           <button
             type="button"
             class="primary"
-            :disabled="moveSaving"
+            :disabled="
+              moveSaving ||
+              moveFolderId ===
+                (moveDialogDocument.folderId || '__root__')
+            "
             @click="confirmMoveDocument"
           >
             {{ moveSaving ? "移动中…" : "确认移动" }}
@@ -230,6 +224,7 @@ import FocusDocumentPane from "./FocusDocumentPane.vue";
 import FocusDocumentModal from "./FocusDocumentModal.vue";
 import FocusDocumentTree from "./FocusDocumentTree.vue";
 import FocusDirectoryManager from "./FocusDirectoryManager.vue";
+import FocusFolderPicker from "./FocusFolderPicker.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 import focusFolderService from "../../services/focusFolderService";
 import focusTaskService from "../../services/focusTaskService";
@@ -333,6 +328,7 @@ function safeFilename(value) {
 export default {
   name: "FocusDocumentsView",
   components: {
+    FocusFolderPicker,
     FocusDocumentPane,
     FocusDocumentModal,
     FocusDocumentTree,
@@ -740,7 +736,7 @@ export default {
       this.moveSaving = false;
 
       this.$nextTick(() => {
-        this.$refs.moveFolderSelect?.focus();
+        this.$refs.moveFolderPicker?.focus();
       });
     },
 
@@ -1637,5 +1633,22 @@ export default {
   border-color: #5573dc;
   background: #4263eb;
   color: #fff;
+}
+
+/* FOCUS_FOLDER_TREE_SYSTEM_20260907_V1: workspace move tree */
+.focus-move-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.focus-move-dialog-body {
+  gap: 12px;
+  padding: 16px 18px 18px;
+}
+
+.focus-move-dialog-hint {
+  margin: 0;
+  color: #969ca5;
+  font-size: 10px;
+  line-height: 1.55;
 }
 </style>

@@ -4,3 +4,5 @@ dist_electron/
 .DS_Store
 
 out/
+
+.ui-patch-backup/

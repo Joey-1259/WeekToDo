@@ -69,14 +69,13 @@
             :document="documentForPane(index - 1)"
             :can-swap-left="index > 1"
             :can-swap-right="index < columns"
-            draggable="true"
-            @dragstart="
+            @pane-dragstart="
               startPaneDrag(
                 $event,
                 documentForPane(index - 1).id
               )
             "
-            @dragend="draggedDocumentId = null"
+            @pane-dragend="endPaneDrag"
             @dragover.prevent
             @drop="dropPane(index - 1, $event)"
             @saved="replaceDocument"
@@ -143,6 +142,86 @@
       @open-task="openTask"
       @jump-task="jumpTask"
     />
+
+    <div
+      v-if="moveDialogDocument"
+      class="focus-move-backdrop"
+      role="presentation"
+      @mousedown.self="closeMoveDialog"
+    >
+      <section
+        class="focus-move-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="focus-move-dialog-title"
+        @keydown.esc.stop.prevent="closeMoveDialog"
+      >
+        <header>
+          <div>
+            <strong id="focus-move-dialog-title">
+              移动到目录
+            </strong>
+            <small>
+              {{ moveDialogDocument.title || "未命名文档" }}
+            </small>
+          </div>
+
+          <button
+            type="button"
+            aria-label="关闭"
+            title="关闭"
+            :disabled="moveSaving"
+            @click="closeMoveDialog"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="focus-move-dialog-body">
+          <label for="focus-move-folder">
+            目标目录
+          </label>
+
+          <select
+            id="focus-move-folder"
+            ref="moveFolderSelect"
+            v-model="moveFolderId"
+          >
+            <option value="__root__">未分类</option>
+            <option
+              v-for="folder in moveFolders"
+              :key="folder.id"
+              :value="folder.id"
+            >
+              {{ folder.name }}
+            </option>
+          </select>
+
+          <p>
+            文档内容和关联事项不会改变，仅调整目录归属。
+          </p>
+        </div>
+
+        <footer>
+          <button
+            type="button"
+            :disabled="moveSaving"
+            @click="closeMoveDialog"
+          >
+            取消
+          </button>
+
+          <button
+            type="button"
+            class="primary"
+            :disabled="moveSaving"
+            @click="confirmMoveDocument"
+          >
+            {{ moveSaving ? "移动中…" : "确认移动" }}
+          </button>
+        </footer>
+      </section>
+    </div>
   </main>
 </template>
 
@@ -272,6 +351,10 @@ export default {
       selectedFolderId: null,
       draggedDocumentId: null,
       emptyDropIndex: null,
+      moveDialogDocument: null,
+      moveFolderId: "__root__",
+      moveFolders: [],
+      moveSaving: false,
     };
   },
   computed: {
@@ -535,7 +618,20 @@ export default {
         id
       );
 
-      event.currentTarget.classList.add("is-dragging");
+      event.currentTarget
+        .closest(".focus-pane")
+        ?.classList.add("is-dragging");
+    },
+
+    endPaneDrag() {
+      this.draggedDocumentId = null;
+      this.emptyDropIndex = null;
+
+      document
+        .querySelectorAll(".focus-pane.is-dragging")
+        .forEach((item) =>
+          item.classList.remove("is-dragging")
+        );
     },
 
     async dropPane(targetIndex, event) {
@@ -636,6 +732,53 @@ export default {
       await this.reload();
     },
 
+    openMoveDialog(document) {
+      this.moveFolders = focusFolderService.listFolders();
+      this.moveDialogDocument = document;
+      this.moveFolderId =
+        document.folderId || "__root__";
+      this.moveSaving = false;
+
+      this.$nextTick(() => {
+        this.$refs.moveFolderSelect?.focus();
+      });
+    },
+
+    closeMoveDialog() {
+      if (this.moveSaving) return;
+
+      this.moveDialogDocument = null;
+      this.moveFolderId = "__root__";
+      this.moveFolders = [];
+    },
+
+    async confirmMoveDocument() {
+      if (!this.moveDialogDocument || this.moveSaving) {
+        return;
+      }
+
+      this.moveSaving = true;
+
+      try {
+        await this.moveDocument({
+          documentId: this.moveDialogDocument.id,
+          folderId:
+            this.moveFolderId === "__root__"
+              ? null
+              : this.moveFolderId,
+        });
+
+        this.moveDialogDocument = null;
+        this.moveFolderId = "__root__";
+        this.moveFolders = [];
+      } catch (error) {
+        console.error(error);
+        window.alert("移动文档失败，请重试。");
+      } finally {
+        this.moveSaving = false;
+      }
+    },
+
     async handleDocumentAction({ action, document }) {
       if (action === "duplicate") {
         const copy =
@@ -649,35 +792,7 @@ export default {
       }
 
       if (action === "move") {
-        const folders = focusFolderService.listFolders();
-        const lines = [
-          "0. 未分类",
-          ...folders.map(
-            (folder, index) =>
-              `${index + 1}. ${folder.name}`
-          ),
-        ];
-
-        const value = window.prompt(
-          `移动到哪个目录？\n\n${lines.join("\n")}`,
-          "0"
-        );
-
-        if (value === null) return;
-
-        const index = Number(value);
-        const folderId =
-          index > 0 ? folders[index - 1]?.id : null;
-
-        if (index > 0 && !folderId) {
-          window.alert("目录编号无效。");
-          return;
-        }
-
-        await this.moveDocument({
-          documentId: document.id,
-          folderId,
-        });
+        this.openMoveDialog(document);
         return;
       }
 
@@ -1327,5 +1442,200 @@ export default {
   .focus-workspace-actions button.primary {
     white-space: nowrap;
   }
+}
+
+/* FOCUS_SYSTEM_FIX_20260907_V3: view */
+.focus-grid {
+  scrollbar-gutter: stable;
+}
+
+.focus-move-backdrop {
+  position: fixed;
+  z-index: 21000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(18, 22, 28, 0.46);
+  backdrop-filter: blur(5px);
+}
+
+.focus-move-dialog {
+  width: min(440px, calc(100vw - 32px));
+  border: 1px solid rgba(31, 35, 41, 0.13);
+  border-radius: 14px;
+  outline: none;
+  background: #fff;
+  box-shadow:
+    0 24px 70px rgba(18, 22, 28, 0.24),
+    0 4px 14px rgba(18, 22, 28, 0.08);
+  overflow: hidden;
+}
+
+.focus-move-dialog > header {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 16px 12px 18px;
+  border-bottom: 1px solid #eceef1;
+}
+
+.focus-move-dialog > header > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.focus-move-dialog > header strong {
+  color: #282d34;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.focus-move-dialog > header small {
+  overflow: hidden;
+  color: #969ca5;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-move-dialog > header button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #747c87;
+  font-size: 21px;
+  cursor: pointer;
+}
+
+.focus-move-dialog > header button:hover {
+  background: #eef1f5;
+  color: #343a42;
+}
+
+.focus-move-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 18px 22px;
+}
+
+.focus-move-dialog-body label {
+  color: #505761;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.focus-move-dialog-body select {
+  width: 100%;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 34px 0 11px;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: #343a42;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.focus-move-dialog-body select:focus {
+  border-color: #8fa5ee;
+  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.1);
+}
+
+.focus-move-dialog-body p {
+  margin: 1px 0 0;
+  color: #969ca5;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.focus-move-dialog > footer {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid #eceef1;
+  background: #fafbfc;
+}
+
+.focus-move-dialog > footer button {
+  min-width: 76px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  background: #fff;
+  color: #505761;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.focus-move-dialog > footer button.primary {
+  border-color: #4263eb;
+  background: #4263eb;
+  color: #fff;
+}
+
+.focus-move-dialog button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.dark-theme .focus-move-dialog {
+  border-color: #38414b;
+  background: #1d232b;
+}
+
+.dark-theme .focus-move-dialog > header,
+.dark-theme .focus-move-dialog > footer {
+  border-color: #343b45;
+}
+
+.dark-theme .focus-move-dialog > header strong {
+  color: #e1e5ea;
+}
+
+.dark-theme .focus-move-dialog > header button:hover {
+  background: #29313b;
+  color: #fff;
+}
+
+.dark-theme .focus-move-dialog-body label {
+  color: #d1d6dc;
+}
+
+.dark-theme .focus-move-dialog-body select,
+.dark-theme .focus-move-dialog > footer button {
+  border-color: #3a424d;
+  background: #20262e;
+  color: #d8dde3;
+}
+
+.dark-theme .focus-move-dialog > footer {
+  background: #181e25;
+}
+
+.dark-theme
+  .focus-move-dialog
+  > footer
+  button.primary {
+  border-color: #5573dc;
+  background: #4263eb;
+  color: #fff;
 }
 </style>

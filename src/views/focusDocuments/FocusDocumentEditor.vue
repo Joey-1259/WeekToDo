@@ -305,6 +305,7 @@
       v-if="markdownVisible"
       class="markdown-backdrop"
       @mousedown.self="markdownVisible = false"
+      @keydown.esc.stop.prevent="markdownVisible = false"
     >
       <section class="markdown-dialog">
         <header>
@@ -329,6 +330,61 @@
         </footer>
       </section>
     </div>
+    <div
+      v-if="linkDialogVisible"
+      class="focus-link-backdrop"
+      @mousedown.self="cancelLink"
+    >
+      <section
+        class="focus-link-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="focus-link-dialog-title"
+        @keydown.esc.stop.prevent="cancelLink"
+      >
+        <header>
+          <div>
+            <strong id="focus-link-dialog-title">
+              编辑链接
+            </strong>
+            <small>输入网页地址，留空则移除链接</small>
+          </div>
+          <button
+            type="button"
+            aria-label="关闭"
+            @click="cancelLink"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="focus-link-dialog-body">
+          <label for="focus-link-url">链接地址</label>
+          <input
+            id="focus-link-url"
+            ref="linkInput"
+            v-model.trim="linkInput"
+            type="url"
+            placeholder="https://example.com"
+            @keydown.enter.prevent="applyLink"
+          />
+        </div>
+
+        <footer>
+          <button type="button" @click="cancelLink">
+            取消
+          </button>
+          <button
+            type="button"
+            class="primary"
+            @click="applyLink"
+          >
+            应用
+          </button>
+        </footer>
+      </section>
+    </div>
+
   </div>
 </template>
 
@@ -417,6 +473,8 @@ export default {
       colorMenuStyle: {},
       textColors: TEXT_COLORS,
       highlightColors: HIGHLIGHT_COLORS,
+      linkDialogVisible: false,
+      linkInput: "",
     };
   },
   computed: {
@@ -912,30 +970,40 @@ export default {
     },
 
     editLink() {
-      const current =
-        this.editor.getAttributes("link").href || "";
-      const value = window.prompt(
-        "输入链接地址；留空移除链接",
-        current
-      );
+      this.linkInput =
+        this.editor?.getAttributes("link").href || "";
+      this.linkDialogVisible = true;
+      this.activeColorMenu = null;
 
-      if (value === null) return;
+      this.$nextTick(() => {
+        this.$refs.linkInput?.focus();
+        this.$refs.linkInput?.select();
+      });
+    },
 
-      if (!value.trim()) {
-        this.editor
-          .chain()
-          .focus()
-          .extendMarkRange("link")
-          .unsetLink()
-          .run();
+    cancelLink() {
+      this.linkDialogVisible = false;
+      this.linkInput = "";
+      this.editor?.commands.focus();
+    },
+
+    applyLink() {
+      if (!this.editor) return;
+
+      const value = String(this.linkInput || "").trim();
+      const chain = this.editor
+        .chain()
+        .focus()
+        .extendMarkRange("link");
+
+      if (!value) {
+        chain.unsetLink().run();
       } else {
-        this.editor
-          .chain()
-          .focus()
-          .extendMarkRange("link")
-          .setLink({ href: value.trim() })
-          .run();
+        chain.setLink({ href: value }).run();
       }
+
+      this.linkDialogVisible = false;
+      this.linkInput = "";
     },
 
     openMarkdown() {
@@ -2619,6 +2687,285 @@ export default {
   .linked-task-unlink {
     opacity: 1;
   }
+}
+
+/* FOCUS_SYSTEM_FIX_20260907_V3: editor */
+.focus-editor-content {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+.focus-prosemirror [data-type="details"],
+.linked-task-block {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.focus-prosemirror [data-type="details"] {
+  border-width: 1px;
+  border-style: solid;
+  transform: translateZ(0);
+}
+
+.focus-prosemirror [data-type="details"]:hover {
+  padding: 8px 10px 9px 38px;
+  margin: 12px 0;
+}
+
+.linked-task-block {
+  min-width: 0;
+  min-height: 38px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  transition:
+    background-color 0.14s ease,
+    border-color 0.14s ease;
+}
+
+.linked-task-block:hover {
+  padding: 4px 6px;
+  border-color: #e7eaee;
+  background: #f4f6f9;
+}
+
+.linked-task-check {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.linked-task-main {
+  min-width: 0;
+  min-height: 28px;
+  padding: 0;
+}
+
+.linked-task-title {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linked-task-jump,
+.linked-task-unlink {
+  display: grid !important;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #8d949e;
+  opacity: 0;
+  visibility: hidden;
+  cursor: pointer;
+  transition:
+    opacity 0.12s ease,
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.linked-task-jump svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.linked-task-block:hover .linked-task-jump,
+.linked-task-block:hover .linked-task-unlink,
+.linked-task-jump:focus-visible,
+.linked-task-unlink:focus-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.linked-task-jump:hover,
+.linked-task-unlink:hover {
+  background: #e8ebef;
+  color: #4263eb;
+}
+
+.dark-theme .linked-task-block {
+  border-color: transparent;
+}
+
+.dark-theme .linked-task-block:hover {
+  border-color: #38414b;
+  background: #202730;
+}
+
+.dark-theme .linked-task-jump:hover,
+.dark-theme .linked-task-unlink:hover {
+  background: #303844;
+}
+
+.focus-link-backdrop {
+  position: fixed;
+  z-index: 23000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(18, 22, 28, 0.44);
+  backdrop-filter: blur(5px);
+}
+
+.focus-link-dialog {
+  width: min(470px, calc(100vw - 32px));
+  border: 1px solid rgba(31, 35, 41, 0.13);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow:
+    0 24px 70px rgba(18, 22, 28, 0.24),
+    0 4px 14px rgba(18, 22, 28, 0.08);
+  overflow: hidden;
+}
+
+.focus-link-dialog > header {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 15px 11px 18px;
+  border-bottom: 1px solid #eceef1;
+}
+
+.focus-link-dialog > header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.focus-link-dialog > header strong {
+  color: #282d34;
+  font-size: 15px;
+}
+
+.focus-link-dialog > header small {
+  color: #969ca5;
+  font-size: 11px;
+}
+
+.focus-link-dialog > header button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #747c87;
+  font-size: 21px;
+  cursor: pointer;
+}
+
+.focus-link-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 18px 22px;
+}
+
+.focus-link-dialog-body label {
+  color: #505761;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.focus-link-dialog-body input {
+  width: 100%;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 11px;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: #343a42;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.focus-link-dialog-body input:focus {
+  border-color: #8fa5ee;
+  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.1);
+}
+
+.focus-link-dialog > footer {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid #eceef1;
+  background: #fafbfc;
+}
+
+.focus-link-dialog > footer button {
+  min-width: 72px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  background: #fff;
+  color: #505761;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.focus-link-dialog > footer button.primary {
+  border-color: #4263eb;
+  background: #4263eb;
+  color: #fff;
+}
+
+.dark-theme .focus-link-dialog {
+  border-color: #38414b;
+  background: #1d232b;
+}
+
+.dark-theme .focus-link-dialog > header,
+.dark-theme .focus-link-dialog > footer {
+  border-color: #343b45;
+}
+
+.dark-theme .focus-link-dialog > header strong {
+  color: #e1e5ea;
+}
+
+.dark-theme .focus-link-dialog-body label {
+  color: #d1d6dc;
+}
+
+.dark-theme .focus-link-dialog-body input,
+.dark-theme .focus-link-dialog > footer button {
+  border-color: #3a424d;
+  background: #20262e;
+  color: #d8dde3;
+}
+
+.dark-theme .focus-link-dialog > footer {
+  background: #181e25;
+}
+
+.dark-theme
+  .focus-link-dialog
+  > footer
+  button.primary {
+  border-color: #5573dc;
+  background: #4263eb;
+  color: #fff;
 }
 </style>
 

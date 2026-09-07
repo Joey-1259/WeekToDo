@@ -4,7 +4,12 @@
       <span
         class="focus-drag-handle"
         title="拖动调整文档位置"
-        aria-hidden="true"
+        aria-label="拖动调整文档位置"
+        draggable="true"
+        role="button"
+        tabindex="0"
+        @dragstart.stop="$emit('pane-dragstart', $event)"
+        @dragend.stop="$emit('pane-dragend', $event)"
       >
         <svg viewBox="0 0 16 16">
           <circle cx="5" cy="4" r="1" />
@@ -231,6 +236,8 @@ export default {
     "open-task",
     "jump-task",
     "swap",
+    "pane-dragstart",
+    "pane-dragend",
   ],
   data() {
     return {
@@ -744,19 +751,6 @@ export default {
   font-size: 0;
 }
 
-.focus-document-menu > button::before {
-  content: "";
-  width: 17px;
-  height: 4px;
-  background:
-    radial-gradient(
-      circle,
-      currentColor 1.4px,
-      transparent 1.6px
-    )
-    0 0 / 6px 4px;
-}
-
 .focus-document-menu-popover {
   width: 190px;
   padding: 6px;
@@ -1106,6 +1100,46 @@ export default {
 
   .focus-save-status > span {
     display: none;
+  }
+}
+
+/* FOCUS_SYSTEM_FIX_20260907_V3: pane */
+.focus-document-menu .focus-header-action svg {
+  fill: currentColor;
+  stroke: none;
+}
+
+.focus-drag-handle {
+  flex: 0 0 22px;
+  box-sizing: border-box;
+  touch-action: none;
+}
+
+.focus-pane.is-dragging {
+  opacity: 0.55;
+  box-shadow: 0 8px 28px rgba(31, 35, 41, 0.12);
+}
+
+.focus-pane-header-actions,
+.focus-save-status,
+.focus-header-action,
+.focus-document-menu {
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.focus-pane-header-actions {
+  min-height: 32px;
+}
+
+.focus-save-status {
+  min-width: 70px;
+  justify-content: center;
+}
+
+@media (max-width: 1100px) {
+  .focus-save-status {
+    min-width: 22px;
   }
 }
 </style>

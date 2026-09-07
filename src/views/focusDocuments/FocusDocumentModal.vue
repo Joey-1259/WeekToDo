@@ -17,7 +17,25 @@
               {{ tag }}
               <button @click="removeTag(tag)">×</button>
             </span>
-            <button @click="addTag">+ 标签</button>
+            <input
+              v-if="tagEditing"
+              ref="tagInput"
+              v-model="tagInput"
+              class="focus-tag-input"
+              maxlength="24"
+              aria-label="标签名称"
+              placeholder="输入标签"
+              @keydown.enter.prevent="confirmTag"
+              @keydown.esc.stop.prevent="cancelTag"
+              @blur="confirmTag"
+            />
+            <button
+              v-else
+              type="button"
+              @click="addTag"
+            >
+              + 标签
+            </button>
           </div>
         </div>
 
@@ -41,7 +59,10 @@
       <footer>
         <label class="focus-document-location">
           <span>存储位置</span>
-          <select v-model="selectedFolder">
+          <select
+            v-model="selectedFolder"
+            @change="scheduleSave"
+          >
             <option value="" disabled>请选择目录</option>
             <option value="__root__">未分类</option>
             <option
@@ -110,6 +131,8 @@ export default {
       selectedFolder: this.requireFolder
         ? ""
         : this.document.folderId || "__root__",
+      tagEditing: false,
+      tagInput: "",
     };
   },
   computed: {
@@ -139,6 +162,15 @@ export default {
 
       if (
         event.key === "Escape" &&
+        this.tagEditing
+      ) {
+        event.preventDefault();
+        this.cancelTag();
+        return;
+      }
+
+      if (
+        event.key === "Escape" &&
         !this.taskComposerVisible
       ) {
         this.close();
@@ -150,10 +182,32 @@ export default {
     },
 
     addTag() {
-      const value = window.prompt("输入标签名称");
-      const tag = String(value || "").trim().slice(0, 24);
+      if (this.draft.tags.length >= 8) {
+        window.alert("每篇文档最多添加 8 个标签。");
+        return;
+      }
 
-      if (!tag || this.draft.tags.includes(tag)) return;
+      this.tagInput = "";
+      this.tagEditing = true;
+
+      this.$nextTick(() => {
+        this.$refs.tagInput?.focus();
+      });
+    },
+
+    confirmTag() {
+      if (!this.tagEditing) return;
+
+      const tag = String(this.tagInput || "")
+        .trim()
+        .slice(0, 24);
+
+      this.tagEditing = false;
+      this.tagInput = "";
+
+      if (!tag || this.draft.tags.includes(tag)) {
+        return;
+      }
 
       if (this.draft.tags.length >= 8) {
         window.alert("每篇文档最多添加 8 个标签。");
@@ -162,6 +216,11 @@ export default {
 
       this.draft.tags.push(tag);
       this.scheduleSave();
+    },
+
+    cancelTag() {
+      this.tagEditing = false;
+      this.tagInput = "";
     },
 
     removeTag(tag) {
@@ -174,7 +233,18 @@ export default {
     scheduleSave() {
       this.saveState = "saving";
       clearTimeout(this.timer);
-      this.timer = setTimeout(() => this.persist(false), 800);
+      this.timer = setTimeout(() => {
+        if (!this.selectedFolder) {
+          this.saveState = "saved";
+          return;
+        }
+
+        this.persist(false).catch((error) => {
+          if (error?.message !== "DOCUMENT_FOLDER_REQUIRED") {
+            console.error(error);
+          }
+        });
+      }, 800);
     },
 
     ensureFolderSelected() {
@@ -526,5 +596,27 @@ export default {
 
 .dark-theme .focus-modal > footer {
   background: #181e25;
+}
+
+/* FOCUS_SYSTEM_FIX_20260907_V3: modal */
+.focus-modal-tags .focus-tag-input {
+  width: 112px;
+  height: 25px;
+  box-sizing: border-box;
+  padding: 3px 9px;
+  border: 1px solid #91a5e9;
+  border-radius: 999px;
+  outline: none;
+  background: #fff;
+  color: #505761;
+  font-family: inherit;
+  font-size: 11px;
+  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.09);
+}
+
+.dark-theme .focus-modal-tags .focus-tag-input {
+  border-color: #6179cf;
+  background: #20262e;
+  color: #e0e4e9;
 }
 </style>

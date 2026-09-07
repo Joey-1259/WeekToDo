@@ -133,6 +133,48 @@ const focusFolderService = {
     return clone(folder);
   },
 
+  reorderFolders(orderedIds, parentId = null) {
+    const folders = readFolders();
+    const ids = Array.isArray(orderedIds)
+      ? orderedIds.map(String)
+      : [];
+
+    const siblings = folders
+      .filter(
+        (folder) =>
+          (folder.parentId || null) ===
+          (parentId || null)
+      )
+      .sort((a, b) => a.order - b.order);
+
+    const siblingIds = new Set(
+      siblings.map((folder) => folder.id)
+    );
+
+    const normalized = [
+      ...ids.filter((id) => siblingIds.has(id)),
+      ...siblings
+        .map((folder) => folder.id)
+        .filter((id) => !ids.includes(id)),
+    ];
+
+    const now = new Date().toISOString();
+
+    normalized.forEach((id, index) => {
+      const folder = folders.find(
+        (item) => item.id === id
+      );
+
+      if (!folder) return;
+
+      folder.order = index;
+      folder.updatedAt = now;
+    });
+
+    saveFolders(folders);
+    return this.listFolders();
+  },
+
   toggleFolder(id) {
     const folders = readFolders();
     const folder = folders.find((item) => item.id === id);

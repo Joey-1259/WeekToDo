@@ -105,7 +105,11 @@
             />
           </div>
 
-          <div class="directory-folder-scroll">
+          <div
+            class="directory-folder-scroll"
+            role="tree"
+            aria-label="文档目录"
+          >
             <div
               v-for="entry in folderRows"
               :key="entry.folder.id"
@@ -117,15 +121,37 @@
                   dropFolderId === entry.folder.id,
               }"
               :style="{ '--depth': entry.depth }"
-              @dragover.prevent="
+              role="treeitem"
+              :data-folder-id="entry.folder.id"
+              :aria-level="entry.depth + 1"
+              :aria-selected="
+                selectedFolderId === entry.folder.id
+              "
+              :aria-expanded="
+                hasFolderChildren(entry.folder.id)
+                  ? String(!entry.folder.collapsed)
+                  : undefined
+              "
+              tabindex="0"
+              :draggable="
+                editingFolderId !== entry.folder.id
+              "
+              @keydown="
+                onFolderKeydown($event, entry)
+              "
+              @dragstart="
+                startFolderDrag($event, entry.folder)
+              "
+              @dragend="endDirectoryDrag"
+              @dragover.prevent.stop="
                 dropFolderId = entry.folder.id
               "
               @dragleave="
                 dropFolderId === entry.folder.id &&
                 (dropFolderId = null)
               "
-              @drop="
-                dropDocument(entry.folder.id, $event)
+              @drop.stop="
+                dropOnFolder(entry.folder, $event)
               "
             >
               <button
@@ -185,36 +211,96 @@
                 </small>
               </button>
 
-              <div class="directory-folder-actions">
+              <div class="directory-folder-more">
                 <button
                   type="button"
-                  title="新建子目录"
+                  class="directory-folder-menu-trigger"
+                  title="目录操作"
+                  aria-haspopup="menu"
+                  :aria-expanded="
+                    String(
+                      menuFolderId === entry.folder.id
+                    )
+                  "
                   @click.stop="
-                    beginCreateFolder(entry.folder.id)
+                    toggleFolderMenu(entry.folder.id)
                   "
                 >
-                  ＋
+                  ···
                 </button>
-                <button
-                  type="button"
-                  title="重命名目录"
-                  @click.stop="
-                    beginFolderRename(entry.folder)
+
+                <div
+                  v-if="
+                    menuFolderId === entry.folder.id
                   "
+                  class="directory-folder-menu"
+                  role="menu"
+                  @mousedown.stop
                 >
-                  <svg viewBox="0 0 20 20" aria-hidden="true">
-                    <path d="m4 14.5-.5 2 2-.5L15 6.5 13.5 5Z" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  title="删除目录"
-                  @click.stop="deleteFolder(entry.folder)"
-                >
-                  <svg viewBox="0 0 20 20" aria-hidden="true">
-                    <path d="M5 6h10M8 6V4h4v2M6.5 6l.7 10h5.6l.7-10" />
-                  </svg>
-                </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    @click="
+                      beginFolderRename(entry.folder);
+                      closeMenus()
+                    "
+                  >
+                    重命名目录
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    @click="
+                      beginCreateFolder(entry.folder.id);
+                      closeMenus()
+                    "
+                  >
+                    新建子目录
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    :disabled="
+                      !canMoveFolder(entry.folder, -1)
+                    "
+                    @click="
+                      moveFolderStep(entry.folder, -1);
+                      closeMenus()
+                    "
+                  >
+                    向上移动
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    :disabled="
+                      !canMoveFolder(entry.folder, 1)
+                    "
+                    @click="
+                      moveFolderStep(entry.folder, 1);
+                      closeMenus()
+                    "
+                  >
+                    向下移动
+                  </button>
+
+                  <div class="menu-divider"></div>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    class="danger"
+                    @click="
+                      closeMenus();
+                      deleteFolder(entry.folder)
+                    "
+                  >
+                    删除目录
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -257,18 +343,84 @@
               </small>
             </div>
 
-            <button
-              type="button"
-              class="directory-create-document"
-              @click="
-                $emit(
-                  'create-document',
-                  normalizedSelectedFolderId
-                )
-              "
-            >
-              ＋ 新建文档
-            </button>
+            <div class="directory-header-actions">
+              <template v-if="selectedFolder">
+                <button
+                  type="button"
+                  title="重命名当前目录"
+                  @click="beginFolderRename(selectedFolder)"
+                >
+                  重命名
+                </button>
+
+                <button
+                  type="button"
+                  title="在当前目录中新建子目录"
+                  @click="beginCreateFolder(selectedFolder.id)"
+                >
+                  新建子目录
+                </button>
+
+                <button
+                  type="button"
+                  title="将当前目录向上移动"
+                  :disabled="!canMoveSelectedFolder(-1)"
+                  @click="moveFolderStep(selectedFolder, -1)"
+                >
+                  ↑
+                </button>
+
+                <button
+                  type="button"
+                  title="将当前目录向下移动"
+                  :disabled="!canMoveSelectedFolder(1)"
+                  @click="moveFolderStep(selectedFolder, 1)"
+                >
+                  ↓
+                </button>
+
+                <select
+                  :value="
+                    selectedFolder.parentId || '__root__'
+                  "
+                  title="移动当前目录"
+                  @change="
+                    moveSelectedFolder($event.target.value)
+                  "
+                >
+                  <option value="__root__">移动到根目录</option>
+                  <option
+                    v-for="folder in availableParentFolders"
+                    :key="folder.id"
+                    :value="folder.id"
+                  >
+                    移动到：{{ folder.name }}
+                  </option>
+                </select>
+
+                <button
+                  type="button"
+                  class="danger"
+                  title="删除当前目录"
+                  @click="deleteFolder(selectedFolder)"
+                >
+                  删除
+                </button>
+              </template>
+
+              <button
+                type="button"
+                class="directory-create-document"
+                @click="
+                  $emit(
+                    'create-document',
+                    normalizedSelectedFolderId
+                  )
+                "
+              >
+                ＋ 新建文档
+              </button>
+            </div>
           </header>
 
           <div
@@ -283,8 +435,23 @@
                 'is-open': openIds.includes(document.id),
               }"
               draggable="true"
+              :class="{
+                'is-reorder-target':
+                  dropDocumentId === document.id,
+              }"
               @dragstart="
                 startDocumentDrag($event, document.id)
+              "
+              @dragend="endDirectoryDrag"
+              @dragover.prevent.stop="
+                onDocumentDragOver(document, $event)
+              "
+              @dragleave="
+                dropDocumentId === document.id &&
+                (dropDocumentId = null)
+              "
+              @drop.stop="
+                dropDocumentBefore(document, $event)
               "
             >
               <span class="directory-document-drag">
@@ -376,6 +543,7 @@
 
               <select
                 class="directory-move-select"
+                :data-document-id="document.id"
                 :value="document.folderId || '__root__'"
                 title="移动到目录"
                 @change="
@@ -417,7 +585,36 @@
                 <div
                   v-if="menuDocumentId === document.id"
                   class="directory-document-menu"
+                  role="menu"
+                  @mousedown.stop
                 >
+                  <button
+                    type="button"
+                    @click="
+                      beginDocumentRename(document);
+                      closeMenus()
+                    "
+                  >
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="m4 14.5-.5 2 2-.5L15 6.5 13.5 5Z" />
+                    </svg>
+                    <span>重命名文档</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    @click="
+                      focusMoveSelect(document.id);
+                      closeMenus()
+                    "
+                  >
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="M3 5h5l1.5 2H17v8H3Z" />
+                      <path d="m9 11 2-2 2 2M11 9v5" />
+                    </svg>
+                    <span>移动到目录</span>
+                  </button>
+
                   <button
                     type="button"
                     @click="duplicateDocument(document)"
@@ -559,6 +756,9 @@ export default {
       draggedDocumentId: null,
       dropFolderId: null,
       menuDocumentId: null,
+      menuFolderId: null,
+      draggedFolderId: null,
+      dropDocumentId: null,
     };
   },
   computed: {
@@ -615,6 +815,39 @@ export default {
       });
     },
 
+    selectedFolder() {
+      if (
+        this.selectedFolderId === null ||
+        this.selectedFolderId === "__root__"
+      ) {
+        return null;
+      }
+
+      return (
+        this.folders.find(
+          (folder) =>
+            folder.id === this.selectedFolderId
+        ) || null
+      );
+    },
+
+    availableParentFolders() {
+      if (!this.selectedFolder) {
+        return this.folders;
+      }
+
+      const blocked = new Set([
+        this.selectedFolder.id,
+        ...this.descendantFolderIds(
+          this.selectedFolder.id
+        ),
+      ]);
+
+      return this.folders.filter(
+        (folder) => !blocked.has(folder.id)
+      );
+    },
+
     selectedFolderName() {
       if (this.selectedFolderId === null) {
         return "全部文档";
@@ -657,6 +890,11 @@ export default {
   mounted() {
     this.reloadFolders();
     window.addEventListener("keydown", this.onKeydown);
+    document.addEventListener(
+      "pointerdown",
+      this.onGlobalPointerDown,
+      true
+    );
     window.addEventListener(
       "weektodo:focus-folders-changed",
       this.reloadFolders
@@ -668,12 +906,290 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener("keydown", this.onKeydown);
+    document.removeEventListener(
+      "pointerdown",
+      this.onGlobalPointerDown,
+      true
+    );
     window.removeEventListener(
       "weektodo:focus-folders-changed",
       this.reloadFolders
     );
   },
   methods: {
+    closeMenus() {
+      this.menuDocumentId = null;
+      this.menuFolderId = null;
+    },
+
+    onGlobalPointerDown(event) {
+      if (
+        event.target.closest(".directory-document-menu") ||
+        event.target.closest(".directory-folder-menu") ||
+        event.target.closest(".directory-more") ||
+        event.target.closest(".directory-folder-more")
+      ) {
+        return;
+      }
+
+      this.closeMenus();
+    },
+
+    toggleFolderMenu(folderId) {
+      this.menuDocumentId = null;
+      this.menuFolderId =
+        this.menuFolderId === folderId
+          ? null
+          : folderId;
+    },
+
+    descendantFolderIds(folderId) {
+      const result = [];
+      const visit = (parentId) => {
+        this.folders
+          .filter(
+            (folder) => folder.parentId === parentId
+          )
+          .forEach((folder) => {
+            result.push(folder.id);
+            visit(folder.id);
+          });
+      };
+
+      visit(folderId);
+      return result;
+    },
+
+    hasFolderChildren(folderId) {
+      return this.folders.some(
+        (folder) => folder.parentId === folderId
+      );
+    },
+
+    folderSiblings(folder) {
+      return this.folders
+        .filter(
+          (item) =>
+            (item.parentId || null) ===
+            (folder.parentId || null)
+        )
+        .sort((a, b) => a.order - b.order);
+    },
+
+    canMoveFolder(folder, step) {
+      const siblings = this.folderSiblings(folder);
+      const index = siblings.findIndex(
+        (item) => item.id === folder.id
+      );
+      const target = index + Number(step);
+
+      return (
+        index >= 0 &&
+        target >= 0 &&
+        target < siblings.length
+      );
+    },
+
+    canMoveSelectedFolder(step) {
+      return (
+        this.selectedFolder &&
+        this.canMoveFolder(this.selectedFolder, step)
+      );
+    },
+
+    moveFolderStep(folder, step) {
+      const siblings = this.folderSiblings(folder);
+      const index = siblings.findIndex(
+        (item) => item.id === folder.id
+      );
+      const target = index + Number(step);
+
+      if (
+        index < 0 ||
+        target < 0 ||
+        target >= siblings.length
+      ) {
+        return;
+      }
+
+      const ids = siblings.map((item) => item.id);
+
+      [ids[index], ids[target]] = [
+        ids[target],
+        ids[index],
+      ];
+
+      focusFolderService.reorderFolders(
+        ids,
+        folder.parentId || null
+      );
+
+      this.reloadFolders();
+    },
+
+    moveSelectedFolder(folderValue) {
+      if (!this.selectedFolder) return;
+
+      const parentId =
+        folderValue === "__root__"
+          ? null
+          : folderValue;
+
+      try {
+        focusFolderService.moveFolder(
+          this.selectedFolder.id,
+          parentId
+        );
+
+        this.reloadFolders();
+      } catch (error) {
+        window.alert(
+          error?.message || "移动目录失败。"
+        );
+      }
+    },
+
+    startFolderDrag(event, folder) {
+      if (this.editingFolderId === folder.id) {
+        event.preventDefault();
+        return;
+      }
+
+      this.draggedFolderId = folder.id;
+      this.draggedDocumentId = null;
+      this.closeMenus();
+
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData(
+        "application/x-weektodo-folder",
+        folder.id
+      );
+      event.dataTransfer.setData(
+        "text/plain",
+        `folder:${folder.id}`
+      );
+    },
+
+    async dropOnFolder(folder, event) {
+      const folderId =
+        event.dataTransfer.getData(
+          "application/x-weektodo-folder"
+        ) || this.draggedFolderId;
+
+      if (folderId) {
+        if (folderId === folder.id) {
+          this.endDirectoryDrag();
+          return;
+        }
+
+        try {
+          focusFolderService.moveFolder(
+            folderId,
+            folder.id
+          );
+
+          folder.collapsed = false;
+          this.selectedFolderId = folder.id;
+          this.reloadFolders();
+        } catch (error) {
+          window.alert(
+            error?.message || "移动目录失败。"
+          );
+        }
+
+        this.endDirectoryDrag();
+        return;
+      }
+
+      await this.dropDocument(folder.id, event);
+    },
+
+    endDirectoryDrag() {
+      this.draggedDocumentId = null;
+      this.draggedFolderId = null;
+      this.dropFolderId = null;
+      this.dropDocumentId = null;
+    },
+
+    onFolderKeydown(event, entry) {
+      const rows = Array.from(
+        this.$el.querySelectorAll(
+          '.directory-folder-row[role="treeitem"]'
+        )
+      );
+      const currentIndex = rows.indexOf(
+        event.currentTarget
+      );
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        rows[currentIndex + 1]?.focus();
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        rows[currentIndex - 1]?.focus();
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+
+        if (entry.folder.collapsed) {
+          this.toggleFolder(entry.folder);
+        }
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+
+        if (!entry.folder.collapsed) {
+          this.toggleFolder(entry.folder);
+          return;
+        }
+
+        const parentRow = rows.find(
+          (row) =>
+            row.dataset.folderId ===
+            entry.folder.parentId
+        );
+
+        parentRow?.focus();
+        return;
+      }
+
+      if (
+        event.key === "Enter" ||
+        event.key === " "
+      ) {
+        event.preventDefault();
+        this.selectedFolderId = entry.folder.id;
+      }
+    },
+
+    focusMoveSelect(documentId) {
+      this.$nextTick(() => {
+        const rows = Array.from(
+          this.$el.querySelectorAll(
+            ".directory-document-row"
+          )
+        );
+
+        const row = rows.find(
+          (item) =>
+            item.querySelector(
+              `[data-document-id="${documentId}"]`
+            )
+        );
+
+        row
+          ?.querySelector(".directory-move-select")
+          ?.focus();
+      });
+    },
+
     reloadFolders() {
       this.folders = focusFolderService.listFolders();
     },
@@ -696,8 +1212,11 @@ export default {
         return;
       }
 
-      if (this.menuDocumentId) {
-        this.menuDocumentId = null;
+      if (
+        this.menuDocumentId ||
+        this.menuFolderId
+      ) {
+        this.closeMenus();
         return;
       }
 
@@ -797,6 +1316,8 @@ export default {
     },
 
     async deleteFolder(folder) {
+      this.closeMenus();
+
       if (
         !window.confirm(
           `删除目录“${folder.name}”？\n目录中的文档将移动到“未分类”。`
@@ -830,6 +1351,8 @@ export default {
 
     startDocumentDrag(event, id) {
       this.draggedDocumentId = id;
+      this.draggedFolderId = null;
+      this.closeMenus();
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData(
         "application/x-weektodo-document",
@@ -839,15 +1362,21 @@ export default {
     },
 
     async dropDocument(folderId, event) {
+      const plain =
+        event.dataTransfer.getData("text/plain");
+
       const documentId =
         event.dataTransfer.getData(
           "application/x-weektodo-document"
         ) ||
-        event.dataTransfer.getData("text/plain") ||
+        (
+          plain && !plain.startsWith("folder:")
+            ? plain
+            : null
+        ) ||
         this.draggedDocumentId;
 
-      this.draggedDocumentId = null;
-      this.dropFolderId = null;
+      this.endDirectoryDrag();
 
       if (!documentId) return;
 
@@ -856,6 +1385,89 @@ export default {
         folderId
       );
 
+      this.selectedFolderId =
+        folderId || "__root__";
+      this.$emit("changed");
+    },
+
+    onDocumentDragOver(document, event) {
+      const documentId =
+        event.dataTransfer.getData(
+          "application/x-weektodo-document"
+        ) || this.draggedDocumentId;
+
+      if (
+        documentId &&
+        documentId !== document.id
+      ) {
+        this.dropDocumentId = document.id;
+      }
+    },
+
+    async dropDocumentBefore(targetDocument, event) {
+      const plain =
+        event.dataTransfer.getData("text/plain");
+
+      const documentId =
+        event.dataTransfer.getData(
+          "application/x-weektodo-document"
+        ) ||
+        (
+          plain && !plain.startsWith("folder:")
+            ? plain
+            : null
+        ) ||
+        this.draggedDocumentId;
+
+      if (
+        !documentId ||
+        documentId === targetDocument.id
+      ) {
+        this.endDirectoryDrag();
+        return;
+      }
+
+      const source = this.documents.find(
+        (document) => document.id === documentId
+      );
+
+      if (!source) {
+        this.endDirectoryDrag();
+        return;
+      }
+
+      const targetFolderId =
+        targetDocument.folderId || null;
+
+      if (
+        (source.folderId || null) !==
+        targetFolderId
+      ) {
+        await focusDocumentService.moveDocument(
+          source.id,
+          targetFolderId
+        );
+      }
+
+      const orderedIds = this.documents
+        .map((document) => document.id)
+        .filter((id) => id !== source.id);
+
+      const targetIndex = orderedIds.indexOf(
+        targetDocument.id
+      );
+
+      orderedIds.splice(
+        Math.max(0, targetIndex),
+        0,
+        source.id
+      );
+
+      await focusDocumentService.reorderDocuments(
+        orderedIds
+      );
+
+      this.endDirectoryDrag();
       this.$emit("changed");
     },
 
@@ -1693,4 +2305,229 @@ export default {
       auto 28px 30px;
   }
 }
+
+
+/* DIRECTORY MANAGER SYSTEM V2 */
+
+.directory-header-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.directory-header-actions > button,
+.directory-header-actions > select {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  outline: none;
+  background: transparent;
+  color: #68717c;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.directory-header-actions > button {
+  cursor: pointer;
+}
+
+.directory-header-actions > button:hover,
+.directory-header-actions > select:hover,
+.directory-header-actions > select:focus {
+  border-color: #dfe3e8;
+  background: #f4f5f7;
+  color: #343b44;
+}
+
+.directory-header-actions > button:disabled {
+  opacity: 0.34;
+  pointer-events: none;
+}
+
+.directory-header-actions > button.danger:hover {
+  border-color: #f0d4d4;
+  background: #fff2f2;
+  color: #c84444;
+}
+
+.directory-header-actions
+  > .directory-create-document {
+  border-color: transparent;
+  color: #4263eb;
+  font-weight: 550;
+}
+
+.directory-folder-row[draggable="true"] {
+  cursor: grab;
+}
+
+.directory-folder-row[draggable="true"]:active,
+.directory-document-row:active {
+  cursor: grabbing;
+}
+
+.directory-folder-more {
+  position: relative;
+  width: 24px;
+  flex: 0 0 24px;
+}
+
+.directory-folder-menu-trigger {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0 0 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #7f8792;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.directory-folder-row:hover
+  .directory-folder-menu-trigger,
+.directory-folder-row:focus-within
+  .directory-folder-menu-trigger,
+.directory-folder-menu-trigger[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.directory-folder-menu-trigger:hover {
+  background: #dfe4ea;
+  color: #3f4853;
+}
+
+.directory-folder-menu {
+  position: absolute;
+  z-index: 40;
+  top: 27px;
+  right: 0;
+  display: flex;
+  width: 150px;
+  flex-direction: column;
+  padding: 5px;
+  border: 1px solid #e0e4e8;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow:
+    0 14px 34px rgba(20, 25, 34, 0.15),
+    0 2px 6px rgba(20, 25, 34, 0.06);
+}
+
+.directory-folder-menu button {
+  min-height: 32px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #515a65;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.directory-folder-menu button:hover {
+  background: #f0f2f5;
+}
+
+.directory-folder-menu button:disabled {
+  color: #b5bac1;
+  pointer-events: none;
+}
+
+.directory-folder-menu button.danger {
+  color: #c84444;
+}
+
+.directory-folder-menu .menu-divider {
+  height: 1px;
+  margin: 4px 5px;
+  background: #eceef1;
+}
+
+.directory-folder-row:focus-visible {
+  outline: 2px solid rgba(66, 99, 235, 0.42);
+  outline-offset: -2px;
+}
+
+.directory-document-row {
+  border: 1px solid transparent;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease,
+    transform 0.12s ease;
+}
+
+.directory-document-row.is-reorder-target {
+  border-color: #8ea2e7;
+  background: #f0f3ff;
+  box-shadow:
+    inset 3px 0 0 #6680df;
+}
+
+.directory-folder-row.is-drop-target {
+  background: #edf1ff;
+  box-shadow:
+    inset 0 0 0 1px #8298e6,
+    inset 3px 0 0 #6680df;
+}
+
+.directory-document-menu {
+  width: 180px;
+}
+
+.directory-document-menu button {
+  font-size: 11px;
+  font-weight: 450;
+}
+
+.dark-theme .directory-header-actions > button,
+.dark-theme .directory-header-actions > select {
+  color: #aeb5be;
+}
+
+.dark-theme .directory-header-actions > button:hover,
+.dark-theme .directory-header-actions > select:hover,
+.dark-theme .directory-header-actions > select:focus {
+  border-color: #3a434e;
+  background: #252c35;
+  color: #e0e4e9;
+}
+
+.dark-theme .directory-folder-menu {
+  border-color: #38414b;
+  background: #1d232b;
+}
+
+.dark-theme .directory-folder-menu button {
+  color: #d3d8de;
+}
+
+.dark-theme .directory-folder-menu button:hover {
+  background: #29313b;
+}
+
+.dark-theme
+  .directory-document-row.is-reorder-target,
+.dark-theme
+  .directory-folder-row.is-drop-target {
+  border-color: #7188dc;
+  background: #27304a;
+}
+
+@media (max-width: 980px) {
+  .directory-header-actions > select,
+  .directory-header-actions
+    > button:not(.directory-create-document) {
+    display: none;
+  }
+}
+
 </style>

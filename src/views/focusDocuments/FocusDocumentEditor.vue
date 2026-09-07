@@ -1,5 +1,8 @@
 <template>
-  <div class="focus-editor" :class="{ spacious }">
+  <div
+    class="focus-editor"
+    :class="{ spacious, 'wrap-code': codeWrap }"
+  >
     <div
       v-if="editor"
       class="focus-editor-toolbar"
@@ -195,6 +198,40 @@
         @click="run('toggleBlockquote')"
       >❝</button>
       <button title="关联事项" @click="$emit('request-task')">↗</button>
+      <button title="插入图片" @click="chooseImage">▧</button>
+
+      <template v-if="editor.isActive('codeBlock')">
+        <span class="divider"></span>
+        <select
+          class="focus-code-language"
+          :value="currentCodeLanguage"
+          title="代码语言"
+          @change="setCodeLanguage($event.target.value)"
+        >
+          <option
+            v-for="language in codeLanguages"
+            :key="language.value"
+            :value="language.value"
+          >
+            {{ language.label }}
+          </option>
+        </select>
+        <button
+          type="button"
+          title="复制当前代码块"
+          @click="copyCurrentCode"
+        >
+          复制
+        </button>
+        <button
+          type="button"
+          :class="{ active: codeWrap }"
+          title="自动换行"
+          @click="toggleCodeWrap"
+        >
+          ↵
+        </button>
+      </template>
 
       <span class="spacer"></span>
 
@@ -330,6 +367,16 @@
         </footer>
       </section>
     </div>
+    <input
+      ref="imageInput"
+      class="focus-image-input"
+      type="file"
+      accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+      multiple
+      @change="onImageInput"
+    />
+
+
     <div
       v-if="linkDialogVisible"
       class="focus-link-backdrop"
@@ -385,6 +432,46 @@
       </section>
     </div>
 
+    <Teleport to="body">
+      <div
+        v-if="imagePreviewVisible"
+        class="focus-image-preview-backdrop"
+        role="presentation"
+        @mousedown.self="closeImagePreview"
+        @keydown.esc.stop.prevent="closeImagePreview"
+      >
+        <section
+          class="focus-image-preview-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label="图片预览"
+        >
+          <header>
+            <div>
+              <strong>{{ imagePreviewName }}</strong>
+              <small>{{ imagePreviewMeta }}</small>
+            </div>
+            <button
+              type="button"
+              aria-label="关闭图片预览"
+              @click="closeImagePreview"
+            >
+              ×
+            </button>
+          </header>
+
+          <div class="focus-image-preview-stage">
+            <img
+              v-if="imagePreviewUrl"
+              :src="imagePreviewUrl"
+              :alt="imagePreviewName"
+            />
+            <span v-else>正在加载图片…</span>
+          </div>
+        </section>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
@@ -392,6 +479,8 @@
 import { Editor, EditorContent } from "@tiptap/vue-3";
 import { BubbleMenu } from "@tiptap/vue-3/menus";
 import StarterKit from "@tiptap/starter-kit";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { common, createLowlight } from "lowlight";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
@@ -409,9 +498,30 @@ import {
 import { Markdown } from "@tiptap/markdown";
 import SlashCommands from "../../editor/extensions/SlashCommands";
 import LinkedTask from "../../editor/extensions/LinkedTask";
+import FocusImage from "../../editor/extensions/FocusImage";
+import focusAssetRepository from "../../repositories/focusAssetRepository";
 import SmartFormatting from "../../editor/extensions/SmartFormatting";
 import { createSlashCommandItems } from "../../editor/slashCommandItems";
 import focusTaskService from "../../services/focusTaskService";
+
+/* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
+const lowlight = createLowlight(common);
+
+const CODE_LANGUAGES = [
+  { value: "plaintext", label: "纯文本" },
+  { value: "javascript", label: "JavaScript" },
+  { value: "typescript", label: "TypeScript" },
+  { value: "python", label: "Python" },
+  { value: "java", label: "Java" },
+  { value: "json", label: "JSON" },
+  { value: "html", label: "HTML" },
+  { value: "css", label: "CSS" },
+  { value: "scss", label: "SCSS" },
+  { value: "bash", label: "Shell" },
+  { value: "sql", label: "SQL" },
+  { value: "xml", label: "XML" },
+  { value: "markdown", label: "Markdown" },
+];
 
 const EMPTY = {
   type: "doc",
@@ -475,6 +585,15 @@ export default {
       highlightColors: HIGHLIGHT_COLORS,
       linkDialogVisible: false,
       linkInput: "",
+      codeWrap:
+        localStorage.getItem("focusCodeWrap") !== "false",
+      codeLanguages: CODE_LANGUAGES,
+      imageSaving: false,
+      imagePreviewVisible: false,
+      imagePreviewUrl: "",
+      imagePreviewName: "图片预览",
+      imagePreviewMeta: "",
+      assetPruneTimer: null,
     };
   },
   computed: {
@@ -492,6 +611,15 @@ export default {
       if (!this.editor) return "";
       return (
         this.editor.getAttributes("textStyle").fontSize || ""
+      );
+    },
+
+    currentCodeLanguage() {
+      if (!this.editor) return "plaintext";
+
+      return (
+        this.editor.getAttributes("codeBlock").language ||
+        "plaintext"
       );
     },
   },
@@ -521,6 +649,7 @@ export default {
       extensions: [
         StarterKit.configure({
           heading: { levels: [1, 2, 3] },
+          codeBlock: false,
           link: {
             openOnClick: false,
             autolink: true,
@@ -549,6 +678,13 @@ export default {
         FontSize,
         SmartFormatting,
         Highlight.configure({ multicolor: true }),
+        CodeBlockLowlight.configure({
+          lowlight,
+          defaultLanguage: "plaintext",
+          enableTabIndentation: true,
+          tabSize: 2,
+        }),
+        FocusImage,
         Details.configure({ persist: true }),
         DetailsSummary,
         DetailsContent,
@@ -557,8 +693,9 @@ export default {
         }),
         LinkedTask,
         SlashCommands.configure({
-          items: createSlashCommandItems(() =>
-            this.$emit("request-task")
+          items: createSlashCommandItems(
+            () => this.$emit("request-task"),
+            () => this.chooseImage()
           ),
         }),
       ],
@@ -567,10 +704,48 @@ export default {
           class: "focus-prosemirror",
           spellcheck: "true",
         },
+
+        handlePaste: (_view, event) => {
+          const files = Array.from(
+            event.clipboardData?.files || []
+          ).filter((file) =>
+            String(file.type || "").startsWith("image/")
+          );
+
+          if (!files.length) return false;
+
+          event.preventDefault();
+          this.insertImageFiles(files);
+          return true;
+        },
+
+        handleDrop: (view, event, _slice, moved) => {
+          if (moved) return false;
+
+          const files = Array.from(
+            event.dataTransfer?.files || []
+          ).filter((file) =>
+            String(file.type || "").startsWith("image/")
+          );
+
+          if (!files.length) return false;
+
+          event.preventDefault();
+
+          const position = view.posAtCoords({
+            left: event.clientX,
+            top: event.clientY,
+          })?.pos;
+
+          this.insertImageFiles(files, position);
+          return true;
+        },
       },
       onUpdate: ({ editor }) => {
         if (!this.externalUpdate) {
-          this.$emit("update:modelValue", editor.getJSON());
+          const content = editor.getJSON();
+          this.$emit("update:modelValue", content);
+          this.scheduleAssetPrune(content);
         }
       },
     });
@@ -578,6 +753,11 @@ export default {
     document.addEventListener(
       "mousedown",
       this.onDocumentPointerDown
+    );
+
+    window.addEventListener(
+      "focus-image-preview",
+      this.onImagePreview
     );
 
     window.addEventListener(
@@ -610,6 +790,11 @@ export default {
     );
 
     window.removeEventListener(
+      "focus-image-preview",
+      this.onImagePreview
+    );
+
+    window.removeEventListener(
       "focus-task-toggle",
       this.onTaskToggle
     );
@@ -629,9 +814,223 @@ export default {
       "weektodo:task-changed",
       this.onTaskChanged
     );
+    clearTimeout(this.assetPruneTimer);
+    this.closeImagePreview();
     this.editor?.destroy();
   },
   methods: {
+    chooseImage() {
+      if (this.imageSaving) return;
+      this.$refs.imageInput?.click();
+    },
+
+    async onImageInput(event) {
+      const files = Array.from(event.target.files || []);
+      event.target.value = "";
+
+      if (files.length) {
+        await this.insertImageFiles(files);
+      }
+    },
+
+    readImageDimensions(file) {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const image = new Image();
+
+        image.onload = () => {
+          resolve({
+            width: image.naturalWidth || null,
+            height: image.naturalHeight || null,
+          });
+          URL.revokeObjectURL(url);
+        };
+
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve({ width: null, height: null });
+        };
+
+        image.src = url;
+      });
+    },
+
+    async insertImageFiles(files, position = null) {
+      if (!this.editor || this.imageSaving) return;
+
+      const images = Array.from(files || []).filter(
+        (file) =>
+          String(file.type || "").startsWith("image/")
+      );
+
+      if (!images.length) return;
+
+      this.imageSaving = true;
+
+      try {
+        let targetPosition = position;
+
+        for (const file of images) {
+          const [asset, dimensions] = await Promise.all([
+            focusAssetRepository.saveImage(
+              file,
+              this.documentId
+            ),
+            this.readImageDimensions(file),
+          ]);
+
+          const content = [
+            {
+              type: "focusImage",
+              attrs: {
+                assetId: asset.id,
+                alt: file.name || "图片",
+                title: file.name || "",
+                width: "100%",
+                originalWidth: dimensions.width,
+                originalHeight: dimensions.height,
+              },
+            },
+            { type: "paragraph" },
+          ];
+
+          const chain = this.editor.chain().focus();
+
+          if (Number.isFinite(targetPosition)) {
+            chain.insertContentAt(
+              targetPosition,
+              content
+            ).run();
+            targetPosition += 2;
+          } else {
+            chain.insertContent(content).run();
+          }
+        }
+      } catch (error) {
+        console.error(error);
+        window.alert(
+          error?.message || "插入图片失败，请重试。"
+        );
+      } finally {
+        this.imageSaving = false;
+      }
+    },
+
+    async onImagePreview(event) {
+      const detail = event?.detail;
+
+      if (
+        !detail?.assetId ||
+        detail.sourceEditor !== this.editor
+      ) {
+        return;
+      }
+
+      this.closeImagePreview();
+      this.imagePreviewVisible = true;
+      this.imagePreviewName =
+        detail.alt || detail.title || "图片预览";
+
+      try {
+        const { url, record } =
+          await focusAssetRepository.getObjectUrl(
+            detail.assetId
+          );
+
+        if (!this.imagePreviewVisible) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+
+        this.imagePreviewUrl = url;
+
+        const size = Number(record.size || 0);
+        this.imagePreviewMeta = [
+          record.type || "图片",
+          size
+            ? `${(size / 1024 / 1024).toFixed(2)} MB`
+            : "",
+          detail.originalWidth && detail.originalHeight
+            ? `${detail.originalWidth} × ${detail.originalHeight}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+      } catch (error) {
+        this.imagePreviewMeta =
+          error?.message || "图片加载失败";
+      }
+    },
+
+    closeImagePreview() {
+      this.imagePreviewVisible = false;
+
+      if (this.imagePreviewUrl) {
+        URL.revokeObjectURL(this.imagePreviewUrl);
+      }
+
+      this.imagePreviewUrl = "";
+      this.imagePreviewMeta = "";
+    },
+
+    scheduleAssetPrune(content) {
+      clearTimeout(this.assetPruneTimer);
+
+      const used = Array.from(
+        focusAssetRepository.collectAssetIds(content)
+      );
+
+      this.assetPruneTimer = setTimeout(() => {
+        focusAssetRepository
+          .pruneUnreferenced(used)
+          .catch((error) =>
+            console.warn("图片资源清理失败：", error)
+          );
+      }, 3000);
+    },
+
+    setCodeLanguage(language) {
+      this.editor
+        ?.chain()
+        .focus()
+        .updateAttributes("codeBlock", {
+          language: language || "plaintext",
+        })
+        .run();
+    },
+
+    toggleCodeWrap() {
+      this.codeWrap = !this.codeWrap;
+      localStorage.setItem(
+        "focusCodeWrap",
+        String(this.codeWrap)
+      );
+    },
+
+    async copyCurrentCode() {
+      if (!this.editor) return;
+
+      const { $from } = this.editor.state.selection;
+      let code = "";
+
+      for (let depth = $from.depth; depth >= 0; depth--) {
+        const node = $from.node(depth);
+
+        if (node.type.name === "codeBlock") {
+          code = node.textContent;
+          break;
+        }
+      }
+
+      if (!code) return;
+
+      try {
+        await navigator.clipboard.writeText(code);
+      } catch {
+        window.alert("复制失败，请检查剪贴板权限。");
+      }
+    },
+
     run(command) {
       this.editor?.chain().focus()[command]().run();
     },
@@ -3364,6 +3763,264 @@ export default {
 .focus-command-item.is-selected {
   border-color: transparent;
 }
+
+/* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
+
+.focus-image-input {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Obsidian/Notion 风格：代码块跟随主题，不强制黑底。 */
+.focus-prosemirror pre {
+  position: relative;
+  margin: 14px 0;
+  padding: 18px 18px;
+  border: 1px solid #e1e5ea;
+  border-radius: 10px;
+  background: #f6f7f9;
+  color: #2f343b;
+  font:
+    13px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+  tab-size: 2;
+  overflow-x: auto;
+  box-shadow: none;
+}
+
+.focus-prosemirror pre code {
+  display: block;
+  min-width: max-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.focus-editor.wrap-code .focus-prosemirror pre,
+.focus-editor.wrap-code .focus-prosemirror pre code {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Lowlight 语义高亮，浅色主题使用低饱和色。 */
+.focus-prosemirror .hljs-comment,
+.focus-prosemirror .hljs-quote {
+  color: #7a828d;
+  font-style: italic;
+}
+
+.focus-prosemirror .hljs-keyword,
+.focus-prosemirror .hljs-selector-tag,
+.focus-prosemirror .hljs-literal,
+.focus-prosemirror .hljs-section {
+  color: #7b4ab5;
+}
+
+.focus-prosemirror .hljs-string,
+.focus-prosemirror .hljs-title,
+.focus-prosemirror .hljs-name,
+.focus-prosemirror .hljs-type,
+.focus-prosemirror .hljs-attribute {
+  color: #2d7a4d;
+}
+
+.focus-prosemirror .hljs-number,
+.focus-prosemirror .hljs-symbol,
+.focus-prosemirror .hljs-bullet {
+  color: #b15c22;
+}
+
+.focus-prosemirror .hljs-built_in,
+.focus-prosemirror .hljs-variable,
+.focus-prosemirror .hljs-template-variable {
+  color: #2e64b7;
+}
+
+.focus-prosemirror .hljs-meta,
+.focus-prosemirror .hljs-regexp,
+.focus-prosemirror .hljs-link {
+  color: #a04d74;
+}
+
+.focus-code-language {
+  min-width: 112px !important;
+}
+
+/* 图片始终以当前编辑栏为最大宽度，保持原始宽高比。 */
+.focus-image-block {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-height: 72px;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin: 14px 0;
+  border-radius: 10px;
+  background: #f7f8fa;
+  overflow: hidden;
+}
+
+.focus-document-image {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  cursor: zoom-in;
+}
+
+.focus-image-status {
+  padding: 24px;
+  color: #969ca5;
+  font-size: 12px;
+}
+
+.focus-image-block.is-missing {
+  border: 1px dashed #d7dce2;
+}
+
+.focus-image-preview-backdrop {
+  position: fixed;
+  z-index: 26000;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 22px;
+  background: rgba(12, 15, 20, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.focus-image-preview-dialog {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.focus-image-preview-dialog > header {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  color: #fff;
+}
+
+.focus-image-preview-dialog > header > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.focus-image-preview-dialog > header strong,
+.focus-image-preview-dialog > header small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-image-preview-dialog > header small {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+}
+
+.focus-image-preview-dialog > header button {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.focus-image-preview-stage {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.focus-image-preview-stage img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 100px);
+  object-fit: contain;
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.36);
+}
+
+/* 深色主题：使用柔和深灰，而不是纯黑。 */
+.dark-theme .focus-prosemirror pre {
+  border-color: #343c46;
+  background: #1d232b;
+  color: #d7dce2;
+}
+
+.dark-theme .focus-prosemirror .hljs-comment,
+.dark-theme .focus-prosemirror .hljs-quote {
+  color: #89939f;
+}
+
+.dark-theme .focus-prosemirror .hljs-keyword,
+.dark-theme .focus-prosemirror .hljs-selector-tag,
+.dark-theme .focus-prosemirror .hljs-literal,
+.dark-theme .focus-prosemirror .hljs-section {
+  color: #c79bf2;
+}
+
+.dark-theme .focus-prosemirror .hljs-string,
+.dark-theme .focus-prosemirror .hljs-title,
+.dark-theme .focus-prosemirror .hljs-name,
+.dark-theme .focus-prosemirror .hljs-type,
+.dark-theme .focus-prosemirror .hljs-attribute {
+  color: #89d49f;
+}
+
+.dark-theme .focus-prosemirror .hljs-number,
+.dark-theme .focus-prosemirror .hljs-symbol,
+.dark-theme .focus-prosemirror .hljs-bullet {
+  color: #e5a56f;
+}
+
+.dark-theme .focus-prosemirror .hljs-built_in,
+.dark-theme .focus-prosemirror .hljs-variable,
+.dark-theme .focus-prosemirror .hljs-template-variable {
+  color: #88b6f2;
+}
+
+.dark-theme .focus-prosemirror .hljs-meta,
+.dark-theme .focus-prosemirror .hljs-regexp,
+.dark-theme .focus-prosemirror .hljs-link {
+  color: #e59ac1;
+}
+
+.dark-theme .focus-image-block {
+  background: #1d232b;
+}
+
+.dark-theme .focus-image-block.is-missing {
+  border-color: #3a424d;
+}
+
 </style>
 
 

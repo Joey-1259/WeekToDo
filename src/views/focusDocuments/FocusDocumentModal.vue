@@ -51,7 +51,7 @@
         :document-id="draft.id"
         spacious
         @update:model-value="scheduleSave"
-        @request-task="openTaskComposer"
+        @request-task="requestTask"
         @open-task="$emit('open-task', $event)"
         @jump-task="$emit('jump-task', $event)"
       />
@@ -88,18 +88,12 @@
       </footer>
     </section>
 
-    <FocusTaskComposer
-      v-if="taskComposerVisible"
-      :document-id="draft.id"
-      @close="taskComposerVisible = false"
-      @created="insertTask"
-    />
   </div>
 </template>
 
 <script>
+/* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
 import FocusDocumentEditor from "./FocusDocumentEditor.vue";
-import FocusTaskComposer from "./FocusTaskComposer.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 import focusFolderService from "../../services/focusFolderService";
 
@@ -107,7 +101,6 @@ export default {
   name: "FocusDocumentModal",
   components: {
     FocusDocumentEditor,
-    FocusTaskComposer,
   },
   props: {
     document: {
@@ -119,14 +112,19 @@ export default {
       default: false,
     },
   },
-  emits: ["close", "saved", "open-task", "jump-task",],
+  emits: [
+    "close",
+    "saved",
+    "open-task",
+    "jump-task",
+    "create-task",
+  ],
   data() {
     return {
       draft: JSON.parse(JSON.stringify(this.document)),
       timer: null,
       saving: false,
       saveState: "saved",
-      taskComposerVisible: false,
       folders: focusFolderService.listFolders(),
       selectedFolder: this.requireFolder
         ? ""
@@ -169,10 +167,7 @@ export default {
         return;
       }
 
-      if (
-        event.key === "Escape" &&
-        !this.taskComposerVisible
-      ) {
+      if (event.key === "Escape") {
         this.close();
       }
     },
@@ -289,19 +284,22 @@ export default {
       }
     },
 
-    async openTaskComposer() {
+    async requestTask() {
       try {
         await this.persist(false);
-        this.taskComposerVisible = true;
-      } catch {
-        window.alert("保存草稿失败，暂时无法创建关联事项。");
-      }
-    },
 
-    insertTask(attrs) {
-      this.taskComposerVisible = false;
-      this.$refs.editor?.insertLinkedTask(attrs);
-      this.scheduleSave();
+        this.$emit("create-task", {
+          documentId: this.draft.id,
+          insert: (attrs) => {
+            this.$refs.editor?.insertLinkedTask(attrs);
+            this.scheduleSave();
+          },
+        });
+      } catch {
+        window.alert(
+          "保存草稿失败，暂时无法创建关联事项。"
+        );
+      }
     },
 
     async finish() {

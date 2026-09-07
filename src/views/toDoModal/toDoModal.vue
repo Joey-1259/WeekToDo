@@ -1,5 +1,12 @@
 <template>
-  <div class="modal fade" :class="{ 'fullscreen': fullscreenToDoModal }" @keydown.esc="pressEsc" id="toDoModal"
+  <div
+    class="modal fade"
+    :class="{
+      fullscreen: fullscreenToDoModal,
+      'focus-linked-task-modal': Boolean(focusJumpTarget),
+    }"
+    @keydown.esc="pressEsc"
+    id="toDoModal"
     tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -1423,6 +1430,21 @@ export default {
   .todo-title-input-always {
     font-size: 15px;
   }
+}
+
+
+/* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1: 与每周事项共用同一个 toDoModal */
+#toDoModal.focus-linked-task-modal {
+  z-index: 24000;
+}
+
+#toDoModal.focus-linked-task-modal .modal-dialog {
+  pointer-events: auto;
+}
+
+#toDoModal.focus-linked-task-modal .completed-task {
+  color: inherit;
+  text-decoration: none;
 }
 
 </style>

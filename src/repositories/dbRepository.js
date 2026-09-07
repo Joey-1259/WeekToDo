@@ -1,6 +1,6 @@
 export default {
     open() {
-        var req = indexedDB.open('weekToDo', 5);
+        var req = indexedDB.open('weekToDo', 6);
         req.onupgradeneeded = function (event) {
             var db = event.target.result;
             if (!db.objectStoreNames.contains("todo_lists")) {
@@ -84,6 +84,24 @@ export default {
             if (!db.objectStoreNames.contains("focus_document_revisions")) {
                 const store = db.createObjectStore(
                     "focus_document_revisions",
+                    { autoIncrement: false }
+                );
+                store.createIndex(
+                    "documentId",
+                    "documentId",
+                    { unique: false }
+                );
+                store.createIndex(
+                    "createdAt",
+                    "createdAt",
+                    { unique: false }
+                );
+            }
+
+            /* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
+            if (!db.objectStoreNames.contains("focus_assets")) {
+                const store = db.createObjectStore(
+                    "focus_assets",
                     { autoIncrement: false }
                 );
                 store.createIndex(

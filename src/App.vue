@@ -325,6 +325,7 @@ export default {
     }
   },
   methods: {
+    /* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1: 关联事项始终进入每周事项唯一详情弹窗 */
     async openFocusTaskDetail(payload) {
       const found = await todoTaskRepository.getTask(
         payload.taskId,

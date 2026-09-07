@@ -6,7 +6,11 @@ function base(editor, range) {
  * 正文、标题、列表和待办已经常驻顶部工具栏，
  * Slash 菜单只承担低频、进阶内容插入。
  */
-export function createSlashCommandItems(onTask) {
+export function createSlashCommandItems(
+  onTask,
+  onImage
+) {
+  /* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
   return [
     {
       id: "linked-task",
@@ -27,6 +31,25 @@ export function createSlashCommandItems(onTask) {
       command: ({ editor, range }) => {
         base(editor, range).run();
         onTask?.();
+      },
+    },
+    {
+      id: "image",
+      category: "进阶内容",
+      title: "图片",
+      description: "粘贴或插入本地图片",
+      icon: "▧",
+      shortcut: "/tp",
+      aliases: [
+        "image",
+        "picture",
+        "图片",
+        "插图",
+        "tp",
+      ],
+      command: ({ editor, range }) => {
+        base(editor, range).run();
+        onImage?.();
       },
     },
     {

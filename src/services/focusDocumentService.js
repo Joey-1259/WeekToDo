@@ -3,6 +3,9 @@ import focusDataRepository, {
 } from "../repositories/focusDataRepository";
 import focusTaskService from "./focusTaskService";
 import { createId } from "../helpers/idHelper";
+import focusAssetRepository from "../repositories/focusAssetRepository";
+
+/* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
 
 const EMPTY_CONTENT = {
   type: "doc",
@@ -244,6 +247,8 @@ const focusDocumentService = {
       FOCUS_STORES.documents,
       id
     );
+
+    await focusAssetRepository.pruneUnreferenced();
   },
 };
 

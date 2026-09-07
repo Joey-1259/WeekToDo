@@ -83,6 +83,7 @@
             @document-action="handleDocumentAction"
             @open-task="openTask"
             @jump-task="jumpTask"
+            @create-task="createLinkedTask"
             @swap="swapPane(index - 1, $event)"
           />
 
@@ -141,6 +142,7 @@
       @saved="finishModal"
       @open-task="openTask"
       @jump-task="jumpTask"
+      @create-task="createLinkedTask"
     />
 
     <div
@@ -220,6 +222,7 @@
 </template>
 
 <script>
+/* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
 import FocusDocumentPane from "./FocusDocumentPane.vue";
 import FocusDocumentModal from "./FocusDocumentModal.vue";
 import FocusDocumentTree from "./FocusDocumentTree.vue";
@@ -838,6 +841,38 @@ export default {
         );
 
         await this.reload();
+      }
+    },
+
+    async createLinkedTask(payload) {
+      if (!payload?.documentId) return;
+
+      try {
+        const attrs =
+          await focusTaskService.createLinkedTask(
+            payload.documentId,
+            {
+              text: "新建事项",
+              desc: "",
+              listId:
+                focusTaskService.listTargets()[0]?.listId,
+              time: null,
+              priority: 0,
+              alarm: false,
+              reminders: [],
+              tags: [],
+              color: "none",
+              subTaskList: [],
+            }
+          );
+
+        payload.insert?.(attrs);
+
+        await this.$nextTick();
+        this.openTask(attrs);
+      } catch (error) {
+        console.error(error);
+        window.alert("创建关联事项失败，请重试。");
       }
     },
 

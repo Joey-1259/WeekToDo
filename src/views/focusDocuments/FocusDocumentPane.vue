@@ -151,7 +151,7 @@
       v-model="localContent"
       :document-id="document.id"
       @update:model-value="scheduleContentSave"
-      @request-task="taskComposerVisible = true"
+      @request-task="requestTask"
       @open-task="$emit('open-task', $event)"
       @jump-task="$emit('jump-task', $event)"
     />
@@ -195,25 +195,18 @@
       </button>
     </footer>
 
-    <FocusTaskComposer
-      v-if="taskComposerVisible"
-      :document-id="document.id"
-      @close="taskComposerVisible = false"
-      @created="insertTask"
-    />
   </article>
 </template>
 
 <script>
+/* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
 import FocusDocumentEditor from "./FocusDocumentEditor.vue";
-import FocusTaskComposer from "./FocusTaskComposer.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 
 export default {
   name: "FocusDocumentPane",
   components: {
     FocusDocumentEditor,
-    FocusTaskComposer,
   },
   props: {
     document: {
@@ -235,6 +228,7 @@ export default {
     "document-action",
     "open-task",
     "jump-task",
+    "create-task",
     "swap",
     "pane-dragstart",
     "pane-dragend",
@@ -245,7 +239,6 @@ export default {
       localContent: this.document.content,
       timer: null,
       saveState: "saved",
-      taskComposerVisible: false,
       menuVisible: false,
       menuStyle: {},
     };
@@ -426,9 +419,13 @@ export default {
       }, 800);
     },
 
-    insertTask(attrs) {
-      this.taskComposerVisible = false;
-      this.$refs.editor?.insertLinkedTask(attrs);
+    requestTask() {
+      this.$emit("create-task", {
+        documentId: this.document.id,
+        insert: (attrs) => {
+          this.$refs.editor?.insertLinkedTask(attrs);
+        },
+      });
     },
   },
 };

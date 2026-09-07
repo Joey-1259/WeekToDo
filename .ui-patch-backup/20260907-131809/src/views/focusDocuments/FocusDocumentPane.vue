@@ -1,90 +1,44 @@
 <template>
   <article class="focus-pane">
-    <header class="focus-pane-header">
-      <span
-        class="focus-drag-handle"
-        title="拖动调整文档位置"
-        aria-hidden="true"
-      >
-        <svg viewBox="0 0 16 16">
-          <circle cx="5" cy="4" r="1" />
-          <circle cx="11" cy="4" r="1" />
-          <circle cx="5" cy="8" r="1" />
-          <circle cx="11" cy="8" r="1" />
-          <circle cx="5" cy="12" r="1" />
-          <circle cx="11" cy="12" r="1" />
-        </svg>
+    <header>
+      <span class="focus-drag-handle" title="拖动调整位置">
+        ⠿
       </span>
 
       <input
         v-model="localTitle"
         maxlength="120"
-        aria-label="文档标题"
         placeholder="未命名文档"
         @input="scheduleTitleSave"
       />
 
-      <div class="focus-pane-header-actions">
-        <span
-          class="focus-save-status"
-          :class="`is-${saveState}`"
-          role="status"
-          aria-live="polite"
-        >
-          <i aria-hidden="true"></i>
-          <span>{{ statusLabel }}</span>
-        </span>
+      <div>
+        <span>{{ statusLabel }}</span>
 
         <button
-          type="button"
-          class="focus-header-action"
           title="沉浸式编辑"
-          aria-label="打开沉浸式编辑"
           @click="$emit('edit', document.id)"
         >
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M7 3H4a1 1 0 0 0-1 1v3" />
-            <path d="M13 3h3a1 1 0 0 1 1 1v3" />
-            <path d="M7 17H4a1 1 0 0 1-1-1v-3" />
-            <path d="M13 17h3a1 1 0 0 0 1-1v-3" />
-          </svg>
+          ⛶
         </button>
 
         <div class="focus-document-menu">
           <button
             ref="menuButton"
-            type="button"
-            class="focus-header-action"
-            title="更多文档操作"
-            aria-label="更多文档操作"
-            aria-haspopup="menu"
-            :aria-expanded="String(menuVisible)"
+            title="文档操作"
             @click.stop="toggleDocumentMenu"
           >
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <circle cx="4.5" cy="10" r="1.35" />
-              <circle cx="10" cy="10" r="1.35" />
-              <circle cx="15.5" cy="10" r="1.35" />
-            </svg>
+            ⋯
           </button>
 
           <Teleport to="body">
             <div
               v-if="menuVisible"
-              ref="documentMenu"
               class="focus-document-menu-popover"
               :style="menuStyle"
-              role="menu"
-              aria-label="文档操作"
-              tabindex="-1"
               @mousedown.stop
-              @keydown.esc.stop="closeDocumentMenuAndRestore"
             >
-              <button
-                type="button"
-                role="menuitem"
-                @click="runAction('duplicate')"
-              >
+              <button @click="runAction('duplicate')">
                 <svg viewBox="0 0 20 20" aria-hidden="true">
                   <rect x="6" y="6" width="10" height="10" rx="1.5" />
                   <path d="M4 13H3.5A1.5 1.5 0 0 1 2 11.5v-8A1.5 1.5 0 0 1 3.5 2h8A1.5 1.5 0 0 1 13 3.5V4" />
@@ -92,11 +46,7 @@
                 <span>复制文档</span>
               </button>
 
-              <button
-                type="button"
-                role="menuitem"
-                @click="runAction('move')"
-              >
+              <button @click="runAction('move')">
                 <svg viewBox="0 0 20 20" aria-hidden="true">
                   <path d="M3 5h5l1.5 2H17v8H3Z" />
                   <path d="m9 11 2-2 2 2M11 9v5" />
@@ -104,22 +54,16 @@
                 <span>移动到目录</span>
               </button>
 
-              <button
-                type="button"
-                role="menuitem"
-                @click="runAction('export')"
-              >
+              <button @click="runAction('export')">
                 <svg viewBox="0 0 20 20" aria-hidden="true">
                   <path d="M10 2v10M6 8l4 4 4-4M3 15v2h14v-2" />
                 </svg>
                 <span>导出 Markdown</span>
               </button>
 
-              <div class="menu-divider" role="separator"></div>
+              <div class="menu-divider"></div>
 
               <button
-                type="button"
-                role="menuitem"
                 class="danger"
                 @click="runAction('delete')"
               >
@@ -264,38 +208,12 @@ export default {
       "mousedown",
       this.closeDocumentMenu
     );
-    window.addEventListener(
-      "keydown",
-      this.onDocumentMenuKeydown
-    );
-    window.addEventListener(
-      "resize",
-      this.closeDocumentMenu
-    );
-    window.addEventListener(
-      "scroll",
-      this.closeDocumentMenu,
-      true
-    );
   },
   beforeUnmount() {
     clearTimeout(this.timer);
     document.removeEventListener(
       "mousedown",
       this.closeDocumentMenu
-    );
-    window.removeEventListener(
-      "keydown",
-      this.onDocumentMenuKeydown
-    );
-    window.removeEventListener(
-      "resize",
-      this.closeDocumentMenu
-    );
-    window.removeEventListener(
-      "scroll",
-      this.closeDocumentMenu,
-      true
     );
   },
   methods: {
@@ -306,54 +224,35 @@ export default {
     },
 
     closeDocumentMenu(event) {
-      if (
-        event?.target?.closest?.(".focus-document-menu") ||
-        event?.target?.closest?.(
-          ".focus-document-menu-popover"
-        )
-      ) {
+      if (!event.target.closest(".focus-document-menu")) {
+        this.menuVisible = false;
+      }
+    },
+
+    toggleDocumentMenu() {
+      if (this.menuVisible) {
+        this.menuVisible = false;
         return;
       }
 
-      this.menuVisible = false;
-    },
-
-    closeDocumentMenuAndRestore() {
-      this.menuVisible = false;
-
-      this.$nextTick(() => {
-        this.$refs.menuButton?.focus();
-      });
-    },
-
-    onDocumentMenuKeydown(event) {
-      if (event.key === "Escape" && this.menuVisible) {
-        event.preventDefault();
-        this.closeDocumentMenuAndRestore();
-      }
-    },
-
-    positionDocumentMenu() {
       const rect =
         this.$refs.menuButton?.getBoundingClientRect();
 
       if (!rect) return;
 
-      const width = 220;
-      const estimatedHeight = 188;
-      const viewportGap = 12;
-
+      const width = 176;
+      const estimatedHeight = 174;
       const left = Math.max(
-        viewportGap,
+        10,
         Math.min(
-          window.innerWidth - width - viewportGap,
+          window.innerWidth - width - 10,
           rect.right - width
         )
       );
 
       const openAbove =
         rect.bottom + estimatedHeight >
-        window.innerHeight - viewportGap;
+        window.innerHeight - 10;
 
       this.menuStyle = {
         position: "fixed",
@@ -361,25 +260,13 @@ export default {
         left: `${left}px`,
         top: openAbove
           ? "auto"
-          : `${rect.bottom + 7}px`,
+          : `${rect.bottom + 6}px`,
         bottom: openAbove
-          ? `${window.innerHeight - rect.top + 7}px`
+          ? `${window.innerHeight - rect.top + 6}px`
           : "auto",
       };
-    },
 
-    toggleDocumentMenu() {
-      if (this.menuVisible) {
-        this.closeDocumentMenuAndRestore();
-        return;
-      }
-
-      this.positionDocumentMenu();
       this.menuVisible = true;
-
-      this.$nextTick(() => {
-        this.$refs.documentMenu?.focus();
-      });
     },
 
     runAction(action) {
@@ -794,318 +681,5 @@ export default {
 
 .focus-document-menu-popover .menu-divider {
   margin: 4px 6px;
-}
-
-/* ==========================================================
- * 重点事项 · 单文档头部与操作菜单统一规范
- * ========================================================== */
-
-.focus-pane > .focus-pane-header {
-  display: grid;
-  min-height: 52px;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 10px 7px;
-  border-bottom: 1px solid #f0f1f3;
-  background: rgba(255, 255, 255, 0.96);
-}
-
-.focus-pane-header .focus-drag-handle {
-  display: grid;
-  width: 22px;
-  height: 30px;
-  place-items: center;
-  border-radius: 6px;
-  color: #a0a6ae;
-}
-
-.focus-pane-header .focus-drag-handle:hover {
-  background: #f1f3f5;
-  color: #727a85;
-}
-
-.focus-pane-header .focus-drag-handle svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
-}
-
-.focus-pane > .focus-pane-header input {
-  min-width: 0;
-  width: 100%;
-  height: 34px;
-  padding: 0 5px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  outline: none;
-  background: transparent;
-  color: #272c33;
-  font-size: 15px;
-  font-weight: 650;
-  line-height: 34px;
-  text-overflow: ellipsis;
-}
-
-.focus-pane > .focus-pane-header input:hover {
-  background: #fafbfc;
-}
-
-.focus-pane > .focus-pane-header input:focus {
-  border-color: rgba(66, 99, 235, 0.32);
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.08);
-}
-
-.focus-pane-header-actions {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 3px;
-}
-
-.focus-save-status {
-  display: inline-flex;
-  height: 26px;
-  align-items: center;
-  gap: 5px;
-  margin-right: 2px;
-  padding: 0 7px;
-  border-radius: 999px;
-  color: #858c96;
-  font-size: 10px;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.focus-save-status > i {
-  width: 6px;
-  height: 6px;
-  flex: 0 0 6px;
-  border-radius: 50%;
-  background: #68a67d;
-}
-
-.focus-save-status.is-saving > i {
-  background: #d39a3b;
-  animation: focus-save-pulse 1s ease-in-out infinite;
-}
-
-.focus-save-status.is-failed {
-  background: #fff1f1;
-  color: #c84444;
-}
-
-.focus-save-status.is-failed > i {
-  background: #d14343;
-}
-
-@keyframes focus-save-pulse {
-  50% {
-    opacity: 0.35;
-  }
-}
-
-.focus-pane-header .focus-header-action {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 7px;
-  outline: none;
-  background: transparent;
-  color: #6f7782;
-  cursor: pointer;
-  transition:
-    background-color 0.14s ease,
-    color 0.14s ease,
-    box-shadow 0.14s ease;
-}
-
-.focus-pane-header .focus-header-action:hover,
-.focus-pane-header .focus-header-action[aria-expanded="true"] {
-  background: #eef1f5;
-  color: #343a43;
-}
-
-.focus-pane-header .focus-header-action:focus-visible {
-  box-shadow: 0 0 0 2px rgba(66, 99, 235, 0.28);
-}
-
-.focus-pane-header .focus-header-action svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.55;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.focus-document-menu-popover {
-  box-sizing: border-box;
-  z-index: 19000;
-  width: 220px;
-  padding: 6px;
-  border: 1px solid rgba(31, 35, 41, 0.12);
-  border-radius: 11px;
-  outline: none;
-  background: rgba(255, 255, 255, 0.985);
-  box-shadow:
-    0 18px 48px rgba(20, 25, 34, 0.16),
-    0 3px 10px rgba(20, 25, 34, 0.07);
-  backdrop-filter: blur(16px);
-}
-
-.focus-document-menu-popover button {
-  display: flex;
-  width: 100%;
-  min-height: 38px;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 11px;
-  margin: 0;
-  padding: 0 10px;
-  border: 0 !important;
-  border-radius: 7px;
-  outline: none;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: #4e5661;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 450;
-  line-height: 1;
-  text-align: left;
-  cursor: pointer;
-  appearance: none;
-}
-
-.focus-document-menu-popover button:hover,
-.focus-document-menu-popover button:focus-visible {
-  background: #f0f2f5 !important;
-  color: #282d34;
-}
-
-.focus-document-menu-popover button:focus-visible {
-  box-shadow:
-    inset 0 0 0 2px rgba(66, 99, 235, 0.24) !important;
-}
-
-.focus-document-menu-popover button.danger {
-  color: #c84444;
-}
-
-.focus-document-menu-popover button.danger:hover,
-.focus-document-menu-popover button.danger:focus-visible {
-  background: #fff0f0 !important;
-  color: #b83232;
-}
-
-.focus-document-menu-popover svg {
-  width: 17px;
-  height: 17px;
-  flex: 0 0 17px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.55;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.focus-document-menu-popover .menu-divider {
-  height: 1px;
-  margin: 5px 7px;
-  background: #eceef1;
-}
-
-.focus-pane-tags:empty {
-  display: none;
-  min-height: 0;
-  padding: 0;
-}
-
-.focus-pane-tags:not(:empty) {
-  min-height: 31px;
-  align-items: center;
-  padding: 5px 12px 6px 39px;
-  border-bottom: 1px solid #f4f5f6;
-}
-
-.focus-pane-tags span {
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: #f1f3f5;
-  color: #737b86;
-  font-size: 10px;
-  line-height: 1.25;
-}
-
-.dark-theme .focus-pane > .focus-pane-header {
-  border-color: #292f37;
-  background: rgba(22, 27, 34, 0.96);
-}
-
-.dark-theme .focus-pane > .focus-pane-header input {
-  color: #e1e5ea;
-}
-
-.dark-theme .focus-pane > .focus-pane-header input:hover,
-.dark-theme .focus-pane > .focus-pane-header input:focus {
-  background: #1d232b;
-}
-
-.dark-theme .focus-pane-header .focus-header-action:hover,
-.dark-theme
-  .focus-pane-header
-  .focus-header-action[aria-expanded="true"] {
-  background: #252c35;
-  color: #e0e4e9;
-}
-
-.dark-theme .focus-save-status.is-failed {
-  background: rgba(209, 67, 67, 0.14);
-}
-
-.dark-theme .focus-document-menu-popover {
-  border-color: #38414b;
-  background: rgba(29, 35, 43, 0.985);
-}
-
-.dark-theme .focus-document-menu-popover button {
-  color: #d8dde3;
-}
-
-.dark-theme .focus-document-menu-popover button:hover,
-.dark-theme .focus-document-menu-popover button:focus-visible {
-  background: #29313b !important;
-  color: #fff;
-}
-
-.dark-theme .focus-document-menu-popover button.danger {
-  color: #ed7a7a;
-}
-
-.dark-theme .focus-document-menu-popover button.danger:hover {
-  background: rgba(209, 67, 67, 0.14) !important;
-}
-
-.dark-theme .focus-document-menu-popover .menu-divider {
-  background: #343b45;
-}
-
-@media (max-width: 1100px) {
-  .focus-save-status {
-    width: 22px;
-    justify-content: center;
-    padding: 0;
-  }
-
-  .focus-save-status > span {
-    display: none;
-  }
 }
 </style>

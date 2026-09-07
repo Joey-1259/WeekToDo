@@ -28,9 +28,8 @@
         title="字体大小"
         @change="setFontSize($event.target.value)"
       >
-        <option value="">16px</option>
         <option value="12px">12px</option>
-        <option value="14px">14px</option>
+        <option value="">14px</option>
         <option value="16px">16px</option>
         <option value="18px">18px</option>
         <option value="20px">20px</option>
@@ -1511,8 +1510,8 @@ export default {
   padding: 24px 28px 80px;
   outline: none;
   color: #292d33;
-  font-size: 15px;
-  line-height: 1.75;
+  font-size: 14px;
+  line-height: 1.78;
   overflow-wrap: anywhere;
 }
 
@@ -1521,7 +1520,7 @@ export default {
   min-height: 58vh;
   margin: auto;
   padding-top: 42px;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.82;
 }
 

@@ -65,115 +65,17 @@
             </label>
           </div>
 
-          <label class="pin-switch">
-            <span>
-              <i class="bi-pin-angle"></i>
-              置顶这张卡片
-            </span>
-
-            <input v-model="form.pinned" type="checkbox" />
-          </label>
-
-          <label class="field vision-field">
+          <section class="field vision-field">
             <span>未来图景</span>
             <small>
-              描述那时的工作、生活、关系、能力和内在状态
+              写下那个年份的生活状态、工作方式、关系、能力与内心感受
             </small>
 
-            <textarea
-              v-model.trim="form.vision"
-              rows="6"
-              maxlength="1600"
-              placeholder="到了那个年份，我希望自己已经……"
-            ></textarea>
-          </label>
-
-          <section class="goals-section">
-            <header>
-              <div>
-                <strong>关键目标</strong>
-                <span>
-                  每张卡片建议保留 1～5 个真正重要的目标
-                </span>
-              </div>
-
-              <button type="button" @click="addGoal">
-                <i class="bi-plus-lg"></i>
-                添加目标
-              </button>
-            </header>
-
-            <div v-if="form.goals.length" class="goal-list">
-              <article
-                v-for="(goal, index) in form.goals"
-                :key="goal.id"
-                class="goal-editor"
-                :class="{ completed: goal.done }"
-              >
-                <div class="goal-title-row">
-                  <label class="goal-check">
-                    <input
-                      v-model="goal.done"
-                      type="checkbox"
-                    />
-                    <i></i>
-                  </label>
-
-                  <input
-                    v-model.trim="goal.title"
-                    class="goal-title"
-                    type="text"
-                    maxlength="100"
-                    placeholder="目标名称"
-                  />
-
-                  <button
-                    type="button"
-                    class="remove-goal"
-                    title="删除目标"
-                    aria-label="删除目标"
-                    @click="form.goals.splice(index, 1)"
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <div class="goal-detail-grid">
-                  <label class="field">
-                    <span>做到什么算完成</span>
-                    <input
-                      v-model.trim="goal.evidence"
-                      type="text"
-                      maxlength="200"
-                      placeholder="写下可以验证的结果"
-                    />
-                  </label>
-
-                  <label class="field">
-                    <span>现在的第一步</span>
-                    <input
-                      v-model.trim="goal.firstStep"
-                      type="text"
-                      maxlength="200"
-                      placeholder="写下一周内可以开始的行动"
-                    />
-                  </label>
-                </div>
-              </article>
-            </div>
-
-            <button
-              v-else
-              type="button"
-              class="goal-empty"
-              @click="addGoal"
-            >
-              <i class="bi-plus-circle"></i>
-              <strong>添加第一个目标</strong>
-              <span>
-                不需要写满所有领域，先记录真正重要的事情
-              </span>
-            </button>
+            <life-vision-rich-editor
+              v-model="form.visionHtml"
+              :max-length="8000"
+              @update:plain-text="form.vision = $event"
+            />
           </section>
         </main>
 
@@ -201,6 +103,24 @@
 
           <button
             type="button"
+            class="footer-pin-button"
+            :class="{ active: form.pinned }"
+            :title="form.pinned ? '取消置顶' : '置顶卡片'"
+            :aria-pressed="String(form.pinned)"
+            @click="form.pinned = !form.pinned"
+          >
+            <i
+              :class="
+                form.pinned
+                  ? 'bi-pin-angle-fill'
+                  : 'bi-pin-angle'
+              "
+            ></i>
+            {{ form.pinned ? "已置顶" : "置顶" }}
+          </button>
+
+          <button
+            type="button"
             class="save-button"
             @click="save"
           >
@@ -214,6 +134,7 @@
 
 <script>
 import moment from "moment";
+import LifeVisionRichEditor from "./LifeVisionRichEditor.vue";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -234,6 +155,7 @@ function createForm() {
     title: "",
     targetYear: moment().year() + 1,
     vision: "",
+    visionHtml: "<p></p>",
     goals: [],
     pinned: false,
     pinnedAt: null,
@@ -245,6 +167,10 @@ function createForm() {
 
 export default {
   name: "LifeVisionCardEditModal",
+
+  components: {
+    LifeVisionRichEditor,
+  },
 
   props: {
     visible: {
@@ -309,6 +235,20 @@ export default {
       this.form = this.card
         ? clone(this.card)
         : createForm();
+
+      if (!this.form.visionHtml) {
+        const escaped = String(this.form.vision || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;")
+          .replace(/\n/g, "<br>");
+
+        this.form.visionHtml = escaped
+          ? `<p>${escaped}</p>`
+          : "<p></p>";
+      }
 
       this.initialFingerprint = JSON.stringify(this.form);
 
@@ -403,7 +343,7 @@ export default {
 
 .vision-edit-dialog {
   display: flex;
-  width: min(720px, calc(100vw - 48px));
+  width: min(820px, calc(100vw - 48px));
   max-height: min(760px, calc(100vh - 48px));
   flex-direction: column;
   overflow: hidden;
@@ -718,6 +658,7 @@ textarea {
 
 .delete-button,
 .cancel-button,
+.footer-pin-button,
 .save-button {
   min-width: 78px;
   height: 33px;
@@ -741,6 +682,21 @@ textarea {
 
 .dirty-hint + .cancel-button {
   margin-left: 0;
+}
+
+.footer-pin-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid #d9d0eb;
+  background: #fff;
+  color: #7950c7;
+
+  &.active {
+    border-color: #bca7e4;
+    background: #f1ecfb;
+  }
 }
 
 .save-button {
@@ -775,7 +731,8 @@ textarea {
   select,
   textarea,
   .cancel-button,
-  .delete-button {
+  .delete-button,
+  .footer-pin-button {
     border-color: #36404a;
     background: #20262e;
     color: #d8dde3;

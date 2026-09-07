@@ -254,8 +254,51 @@
               <div class="d-flex flex-column mt-2 h-100">
                 <div>
                   <div>
-                    <!-- 已删除：导出数据（exportData） -->
-                    <!-- 已删除：导入数据（importData） -->
+                    <div class="data-section-heading">
+                      <strong>完整备份</strong>
+                      <span>
+                        包含每周事项、日历中心、重点事项、图片和设置
+                      </span>
+                    </div>
+
+                    <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
+                      <label class="form-check-label" for="export-backup-btn">
+                        导出完整备份
+                      </label>
+                      <button
+                        id="export-backup-btn"
+                        type="button"
+                        class="btn py-1 px-2 border"
+                        style="width: 140px;"
+                        @click="exportData"
+                      >
+                        <i class="icons bi-download mx-2"></i>
+                        {{ $t("settings.export") }}
+                      </button>
+                    </div>
+
+                    <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
+                      <label class="form-check-label" for="import-backup-btn">
+                        导入完整备份
+                      </label>
+                      <button
+                        id="import-backup-btn"
+                        type="button"
+                        class="btn py-1 px-2 border"
+                        style="width: 140px;"
+                        @click="$refs.loadBackup.click()"
+                      >
+                        <i class="icons bi-upload mx-2"></i>
+                        {{ $t("settings.import") }}
+                      </button>
+                    </div>
+
+                    <div class="data-section-heading secondary">
+                      <strong>Excel 数据交换</strong>
+                      <span>
+                        仅包含事项、纪念日和归档，不等同于完整备份
+                      </span>
+                    </div>
 
                     <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
                       <label class="form-check-label" for="export-excel-btn">{{ $t("settings.exportExcel") }}</label>
@@ -284,7 +327,13 @@
                       </button>
                     </div>
                   </div>
-                  <!-- 已删除：.wtdb 文件导入 input -->
+                  <input
+                    ref="loadBackup"
+                    type="file"
+                    class="d-none"
+                    accept=".wtdb,.json,application/json"
+                    @change="importData($event)"
+                  />
                   <input type="file" id="excel-file-selector" class="d-none" accept=".xlsx" ref="loadExcel"
                     @change="importExcel($event)" />
                 </div>
@@ -330,6 +379,7 @@
 
 <script>
 import configRepository from "../repositories/configRepository";
+import exportTool from "../helpers/exportTool";
 import toastMessage from "../components/toastMessage";
 import excelTool from "../helpers/excelTool";
 import linkList from "../components/linkList";
@@ -365,8 +415,64 @@ export default {
         if (key === "language") this.$i18n.locale = this.configData.language;
       });
     },
-    /* 已删除：exportData 方法（不再需要 .wtdb 导出） */
-    /* 已删除：importData 方法（不再需要 .wtdb 导入） */
+    exportData: async function () {
+      const configModal = Modal.getInstance(
+        document.getElementById("configModal")
+      );
+
+      configModal?.hide();
+
+      const exportingModal = Modal.getOrCreateInstance(
+        document.getElementById("exportingModal"),
+        { backdrop: "static", keyboard: false }
+      );
+
+      exportingModal.show();
+
+      try {
+        await exportTool.export();
+      } catch {
+        // exportTool 已负责错误提示。
+      }
+    },
+
+    importData: async function (event) {
+      const input = event?.target;
+      const file = input?.files?.[0];
+
+      if (!file) return;
+
+      const confirmed = window.confirm(
+        "导入完整备份将替换当前设备上的所有 WeekToDo 数据。\n\n" +
+        "系统会在导入失败时尝试自动回滚，但仍建议先导出一次当前数据。\n\n" +
+        "确定继续吗？"
+      );
+
+      if (!confirmed) {
+        input.value = "";
+        return;
+      }
+
+      const configModal = Modal.getInstance(
+        document.getElementById("configModal")
+      );
+
+      configModal?.hide();
+
+      const importingModal = Modal.getOrCreateInstance(
+        document.getElementById("importingModal"),
+        { backdrop: "static", keyboard: false }
+      );
+
+      importingModal.show();
+
+      try {
+        await exportTool.import(event);
+      } catch {
+        // exportTool 已负责错误提示。
+      }
+    },
+
     exportExcel: function () {
       let configModal = Modal.getInstance(document.getElementById("configModal"));
       configModal.hide();
@@ -470,6 +576,38 @@ export default {
 .icons {
   font-size: 18px;
   margin-right: 5px;
+}
+
+.data-section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2px 4px 13px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid #eceef1;
+
+  strong {
+    color: #3c434c;
+    font-size: 13px;
+
+    .dark-theme & {
+      color: #dce1e7;
+    }
+  }
+
+  span {
+    color: #969da7;
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  &.secondary {
+    margin-top: 19px;
+  }
+
+  .dark-theme & {
+    border-color: #303842;
+  }
 }
 
 .form-check-label {

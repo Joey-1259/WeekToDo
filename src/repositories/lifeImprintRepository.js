@@ -2,7 +2,7 @@ import storageRepository from "./storageRepository";
 
 const STORAGE_KEY = "lifeImprint";
 const CHANGED_EVENT = "weektodo:life-imprint-changed";
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 
 function createId(prefix) {
   return (
@@ -45,6 +45,7 @@ function normalizeCard(card, index) {
     ),
     targetYear,
     vision: String(card?.vision || ""),
+    visionHtml: String(card?.visionHtml || ""),
     goals: Array.isArray(card?.goals)
       ? card.goals.map(normalizeGoal)
       : [],
@@ -70,6 +71,7 @@ function createVisionCard(values = {}) {
       targetYear:
         values.targetYear || currentYear() + 1,
       vision: values.vision || "",
+      visionHtml: values.visionHtml || "",
       goals: values.goals || [],
       pinned: Boolean(values.pinned),
       pinnedAt: values.pinned

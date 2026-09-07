@@ -124,26 +124,6 @@
                     </small>
                   </div>
 
-                  <button
-                    type="button"
-                    class="pin-button"
-                    :class="{ active: card.pinned }"
-                    :title="
-                      card.pinned ? '取消置顶' : '置顶卡片'
-                    "
-                    :aria-label="
-                      card.pinned ? '取消置顶' : '置顶卡片'
-                    "
-                    @click.stop="togglePin(card.id)"
-                  >
-                    <i
-                      :class="
-                        card.pinned
-                          ? 'bi-pin-angle-fill'
-                          : 'bi-pin-angle'
-                      "
-                    ></i>
-                  </button>
                 </header>
 
                 <h3>{{ card.title }}</h3>
@@ -158,37 +138,8 @@
                   }}
                 </p>
 
-                <div class="goal-summary">
-                  <span>
-                    目标
-                    {{ completedGoalCount(card) }}
-                    /
-                    {{ card.goals.length }}
-                  </span>
-
-                  <strong>
-                    {{ progressOf(card) }}%
-                  </strong>
-                </div>
-
-                <div class="progress-track">
-                  <i
-                    :style="{
-                      width: `${progressOf(card)}%`,
-                    }"
-                  ></i>
-                </div>
-
-                <div
-                  v-if="nextActionOf(card)"
-                  class="next-action"
-                >
-                  <span>当前第一步</span>
-                  <p>{{ nextActionOf(card) }}</p>
-                </div>
-
-                <div v-else class="card-footnote">
-                  点击查看和编辑
+                <div class="card-footnote">
+                  编辑未来图景
                 </div>
               </article>
 
@@ -230,7 +181,7 @@
         <footer class="life-footer">
           <span>
             <i class="bi-pin-angle-fill"></i>
-            置顶卡片会优先展示；卡片内容保存在本机
+            卡片内容保存在本机；可在编辑卡片时设置置顶
           </span>
 
           <strong v-if="nearestCard">
@@ -752,7 +703,7 @@ export default {
 }
 
 .vision-summary {
-  min-height: 80px;
+  min-height: 188px;
   margin: 9px 0 0;
   display: -webkit-box;
   overflow: hidden;
@@ -761,7 +712,7 @@ export default {
   line-height: 1.75;
   white-space: pre-wrap;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 9;
 
   &.empty {
     color: #a5aab1;

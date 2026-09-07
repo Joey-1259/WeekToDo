@@ -213,6 +213,7 @@ export default {
       lunarMonth: 1,
       lunarDay: 1,
       lunarIsLeap: false,
+      savedFingerprint: "",
     };
   },
   watch: {
@@ -238,6 +239,10 @@ export default {
           this.form = defaultForm();
           this.resetLunarFromSolarDate();
         }
+
+        this.$nextTick(() => {
+          this.savedFingerprint = JSON.stringify(this.form);
+        });
       }
     },
   },
@@ -322,14 +327,58 @@ export default {
       this.newTagName = "";
     },
     save: function () {
-      if (!this.form.name || !this.form.date) return;
-      let payload = Object.assign({}, this.form, { id: this.form.id || genId() });
+      if (!String(this.form.name || "").trim()) {
+        window.alert("请输入纪念日名称。");
+        return;
+      }
+
+      if (!this.form.date) {
+        window.alert("请选择有效日期。");
+        return;
+      }
+
+      if (
+        this.form.dateType === "lunar" &&
+        this.lunarSolarPreviewText ===
+          this.$t("calendarHub.lunarInvalidDate")
+      ) {
+        window.alert("当前农历日期无效，请重新选择。");
+        return;
+      }
+
+      let payload = Object.assign({}, this.form, {
+        id: this.form.id || genId(),
+        name: this.form.name.trim(),
+      });
+
+      this.savedFingerprint = JSON.stringify(payload);
       this.$emit("save", payload);
     },
+
     remove: function () {
+      if (
+        !window.confirm(
+          `确定删除“${this.form.name || "这个纪念日"}”吗？`
+        )
+      ) {
+        return;
+      }
+
       this.$emit("remove", this.form.id);
     },
+
     close: function () {
+      const dirty =
+        JSON.stringify(this.form) !==
+        this.savedFingerprint;
+
+      if (
+        dirty &&
+        !window.confirm("当前修改尚未保存，确定关闭吗？")
+      ) {
+        return;
+      }
+
       this.$emit("close");
     },
   },

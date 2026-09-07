@@ -13,7 +13,7 @@ export default {
     comfirmModal
   },
   methods: {
-    clearData: function () {
+    clearData: async function () {
       const desktopApi = window.weekToDoDesktop;
 
       if (desktopApi && desktopApi.isElectron) {
@@ -23,7 +23,15 @@ export default {
         });
         desktopApi.setDarkTrayIcon(false);
       }
-      exportTool.clear();
+      try {
+        await exportTool.clear();
+      } catch (error) {
+        console.error("清除全部数据失败：", error);
+        window.alert(
+          error?.message ||
+            "清除数据失败，请重启应用后重试。"
+        );
+      }
     },
   },
 };

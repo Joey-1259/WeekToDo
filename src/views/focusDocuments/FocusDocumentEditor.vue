@@ -3128,6 +3128,242 @@ export default {
   background: transparent;
   color: #c7cdd5;
 }
+
+/* FOCUS_INTERACTION_STABILITY_20260907_V1: minimal details block */
+
+/*
+ * 最终覆盖：折叠块不再表现为卡片或灰色容器。
+ * hover、展开、收起均不改变背景和几何尺寸。
+ */
+.focus-prosemirror [data-type="details"],
+.focus-prosemirror [data-type="details"]:hover,
+.focus-prosemirror [data-type="details"].is-open,
+.focus-prosemirror [data-type="details"][open] {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 8px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  transition: none;
+}
+
+/*
+ * 箭头使用固定 20×28px 操作区。
+ * 展开前后标题起点和文字基线完全一致。
+ */
+.focus-prosemirror
+  [data-type="details"]
+  > button {
+  position: absolute;
+  z-index: 2;
+  top: 1px;
+  left: 0;
+  display: grid;
+  width: 20px;
+  height: 28px;
+  box-sizing: border-box;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+  color: #737b86;
+  font-size: 0;
+  line-height: 0;
+  cursor: pointer;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  > button:hover {
+  border: 0;
+  background: transparent;
+  color: #3f4751;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  > button:focus-visible {
+  background: rgba(66, 99, 235, 0.08);
+  box-shadow: 0 0 0 2px rgba(66, 99, 235, 0.13);
+}
+
+/*
+ * 统一绘制极简三角箭头，避免原图标字体基线错位。
+ */
+.focus-prosemirror
+  [data-type="details"]
+  > button::before {
+  content: "";
+  display: block;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid currentColor;
+  transform: translateX(1px) rotate(0deg);
+  transform-origin: 3px 4px;
+  transition: transform 0.13s ease;
+}
+
+.focus-prosemirror
+  [data-type="details"].is-open
+  > button::before,
+.focus-prosemirror
+  [data-type="details"][open]
+  > button::before {
+  transform: translateX(1px) rotate(90deg);
+}
+
+/*
+ * 标题行只为箭头预留 25px，不增加卡片内边距。
+ */
+.focus-prosemirror
+  [data-type="details"]
+  summary {
+  display: flex;
+  min-height: 30px;
+  box-sizing: border-box;
+  align-items: center;
+  margin: 0;
+  padding: 3px 0 3px 25px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
+  line-height: 24px;
+  list-style: none;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  summary:hover {
+  background: transparent;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  summary::-webkit-details-marker {
+  display: none;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  summary::marker {
+  content: "";
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  summary > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/*
+ * 展开内容保持与标题文字左侧对齐，不添加分隔线或灰底。
+ */
+.focus-prosemirror
+  [data-type="details"]
+  [data-type="detailsContent"] {
+  box-sizing: border-box;
+  margin: 0 0 4px 25px;
+  padding: 2px 0 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.focus-prosemirror
+  [data-type="details"]:not(.is-open):not([open])
+  [data-type="detailsContent"] {
+  display: none;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"],
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]:hover,
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"].is-open,
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"][open] {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]
+  > button {
+  color: #929ba6;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]
+  > button:hover {
+  background: transparent;
+  color: #d0d5dc;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]
+  [data-type="detailsContent"] {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+/* FOCUS_INTERACTION_STABILITY_20260907_V1: stable slash command menu */
+
+/*
+ * 菜单外围尺寸固定由 CSS 约束，不再由 ResizeObserver
+ * 每帧测量并反向写入。
+ */
+.focus-command-menu {
+  width: min(390px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  contain: layout paint style;
+  overflow: hidden;
+}
+
+.focus-command-scroll {
+  max-height: min(420px, calc(100vh - 150px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+.focus-command-item {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+}
+
+/*
+ * 选中态只改变颜色，不改变 border、padding、字体粗细
+ * 或行高，因此方向键移动不会改变菜单尺寸。
+ */
+.focus-command-item.is-selected {
+  border-color: transparent;
+}
 </style>
 
 

@@ -46,6 +46,10 @@ import "./assets/style/uiComponents.scss";
 
 Sentry.init({
   dsn: process.env.VUE_APP_SENTRY_DNS,
+  ignoreErrors: [
+    /ResizeObserver loop limit exceeded/i,
+    /ResizeObserver loop completed with undelivered notifications/i,
+  ],
   integrations: [
     new Sentry.BrowserTracing({
       // Set 'tracePropagationTargets' to control for which URLs distributed tracing should be enabled
@@ -107,9 +111,45 @@ function renderFatalErrorOverlay(title, detail) {
   }
 }
 
+// FOCUS_INTERACTION_STABILITY_20260907_V1
+// ResizeObserver 的循环通知可能由浏览器布局调度产生，
+// 它不代表 Vue 应用崩溃，不能升级为全屏“启动失败”。
+function isBenignObserverNotification(event) {
+  const message = String(
+    event?.message ||
+    event?.error?.message ||
+    ""
+  );
+
+  return (
+    message.includes(
+      "ResizeObserver loop limit exceeded"
+    ) ||
+    message.includes(
+      "ResizeObserver loop completed with undelivered notifications"
+    )
+  );
+}
+
 window.addEventListener("error", function (event) {
-  let detail = (event.error && event.error.stack) || event.message || String(event);
-  renderFatalErrorOverlay("脚本运行时错误", detail);
+  if (isBenignObserverNotification(event)) {
+    event.preventDefault();
+    console.warn(
+      "已忽略非致命 ResizeObserver 布局通知：",
+      event.message
+    );
+    return;
+  }
+
+  let detail =
+    (event.error && event.error.stack) ||
+    event.message ||
+    String(event);
+
+  renderFatalErrorOverlay(
+    "脚本运行时错误",
+    detail
+  );
 });
 
 window.addEventListener("unhandledrejection", function (event) {

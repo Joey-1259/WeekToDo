@@ -3,11 +3,12 @@ import Suggestion, {
   exitSuggestion,
 } from "@tiptap/suggestion";
 import { PluginKey } from "@tiptap/pm/state";
-import { shift, size } from "@floating-ui/dom";
+import { shift } from "@floating-ui/dom";
 
 const slashKey = new PluginKey("focusSlash");
 const dunhaoKey = new PluginKey("focusDunhao");
 const RECENT_KEY = "focusSlashRecentCommands";
+// FOCUS_INTERACTION_STABILITY_20260907_V1
 
 function normalize(value) {
   return String(value || "")
@@ -255,6 +256,62 @@ function createRenderer(pluginKey) {
     `;
   }
 
+  /*
+   * FOCUS_INTERACTION_STABILITY_20260907_V1
+   *
+   * 方向键只切换现有节点的选中状态，不再调用 draw()
+   * 重建整个菜单，避免 Floating UI 的 ResizeObserver
+   * 在同一帧内反复测量、回写尺寸。
+   */
+  function syncSelectedState() {
+    if (!menu) return;
+
+    menu
+      .querySelectorAll("[data-index]")
+      .forEach((button) => {
+        const active =
+          Number(button.dataset.index) === selected;
+
+        button.classList.toggle(
+          "is-selected",
+          active
+        );
+
+        button.setAttribute(
+          "aria-selected",
+          String(active)
+        );
+      });
+
+    const activeButton =
+      menu.querySelector(
+        `.focus-command-list [data-index="${selected}"]`
+      ) ||
+      menu.querySelector(
+        `[data-index="${selected}"]`
+      );
+
+    const scroll = menu.querySelector(
+      ".focus-command-scroll"
+    );
+
+    if (!activeButton || !scroll) return;
+
+    const itemTop = activeButton.offsetTop;
+    const itemBottom =
+      itemTop + activeButton.offsetHeight;
+    const viewTop = scroll.scrollTop;
+    const viewBottom =
+      viewTop + scroll.clientHeight;
+
+    if (itemTop < viewTop) {
+      scroll.scrollTop = itemTop;
+    } else if (itemBottom > viewBottom) {
+      scroll.scrollTop =
+        itemBottom - scroll.clientHeight;
+    }
+  }
+
   return {
     onStart(nextProps) {
       props = nextProps;
@@ -296,26 +353,19 @@ function createRenderer(pluginKey) {
       if (!props.items.length) return false;
 
       if (event.key === "ArrowDown") {
-        selected = (selected + 1) % props.items.length;
-        draw();
-
-        menu
-          ?.querySelector(".is-selected")
-          ?.scrollIntoView({ block: "nearest" });
-
+        event.preventDefault();
+        selected =
+          (selected + 1) % props.items.length;
+        syncSelectedState();
         return true;
       }
 
       if (event.key === "ArrowUp") {
+        event.preventDefault();
         selected =
           (selected - 1 + props.items.length) %
           props.items.length;
-        draw();
-
-        menu
-          ?.querySelector(".is-selected")
-          ?.scrollIntoView({ block: "nearest" });
-
+        syncSelectedState();
         return true;
       }
 
@@ -355,38 +405,6 @@ function plugin(editor, items, char, pluginKey) {
       strategy: "fixed",
       middleware: [
         shift({ padding: 10 }),
-        size({
-          padding: 10,
-          apply({
-            availableWidth,
-            availableHeight,
-            elements,
-          }) {
-            Object.assign(elements.floating.style, {
-              maxWidth: `${Math.max(
-                280,
-                availableWidth
-              )}px`,
-              maxHeight: `${Math.max(
-                180,
-                availableHeight
-              )}px`,
-            });
-
-            const scroll =
-              elements.floating.querySelector(
-                ".focus-command-scroll"
-              );
-
-            if (scroll) {
-              scroll.style.maxHeight = `${Math.max(
-                120,
-                availableHeight - 56
-              )}px`;
-              scroll.style.overflowY = "auto";
-            }
-          },
-        }),
       ],
     },
     items: ({ query }) => filterItems(items, query),

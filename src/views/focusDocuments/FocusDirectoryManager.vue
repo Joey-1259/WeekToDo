@@ -81,7 +81,6 @@
               <path d="M3 4.5h5l1.5 2H17v9H3Z" />
             </svg>
             <span>全部文档</span>
-            <small>{{ documents.length }}</small>
           </button>
 
           <div
@@ -206,9 +205,6 @@
                   <path d="M3 5h5l1.5 2H17v8H3Z" />
                 </svg>
                 <span>{{ entry.folder.name }}</span>
-                <small>
-                  {{ countDocuments(entry.folder.id) }}
-                </small>
               </button>
 
               <div class="directory-folder-more">
@@ -328,7 +324,6 @@
                   <path d="M3 5h5l1.5 2H17v8H3Z" />
                 </svg>
                 <span>未分类</span>
-                <small>{{ countDocuments(null) }}</small>
               </button>
             </div>
           </div>
@@ -2836,5 +2831,17 @@ export default {
   border-color: #5573dc;
   background: #4263eb;
   color: #fff;
+}
+
+/* FOCUS_INTERACTION_STABILITY_20260907_V1: directory tree */
+.directory-folder-name {
+  padding-right: 8px;
+}
+
+.directory-folder-name > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

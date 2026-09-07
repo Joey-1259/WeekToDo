@@ -310,11 +310,12 @@ export default {
   opacity: unset;
 }
 
+/* FOCUS_INTERACTION_STABILITY_20260907_V1: completed task */
 .checked-todo {
-  color: #16a34a;
+  color: #9aa0a8;
 
   .dark-theme & {
-    color: #4ade80;
+    color: #6b7280;
   }
 }
 

@@ -92,35 +92,98 @@
         </div>
         <div class="modal-body">
           <div class="modal-content-inner">
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value="" id="todo-header" v-model="todo.checked"
-                @change="checkTodoClickhandler(false)" />
-              <div class="title-container">
+            <section class="task-primary-section">
+              <div class="task-primary-row">
                 <input
-                  class="todo-title-input todo-title-input-always"
-                  type="text"
-                  v-model="todo.text"
-                  ref="titleInput"
-                  :class="{ 'completed-task': todo.checked }"
-                  :placeholder="$t('todoDetails.taskTitle')"
-                  @blur="doneEditTitle()"
-                  @keyup.enter="$event.target.blur()"
+                  class="form-check-input task-complete-control"
+                  type="checkbox"
+                  value=""
+                  id="todo-header"
+                  v-model="todo.checked"
+                  :aria-label="todo.checked ? '标记为未完成' : '标记为已完成'"
+                  @change="checkTodoClickhandler(false)"
                 />
-                <description-text-area :todoDesc="todo.desc"
-                  @updated-description="changeDescription"></description-text-area>
-                <div class="attribute-toolbar mt-2">
-                  <tag-picker :model-value="todo.tags || []" :all-tags="allTags"
-                    @update:modelValue="changeTags"></tag-picker>
-                  <div class="attribute-tools">
-                    <time-picker :time="todo.time" @time-selected="changeTime"></time-picker>
-                    <reminder-picker :model-value="todo.reminders || []" @update:modelValue="changeReminders"></reminder-picker>
-                    <repeating-event v-if="showingCalendar" :repeatingEvent="todo.repeatingEvent" :todo="todo"
-                      @repeatingEventSelected="changeRepeatingEvent"></repeating-event>
-                    <color-picker :color="todo.color" @color-selected="changeColor"></color-picker>
-                  </div>
+
+                <div class="title-container">
+                  <label
+                    class="task-field-label"
+                    for="todo-title-input"
+                  >
+                    任务主体
+                  </label>
+
+                  <textarea
+                    id="todo-title-input"
+                    class="todo-title-input todo-title-input-always"
+                    v-model="todo.text"
+                    ref="titleInput"
+                    rows="1"
+                    maxlength="500"
+                    :class="{ 'completed-task': todo.checked }"
+                    :placeholder="$t('todoDetails.taskTitle')"
+                    @input="resizeTitleTextArea"
+                    @blur="doneEditTitle()"
+                    @keydown.meta.enter.prevent="commitTitleFromKeyboard"
+                    @keydown.ctrl.enter.prevent="commitTitleFromKeyboard"
+                  ></textarea>
                 </div>
               </div>
-            </div>
+            </section>
+
+            <section
+              class="task-properties-section"
+              aria-label="任务属性"
+            >
+              <div class="task-properties-heading">
+                <i class="bi-sliders"></i>
+                <span>任务属性</span>
+              </div>
+
+              <div class="attribute-toolbar">
+                <tag-picker
+                  :model-value="todo.tags || []"
+                  :all-tags="allTags"
+                  @update:modelValue="changeTags"
+                ></tag-picker>
+
+                <div class="attribute-tools">
+                  <time-picker
+                    :time="todo.time"
+                    @time-selected="changeTime"
+                  ></time-picker>
+
+                  <reminder-picker
+                    :model-value="todo.reminders || []"
+                    @update:modelValue="changeReminders"
+                  ></reminder-picker>
+
+                  <repeating-event
+                    v-if="showingCalendar"
+                    :repeatingEvent="todo.repeatingEvent"
+                    :todo="todo"
+                    @repeatingEventSelected="changeRepeatingEvent"
+                  ></repeating-event>
+
+                  <color-picker
+                    :color="todo.color"
+                    @color-selected="changeColor"
+                  ></color-picker>
+                </div>
+              </div>
+            </section>
+
+            <section class="task-detail-section">
+              <div class="section-label task-detail-label">
+                <i class="bi-text-left"></i>
+                <span>{{ $t("todoDetails.notes") }}</span>
+              </div>
+
+              <description-text-area
+                :todoDesc="todo.desc"
+                @updated-description="changeDescription"
+              ></description-text-area>
+            </section>
+
             <div class="section-divider"></div>
             <div class="section-label">
               <i class="bi-list-check"></i>
@@ -261,6 +324,32 @@ export default {
       );
   },
   methods: {
+    resizeTitleTextArea(event) {
+      const textArea =
+        event?.target || this.$refs.titleInput;
+
+      if (!textArea) return;
+
+      textArea.style.height = "auto";
+
+      const minimumHeight = 76;
+      const maximumHeight = 168;
+      const nextHeight = Math.max(
+        minimumHeight,
+        Math.min(textArea.scrollHeight, maximumHeight)
+      );
+
+      textArea.style.height = `${nextHeight}px`;
+      textArea.style.overflowY =
+        textArea.scrollHeight > maximumHeight
+          ? "auto"
+          : "hidden";
+    },
+
+    commitTitleFromKeyboard() {
+      this.$refs.titleInput?.blur();
+    },
+
     onModalHidden() {
       this.$emit("closed");
 
@@ -765,7 +854,10 @@ export default {
         this.startDateStr = "";
         this.endDateStr = "";
       }
-      this.$nextTick(function () { this.loadingView = false; });
+      this.$nextTick(() => {
+        this.loadingView = false;
+        this.resizeTitleTextArea();
+      });
     },
     pickedCList: function (newVal) {
       if (this.loadingView) return;
@@ -1018,4 +1110,319 @@ export default {
   border-color: transparent;
   color: #c9cfd6;
 }
+
+
+/* TASK DETAIL LAYOUT V3
+ * 信息层级：
+ * 任务主体 → 任务属性 → 任务细节 → 子任务
+ */
+.modal-dialog {
+  max-width: 720px;
+}
+
+.modal-content-inner {
+  padding-top: 18px;
+}
+
+.task-primary-section {
+  padding: 0 8px;
+}
+
+.task-primary-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: start;
+  gap: 13px;
+}
+
+.task-complete-control {
+  width: 20px !important;
+  height: 20px !important;
+  margin: 31px 0 0 !important;
+  cursor: pointer;
+}
+
+.title-container {
+  min-width: 0;
+  margin: 0;
+}
+
+.task-field-label,
+.task-properties-heading {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  color: #8b929c;
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+.todo-title-input,
+.todo-title-input-always {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 76px;
+  max-height: 168px;
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  resize: none;
+  border: 1px solid #dfe3e8;
+  border-radius: 10px;
+  outline: none;
+  background: #fff;
+  color: #252a31;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  caret-color: #4263eb;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.todo-title-input-always:hover {
+  border-color: #c8ced7;
+}
+
+.todo-title-input-always:focus {
+  border-color: #7189e8;
+  background: #fff;
+  box-shadow:
+    0 0 0 3px rgba(66, 99, 235, 0.1);
+}
+
+.todo-title-input::placeholder {
+  color: #a7adb5;
+  font-weight: 400;
+}
+
+.todo-title-input.completed-task {
+  color: #6f7782;
+  text-decoration: none;
+}
+
+.task-properties-section {
+  margin: 16px 8px 0 45px;
+  padding: 10px 12px;
+  border: 1px solid #e8eaee;
+  border-radius: 10px;
+  background: #f7f8fa;
+}
+
+.task-properties-heading {
+  margin-bottom: 4px;
+}
+
+.task-properties-heading i {
+  color: #9aa1aa;
+  font-size: 12px;
+}
+
+.attribute-toolbar {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+  margin: 0 !important;
+}
+
+.attribute-toolbar > .tag-picker {
+  min-width: 0;
+  flex: 1 1 300px;
+}
+
+.attribute-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+}
+
+.task-detail-section {
+  margin: 20px 8px 0 45px;
+}
+
+.task-detail-label {
+  margin: 0 0 7px;
+}
+
+.task-detail-section :deep(.todo-description-textarea) {
+  box-sizing: border-box;
+  min-height: 92px;
+  max-height: 180px;
+  padding: 12px 14px 30px;
+  border: 1px solid #dfe3e8;
+  border-radius: 10px;
+  background: #fff;
+  color: #343a42;
+  font-size: 14px;
+  line-height: 1.65;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.task-detail-section :deep(.todo-description-textarea:hover) {
+  border-color: #c8ced7;
+}
+
+.task-detail-section :deep(.todo-description-textarea:focus) {
+  border-color: #7189e8;
+  box-shadow:
+    0 0 0 3px rgba(66, 99, 235, 0.1);
+}
+
+.task-detail-section :deep(.bi-markdown-fill) {
+  right: 12px;
+  bottom: 9px;
+  color: #9198a2;
+  font-size: 16px;
+  opacity: 0.55;
+}
+
+.section-divider {
+  margin: 22px 8px 18px 45px;
+}
+
+.section-label {
+  margin-left: 45px;
+  color: #858c96;
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+}
+
+.task-detail-section .section-label {
+  margin-left: 0;
+}
+
+.sub-tasks {
+  margin-left: 35px;
+  padding-right: 8px;
+  padding-left: 0;
+}
+
+.sub-tasks .sub-task {
+  border-bottom-color: #eef0f3;
+}
+
+.sub-tasks .sub-task label {
+  padding-top: 9px;
+  padding-bottom: 9px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sub-tasks .new-sub-task input {
+  font-size: 13px;
+}
+
+.dark-theme .task-field-label,
+.dark-theme .task-properties-heading,
+.dark-theme .section-label {
+  color: #858d98;
+}
+
+.dark-theme .todo-title-input,
+.dark-theme .todo-title-input-always {
+  border-color: #3a424d;
+  background: #171c23;
+  color: #e1e5ea;
+}
+
+.dark-theme .todo-title-input-always:hover {
+  border-color: #4a5562;
+}
+
+.dark-theme .todo-title-input-always:focus {
+  border-color: #7e96ee;
+  background: #171c23;
+  box-shadow:
+    0 0 0 3px rgba(108, 143, 255, 0.13);
+}
+
+.dark-theme .todo-title-input.completed-task {
+  color: #8c949f;
+}
+
+.dark-theme .task-properties-section {
+  border-color: #303741;
+  background: #171c23;
+}
+
+.dark-theme .task-detail-section :deep(.todo-description-textarea) {
+  border-color: #3a424d;
+  background: #171c23;
+  color: #d8dde3;
+}
+
+.dark-theme .task-detail-section :deep(.todo-description-textarea:hover) {
+  border-color: #4a5562;
+}
+
+.dark-theme .task-detail-section :deep(.todo-description-textarea:focus) {
+  border-color: #7e96ee;
+  box-shadow:
+    0 0 0 3px rgba(108, 143, 255, 0.13);
+}
+
+@media (max-width: 620px) {
+  .modal-dialog .modal-content .modal-body {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .task-primary-section {
+    padding: 0;
+  }
+
+  .task-primary-row {
+    grid-template-columns: 21px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .task-properties-section,
+  .task-detail-section,
+  .section-divider {
+    margin-left: 31px;
+    margin-right: 0;
+  }
+
+  .section-label {
+    margin-left: 31px;
+  }
+
+  .task-detail-section .section-label {
+    margin-left: 0;
+  }
+
+  .sub-tasks {
+    margin-left: 21px;
+    padding-right: 0;
+  }
+
+  .todo-title-input,
+  .todo-title-input-always {
+    font-size: 15px;
+  }
+}
+
 </style>

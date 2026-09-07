@@ -90,7 +90,7 @@ export default Node.create({
 
             window.dispatchEvent(
               new CustomEvent("focus-task-toggle", {
-                detail: { ...attrs },
+                detail: { ...attrs, sourceEditor: editor },
               })
             );
           };
@@ -98,7 +98,7 @@ export default Node.create({
         dom.querySelector(".linked-task-main").onclick = () => {
           window.dispatchEvent(
             new CustomEvent("focus-task-open", {
-              detail: { ...attrs },
+              detail: { ...attrs, sourceEditor: editor },
             })
           );
         };
@@ -107,7 +107,7 @@ export default Node.create({
           () => {
             window.dispatchEvent(
               new CustomEvent("focus-task-jump", {
-                detail: { ...attrs },
+                detail: { ...attrs, sourceEditor: editor },
               })
             );
           };
@@ -119,7 +119,7 @@ export default Node.create({
 
           window.dispatchEvent(
             new CustomEvent("focus-task-unlink", {
-              detail: { ...attrs },
+              detail: { ...attrs, sourceEditor: editor },
             })
           );
         };

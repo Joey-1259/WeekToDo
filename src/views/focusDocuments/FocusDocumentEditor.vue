@@ -820,8 +820,28 @@ export default {
       }
     },
 
+    normalizeTaskEvent(event) {
+      const detail = event?.detail;
+
+      if (!detail) return null;
+
+      if (
+        detail.sourceEditor &&
+        detail.sourceEditor !== this.editor
+      ) {
+        return null;
+      }
+
+      const {
+        sourceEditor: _sourceEditor,
+        ...attrs
+      } = detail;
+
+      return attrs;
+    },
+
     async onTaskToggle(event) {
-      const attrs = event.detail;
+      const attrs = this.normalizeTaskEvent(event);
       if (!attrs?.taskId) return;
 
       try {
@@ -843,13 +863,15 @@ export default {
     },
 
     onTaskOpen(event) {
-      if (event.detail?.taskId) {
-        this.$emit("open-task", event.detail);
+      const task = this.normalizeTaskEvent(event);
+
+      if (task?.taskId) {
+        this.$emit("open-task", task);
       }
     },
 
     onTaskJump(event) {
-      const task = event.detail;
+      const task = this.normalizeTaskEvent(event);
 
       if (task?.taskId && task?.listId) {
         this.$emit("jump-task", task);
@@ -857,7 +879,7 @@ export default {
     },
 
     async onTaskUnlink(event) {
-      const attrs = event.detail;
+      const attrs = this.normalizeTaskEvent(event);
       if (!attrs?.taskId) return;
 
       const deleteTask = window.confirm(
@@ -2025,6 +2047,66 @@ export default {
 .dark-theme .linked-task-unlink:hover {
   background: #44292d;
   color: #ef9292;
+}
+
+
+
+/* FOCUS CONTENT NEUTRAL SYSTEM
+ * 关联事项完成态不使用删除线；
+ * 引用块统一为低干扰灰色体系。
+ */
+.focus-editor
+  .focus-prosemirror
+  .linked-task-block.is-checked
+  .linked-task-title {
+  color: #7b828c;
+  text-decoration: none !important;
+}
+
+.focus-editor
+  .focus-prosemirror
+  .linked-task-block.is-checked
+  .linked-task-main {
+  text-decoration: none !important;
+}
+
+.focus-editor
+  .focus-prosemirror
+  blockquote {
+  margin: 0.85em 0;
+  padding: 9px 14px;
+  border: 0;
+  border-left: 2px solid #b8bec7;
+  border-radius: 0 5px 5px 0;
+  background: #f4f5f6;
+  color: #626a74;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.focus-editor
+  .focus-prosemirror
+  blockquote
+  p {
+  margin: 0.15em 0;
+}
+
+.dark-theme
+  .focus-editor
+  .focus-prosemirror
+  blockquote {
+  border-left-color: #59616c;
+  background: #20252c;
+  color: #aeb5be;
+}
+
+.dark-theme
+  .focus-editor
+  .focus-prosemirror
+  .linked-task-block.is-checked
+  .linked-task-title {
+  color: #858d98;
+  text-decoration: none !important;
 }
 
 </style>

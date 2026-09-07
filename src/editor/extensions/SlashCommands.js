@@ -142,21 +142,51 @@ function createRenderer(pluginKey) {
   function drawDefaultMenu() {
     const recentIds = readRecent();
     const recentItems = recentIds
-      .map((id) => props.items.find((item) => item.id === id))
+      .map((id) =>
+        props.items.find((item) => item.id === id)
+      )
       .filter(Boolean);
 
-    const textItems = props.items.filter(
-      (item) => item.category === "文字"
-    );
-    const basicItems = props.items.filter(
-      (item) => item.category === "基础"
-    );
-    const layoutItems = props.items.filter(
-      (item) => item.category === "布局与样式"
+    const findIndex = (item) =>
+      props.items.findIndex(
+        (value) => value.id === item.id
+      );
+
+    const categoryGroups = props.items.reduce(
+      (groups, item) => {
+        const category =
+          String(item.category || "").trim() || "其他";
+
+        if (!groups.has(category)) {
+          groups.set(category, []);
+        }
+
+        groups.get(category).push(item);
+        return groups;
+      },
+      new Map()
     );
 
-    const findIndex = (item) =>
-      props.items.findIndex((value) => value.id === item.id);
+    const categorySections = Array.from(
+      categoryGroups.entries()
+    )
+      .filter(([, items]) => items.length)
+      .map(([category, items]) => `
+        <div class="focus-command-section">
+          <div class="focus-command-section-title">
+            ${escapeHtml(category)}
+          </div>
+
+          <div class="focus-command-list">
+            ${items
+              .map((item) =>
+                itemButton(item, findIndex(item))
+              )
+              .join("")}
+          </div>
+        </div>
+      `)
+      .join("");
 
     return `
       ${
@@ -165,10 +195,15 @@ function createRenderer(pluginKey) {
                <div class="focus-command-section-title">
                  最近使用
                </div>
+
                <div class="focus-command-recent">
                  ${recentItems
                    .map((item) =>
-                     itemButton(item, findIndex(item), true)
+                     itemButton(
+                       item,
+                       findIndex(item),
+                       true
+                     )
                    )
                    .join("")}
                </div>
@@ -176,44 +211,7 @@ function createRenderer(pluginKey) {
           : ""
       }
 
-      <div class="focus-command-section">
-        <div class="focus-command-section-title">
-          文字
-        </div>
-        <div class="focus-command-format-grid">
-          ${textItems
-            .map((item) =>
-              itemButton(item, findIndex(item), true)
-            )
-            .join("")}
-        </div>
-      </div>
-
-      <div class="focus-command-section">
-        <div class="focus-command-section-title">
-          基础
-        </div>
-        <div class="focus-command-list">
-          ${basicItems
-            .map((item) =>
-              itemButton(item, findIndex(item))
-            )
-            .join("")}
-        </div>
-      </div>
-
-      <div class="focus-command-section">
-        <div class="focus-command-section-title">
-          布局与样式
-        </div>
-        <div class="focus-command-list">
-          ${layoutItems
-            .map((item) =>
-              itemButton(item, findIndex(item))
-            )
-            .join("")}
-        </div>
-      </div>
+      ${categorySections}
     `;
   }
 

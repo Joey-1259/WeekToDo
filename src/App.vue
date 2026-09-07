@@ -222,6 +222,7 @@ export default {
       homeCustomListIndex: 0,
       archiveHistoryVisible: false,
       focusTaskJumpTarget: null,
+      focusTaskChangedHandler: null,
     };
   },
   beforeCreate() {
@@ -259,6 +260,26 @@ export default {
     this.ensureDefaultCustomList();
   },
   mounted() {
+    this.focusTaskChangedHandler = (event) => {
+      const listId = event?.detail?.listId;
+
+      if (!listId) return;
+
+      this.$store
+        .dispatch("loadTodoLists", String(listId))
+        .catch((error) => {
+          console.error(
+            "同步每周事项状态失败：",
+            error
+          );
+        });
+    };
+
+    window.addEventListener(
+      "weektodo:task-changed",
+      this.focusTaskChangedHandler
+    );
+
     document.onreadystatechange = () => {
       if (document.readyState == "complete") {
         setTimeout(this.hideSplash, 4500);
@@ -290,6 +311,14 @@ export default {
     this.resetAppOnDayChange();
   },
   beforeUnmount() {
+    if (this.focusTaskChangedHandler) {
+      window.removeEventListener(
+        "weektodo:task-changed",
+        this.focusTaskChangedHandler
+      );
+      this.focusTaskChangedHandler = null;
+    }
+
     if (this.removeInitialChecksListener) {
       this.removeInitialChecksListener();
       this.removeInitialChecksListener = null;

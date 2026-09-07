@@ -22,140 +22,146 @@
 
             <div>
               <h2 id="life-title">人生印记</h2>
-              <p>定义想成为的人，让长期愿景落在当下</p>
+              <p>看清想成为谁，把长期方向落在今天</p>
             </div>
           </div>
 
-          <button
-            type="button"
-            class="close-button"
-            aria-label="关闭人生印记"
-            title="关闭"
-            @click="requestClose"
-          >
-            ×
-          </button>
+          <div class="header-meta">
+            <span v-if="draft.updatedAt">
+              上次更新 {{ formatUpdatedAt(draft.updatedAt) }}
+            </span>
+
+            <button
+              type="button"
+              class="close-button"
+              title="关闭"
+              aria-label="关闭人生印记"
+              @click="requestClose"
+            >
+              ×
+            </button>
+          </div>
         </header>
 
-        <div class="life-overview">
-          <div class="motto-card">
-            <span>我的人生格言</span>
-            <strong>
-              {{
-                draft.motto ||
-                "写下一句话，在重要选择面前提醒自己"
-              }}
-            </strong>
-          </div>
-
-          <div class="progress-card">
-            <span>1 年目标</span>
-            <strong>{{ horizonProgress("oneYear") }}%</strong>
-            <i>
-              <b
-                :style="{
-                  width: `${horizonProgress(
-                    'oneYear'
-                  )}%`,
-                }"
-              ></b>
-            </i>
-          </div>
-
-          <div class="progress-card">
-            <span>5 年目标</span>
-            <strong>{{ horizonProgress("fiveYear") }}%</strong>
-            <i>
-              <b
-                :style="{
-                  width: `${horizonProgress(
-                    'fiveYear'
-                  )}%`,
-                }"
-              ></b>
-            </i>
-          </div>
-        </div>
-
-        <nav class="life-tabs" aria-label="人生印记导航">
-          <button
-            v-for="tab in tabs"
-            :key="tab.id"
-            type="button"
-            :class="{ active: activeTab === tab.id }"
-            @click="activeTab = tab.id"
-          >
-            <i :class="tab.icon"></i>
-            {{ tab.name }}
-          </button>
-        </nav>
-
         <main class="life-content">
-          <section
-            v-if="activeTab === 'north'"
-            class="north-star-view"
+          <!-- 人生北极星 -->
+          <article
+            class="life-card north-star-card"
+            :class="{ editing: editingCard === 'north' }"
           >
-            <div class="form-card hero-form">
-              <div class="card-heading">
-                <div>
-                  <strong>人生格言</strong>
-                  <span>
-                    它不是写给别人看的，而是你的决策准则
-                  </span>
-                </div>
+            <header class="card-header">
+              <div>
+                <span class="card-eyebrow">NORTH STAR</span>
+                <h3>人生北极星</h3>
               </div>
 
-              <textarea
-                v-model.trim="draft.motto"
-                rows="3"
-                maxlength="240"
-                placeholder="例如：保持长期主义，但认真生活在今天。"
-              ></textarea>
-            </div>
+              <button
+                type="button"
+                class="card-action"
+                @click="toggleEditor('north')"
+              >
+                <i
+                  :class="
+                    editingCard === 'north'
+                      ? 'bi-check-lg'
+                      : 'bi-pencil'
+                  "
+                ></i>
+                {{
+                  editingCard === "north"
+                    ? "完成"
+                    : "编辑"
+                }}
+              </button>
+            </header>
 
-            <div class="form-card">
-              <div class="card-heading">
-                <div>
-                  <strong>我想成为怎样的人</strong>
-                  <span>
-                    使用身份描述，而不是只写职位或资产数字
-                  </span>
-                </div>
-              </div>
+            <div
+              v-if="editingCard !== 'north'"
+              class="north-star-display"
+            >
+              <blockquote>
+                {{
+                  draft.motto ||
+                  "写下一句话，在重要选择面前提醒自己。"
+                }}
+              </blockquote>
 
-              <textarea
-                v-model.trim="draft.identity"
-                rows="4"
-                maxlength="600"
-                placeholder="例如：我希望成为一个有节奏、有判断力，能照顾好自己和身边人的人。"
-              ></textarea>
-            </div>
+              <p
+                class="identity-text"
+                :class="{ empty: !draft.identity }"
+              >
+                {{
+                  draft.identity ||
+                  "描述你希望成为怎样的人，而不只是想取得什么。"
+                }}
+              </p>
 
-            <div class="form-card">
-              <div class="card-heading">
-                <div>
-                  <strong>我的行事原则</strong>
-                  <span>
-                    建议保留 3～7 条，数量太多会失去约束力
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  class="text-button"
-                  @click="addPrinciple"
+              <ol
+                v-if="visiblePrinciples.length"
+                class="principle-display-list"
+              >
+                <li
+                  v-for="(item, index) in visiblePrinciples"
+                  :key="item.id"
                 >
-                  ＋ 添加原则
-                </button>
-              </div>
+                  <span>
+                    {{ String(index + 1).padStart(2, "0") }}
+                  </span>
+                  <p>{{ item.text }}</p>
+                </li>
+              </ol>
 
-              <div class="principle-list">
+              <button
+                v-else
+                type="button"
+                class="empty-action"
+                @click="editingCard = 'north'"
+              >
+                ＋ 写下我的行事准则
+              </button>
+            </div>
+
+            <div v-else class="north-star-editor">
+              <label class="field-block">
+                <span>人生格言</span>
+                <textarea
+                  v-model.trim="draft.motto"
+                  rows="2"
+                  maxlength="240"
+                  placeholder="例如：保持长期主义，但认真生活在今天。"
+                ></textarea>
+              </label>
+
+              <label class="field-block">
+                <span>我想成为怎样的人</span>
+                <textarea
+                  v-model.trim="draft.identity"
+                  rows="3"
+                  maxlength="600"
+                  placeholder="例如：我希望成为一个有节奏、有判断力，能照顾好自己和身边人的人。"
+                ></textarea>
+              </label>
+
+              <div class="principle-editor">
+                <div class="field-title-row">
+                  <span>我的行事准则</span>
+
+                  <button
+                    type="button"
+                    @click="addPrinciple"
+                  >
+                    ＋ 添加
+                  </button>
+                </div>
+
                 <div
                   v-for="(item, index) in draft.principles"
                   :key="item.id"
-                  class="principle-row"
+                  class="principle-editor-row"
                 >
-                  <span>{{ index + 1 }}</span>
+                  <span>
+                    {{ String(index + 1).padStart(2, "0") }}
+                  </span>
 
                   <input
                     v-model.trim="item.text"
@@ -166,7 +172,7 @@
 
                   <button
                     type="button"
-                    aria-label="删除原则"
+                    aria-label="删除准则"
                     @click="
                       draft.principles.splice(index, 1)
                     "
@@ -176,170 +182,293 @@
                 </div>
               </div>
             </div>
-          </section>
+          </article>
 
-          <section
-            v-else-if="
-              activeTab === 'one' ||
-              activeTab === 'five'
-            "
-            class="horizon-view"
-          >
-            <div class="horizon-banner">
-              <div>
-                <span>
-                  {{
-                    activeTab === "one"
-                      ? "ONE YEAR"
-                      : "FIVE YEARS"
-                  }}
-                </span>
-                <strong>
-                  {{
-                    activeTab === "one"
-                      ? "1 年后的我"
-                      : "5 年后的我"
-                  }}
-                </strong>
-                <p>
-                  {{
-                    activeTab === "one"
-                      ? "聚焦未来一年可以验证的改变"
-                      : "描绘方向，不要求预测所有细节"
-                  }}
-                </p>
-              </div>
-
-              <label>
-                <span>目标日期</span>
-                <input
-                  v-model="currentHorizon.targetDate"
-                  type="date"
-                />
-              </label>
-            </div>
-
-            <div class="form-card">
-              <div class="card-heading">
+          <!-- 一年和五年愿景 -->
+          <section class="horizon-grid">
+            <article
+              v-for="meta in horizonCards"
+              :key="meta.key"
+              class="life-card horizon-card"
+              :class="[
+                `horizon-${meta.tone}`,
+                {
+                  editing: editingCard === meta.key,
+                },
+              ]"
+            >
+              <header class="card-header">
                 <div>
-                  <strong>未来图景</strong>
-                  <span>
-                    描述那时的工作、生活、关系与内在状态
+                  <span class="card-eyebrow">
+                    {{ meta.eyebrow }}
                   </span>
-                </div>
-              </div>
-
-              <textarea
-                v-model.trim="currentHorizon.vision"
-                rows="5"
-                maxlength="1200"
-                :placeholder="
-                  activeTab === 'one'
-                    ? '一年后，我希望自己的日常状态是……'
-                    : '五年后，我希望自己已经建立起……'
-                "
-              ></textarea>
-            </div>
-
-            <div class="form-card">
-              <div class="card-heading">
-                <div>
-                  <strong>关键目标</strong>
-                  <span>
-                    每个目标都需要验证标准和一个现实的下一步
-                  </span>
+                  <h3>{{ meta.title }}</h3>
                 </div>
 
                 <button
                   type="button"
-                  class="text-button"
-                  @click="addGoal"
+                  class="card-action"
+                  @click="toggleEditor(meta.key)"
                 >
-                  ＋ 添加目标
+                  <i
+                    :class="
+                      editingCard === meta.key
+                        ? 'bi-check-lg'
+                        : 'bi-pencil'
+                    "
+                  ></i>
+                  {{
+                    editingCard === meta.key
+                      ? "完成"
+                      : "编辑"
+                  }}
                 </button>
-              </div>
+              </header>
 
-              <div
-                v-if="currentHorizon.goals.length"
-                class="goal-list"
-              >
-                <article
-                  v-for="(goal, index) in currentHorizon.goals"
-                  :key="goal.id"
-                  class="goal-card"
-                  :class="{ completed: goal.done }"
+              <template v-if="editingCard !== meta.key">
+                <p
+                  class="vision-text"
+                  :class="{
+                    empty: !draft[meta.key].vision,
+                  }"
                 >
-                  <label class="goal-check">
-                    <input
-                      v-model="goal.done"
-                      type="checkbox"
-                    />
-                    <span></span>
-                  </label>
+                  {{
+                    draft[meta.key].vision ||
+                    meta.placeholder
+                  }}
+                </p>
 
-                  <div class="goal-fields">
-                    <input
-                      v-model.trim="goal.title"
-                      class="goal-title"
-                      type="text"
-                      maxlength="100"
-                      placeholder="目标名称"
-                    />
+                <div class="horizon-status">
+                  <span>
+                    目标
+                    {{ completedGoalCount(meta.key) }}
+                    /
+                    {{ draft[meta.key].goals.length }}
+                  </span>
 
-                    <div class="goal-detail-grid">
-                      <label>
-                        <span>做到什么算完成</span>
-                        <input
-                          v-model.trim="goal.evidence"
-                          type="text"
-                          maxlength="180"
-                          placeholder="可观察、可验证的完成标准"
-                        />
-                      </label>
+                  <time>
+                    {{
+                      formatTargetDate(
+                        draft[meta.key].targetDate
+                      )
+                    }}
+                  </time>
+                </div>
 
-                      <label>
-                        <span>现在的第一步</span>
-                        <input
-                          v-model.trim="goal.firstStep"
-                          type="text"
-                          maxlength="180"
-                          placeholder="一周内可以开始的动作"
-                        />
-                      </label>
-                    </div>
-                  </div>
+                <div
+                  class="goal-progress"
+                  role="progressbar"
+                  :aria-valuenow="
+                    horizonProgress(meta.key)
+                  "
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                >
+                  <i
+                    :style="{
+                      width: `${horizonProgress(
+                        meta.key
+                      )}%`,
+                    }"
+                  ></i>
+                </div>
+
+                <ul
+                  v-if="draft[meta.key].goals.length"
+                  class="goal-display-list"
+                >
+                  <li
+                    v-for="goal in draft[
+                      meta.key
+                    ].goals.slice(0, 3)"
+                    :key="goal.id"
+                    :class="{ completed: goal.done }"
+                  >
+                    <label>
+                      <input
+                        v-model="goal.done"
+                        type="checkbox"
+                      />
+                      <i></i>
+                    </label>
+
+                    <span>{{ goal.title || "未命名目标" }}</span>
+                  </li>
+                </ul>
+
+                <button
+                  v-else
+                  type="button"
+                  class="empty-action"
+                  @click="editingCard = meta.key"
+                >
+                  ＋ 写下第一个目标
+                </button>
+
+                <p
+                  v-if="
+                    draft[meta.key].goals.length > 3
+                  "
+                  class="more-goals"
+                >
+                  还有
+                  {{
+                    draft[meta.key].goals.length - 3
+                  }}
+                  个目标
+                </p>
+
+                <div
+                  v-if="horizonNextAction(meta.key)"
+                  class="next-step"
+                >
+                  <span>现在的第一步</span>
+                  <p>
+                    {{ horizonNextAction(meta.key) }}
+                  </p>
+                </div>
+              </template>
+
+              <div v-else class="horizon-editor">
+                <label class="target-date-field">
+                  <span>目标日期</span>
+                  <input
+                    v-model="
+                      draft[meta.key].targetDate
+                    "
+                    type="date"
+                  />
+                </label>
+
+                <label class="field-block">
+                  <span>未来图景</span>
+                  <textarea
+                    v-model.trim="
+                      draft[meta.key].vision
+                    "
+                    rows="4"
+                    maxlength="1200"
+                    :placeholder="meta.placeholder"
+                  ></textarea>
+                </label>
+
+                <div class="goal-editor-heading">
+                  <span>关键目标</span>
 
                   <button
                     type="button"
-                    class="goal-remove"
-                    aria-label="删除目标"
-                    @click="
-                      currentHorizon.goals.splice(index, 1)
-                    "
+                    @click="addGoal(meta.key)"
                   >
-                    ×
+                    ＋ 添加目标
                   </button>
-                </article>
-              </div>
+                </div>
 
-              <div v-else class="goal-empty">
-                不需要一次写满所有人生领域。先写下真正重要的
-                1～3 个目标。
-              </div>
-            </div>
-          </section>
+                <div
+                  v-if="draft[meta.key].goals.length"
+                  class="goal-editor-list"
+                >
+                  <section
+                    v-for="(
+                      goal, index
+                    ) in draft[meta.key].goals"
+                    :key="goal.id"
+                    class="goal-editor-card"
+                  >
+                    <div class="goal-editor-title">
+                      <label>
+                        <input
+                          v-model="goal.done"
+                          type="checkbox"
+                        />
+                        <i></i>
+                      </label>
 
-          <section v-else class="review-view">
-            <div class="review-compose">
-              <div class="card-heading">
-                <div>
-                  <strong>写下阶段印记</strong>
-                  <span>
-                    记录变化、偏离与新的理解，不只记录成功
-                  </span>
+                      <input
+                        v-model.trim="goal.title"
+                        type="text"
+                        maxlength="100"
+                        placeholder="目标名称"
+                      />
+
+                      <button
+                        type="button"
+                        aria-label="删除目标"
+                        @click="
+                          draft[meta.key].goals.splice(
+                            index,
+                            1
+                          )
+                        "
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    <label>
+                      <span>做到什么算完成</span>
+                      <input
+                        v-model.trim="goal.evidence"
+                        type="text"
+                        maxlength="180"
+                        placeholder="写下可以验证的完成标准"
+                      />
+                    </label>
+
+                    <label>
+                      <span>现在的第一步</span>
+                      <input
+                        v-model.trim="goal.firstStep"
+                        type="text"
+                        maxlength="180"
+                        placeholder="写下一周内可以开始的动作"
+                      />
+                    </label>
+                  </section>
+                </div>
+
+                <div v-else class="editor-empty">
+                  暂时没有目标。建议先写下真正重要的
+                  1～3 个。
                 </div>
               </div>
+            </article>
+          </section>
 
+          <!-- 阶段印记 -->
+          <article class="life-card review-card">
+            <header class="card-header">
+              <div>
+                <span class="card-eyebrow">MILESTONES</span>
+                <h3>阶段印记</h3>
+              </div>
+
+              <button
+                type="button"
+                class="card-action"
+                @click="
+                  reviewComposerVisible =
+                    !reviewComposerVisible
+                "
+              >
+                <i
+                  :class="
+                    reviewComposerVisible
+                      ? 'bi-chevron-up'
+                      : 'bi-plus-lg'
+                  "
+                ></i>
+                {{
+                  reviewComposerVisible
+                    ? "收起"
+                    : "记录这一刻"
+                }}
+              </button>
+            </header>
+
+            <div
+              v-if="reviewComposerVisible"
+              class="review-composer"
+            >
               <div class="review-compose-row">
                 <input
                   v-model="reviewDraft.date"
@@ -350,38 +479,39 @@
                   v-model.trim="reviewDraft.title"
                   type="text"
                   maxlength="60"
-                  placeholder="这次复盘的标题"
+                  placeholder="这一阶段发生了什么"
                 />
               </div>
 
               <textarea
                 v-model.trim="reviewDraft.content"
-                rows="4"
+                rows="3"
                 maxlength="1000"
-                placeholder="最近发生了什么？哪些方向依然重要？下一阶段需要调整什么？"
+                placeholder="记录变化、偏离、新的理解，以及下一阶段想继续坚持的事情。"
               ></textarea>
 
               <button
                 type="button"
-                class="review-add"
+                class="review-submit"
                 @click="addReview"
               >
-                记录这次印记
+                保存这条印记
               </button>
             </div>
 
             <div
-              v-if="sortedReviews.length"
-              class="review-timeline"
+              v-if="visibleReviews.length"
+              class="review-list"
             >
-              <article
-                v-for="review in sortedReviews"
+              <section
+                v-for="review in visibleReviews"
                 :key="review.id"
               >
-                <i></i>
+                <time>
+                  {{ formatReviewDate(review.date) }}
+                </time>
 
                 <div>
-                  <time>{{ formatReviewDate(review.date) }}</time>
                   <strong>
                     {{ review.title || "阶段复盘" }}
                   </strong>
@@ -395,43 +525,69 @@
                 >
                   ×
                 </button>
-              </article>
+              </section>
+
+              <button
+                v-if="sortedReviews.length > 3"
+                type="button"
+                class="reviews-toggle"
+                @click="
+                  showAllReviews = !showAllReviews
+                "
+              >
+                {{
+                  showAllReviews
+                    ? "收起历史印记"
+                    : `查看全部 ${sortedReviews.length} 条`
+                }}
+              </button>
             </div>
 
-            <div v-else class="review-empty">
+            <button
+              v-else
+              type="button"
+              class="review-empty"
+              @click="reviewComposerVisible = true"
+            >
               <i class="bi-journal-check"></i>
-              <strong>还没有阶段印记</strong>
-              <span>
-                建议每季度或人生发生明显变化时记录一次
-              </span>
-            </div>
-          </section>
+              <span>还没有阶段印记</span>
+              <small>
+                在方向发生变化时，记录当时的理解
+              </small>
+            </button>
+          </article>
         </main>
 
         <footer class="life-footer">
-          <div>
-            <strong v-if="nextAction">
-              当前下一步：{{ nextAction }}
-            </strong>
+          <div class="footer-insight">
+            <template v-if="nextAction">
+              <span>当前下一步</span>
+              <strong>{{ nextAction }}</strong>
+            </template>
+
             <span v-else>
-              长期愿景允许调整，重要的是保持诚实和持续行动
+              长期愿景允许调整，重要的是持续行动
             </span>
           </div>
 
-          <button
-            type="button"
-            class="secondary-button"
-            @click="requestClose"
+          <span
+            v-if="isDirty"
+            class="unsaved-indicator"
           >
-            取消
-          </button>
+            有未保存的修改
+          </span>
 
           <button
             type="button"
-            class="primary-button"
+            class="save-button"
+            :disabled="!isDirty"
             @click="save"
           >
-            保存人生规划
+            {{
+              isDirty
+                ? "保存修改"
+                : "已保存"
+            }}
           </button>
         </footer>
       </section>
@@ -472,59 +628,65 @@ export default {
     const initial = lifeImprintRepository.load();
 
     return {
-      activeTab: "north",
       draft: clone(initial),
       savedFingerprint: JSON.stringify(initial),
+      editingCard: null,
+      reviewComposerVisible: false,
+      showAllReviews: false,
+
+      horizonCards: [
+        {
+          key: "oneYear",
+          eyebrow: "ONE YEAR",
+          title: "1 年后的我",
+          tone: "one",
+          placeholder:
+            "一年后，我希望自己的工作、生活和内在状态是……",
+        },
+        {
+          key: "fiveYear",
+          eyebrow: "FIVE YEARS",
+          title: "5 年后的我",
+          tone: "five",
+          placeholder:
+            "五年后，我希望自己已经建立起怎样的生活……",
+        },
+      ],
+
       reviewDraft: {
         date: moment().format("YYYY-MM-DD"),
         title: "",
         content: "",
       },
-      tabs: [
-        {
-          id: "north",
-          name: "人生北极星",
-          icon: "bi-compass",
-        },
-        {
-          id: "one",
-          name: "1 年后的我",
-          icon: "bi-calendar-check",
-        },
-        {
-          id: "five",
-          name: "5 年后的我",
-          icon: "bi-stars",
-        },
-        {
-          id: "reviews",
-          name: "阶段印记",
-          icon: "bi-journal-text",
-        },
-      ],
     };
   },
 
   computed: {
-    currentHorizon() {
-      return this.activeTab === "one"
-        ? this.draft.oneYear
-        : this.draft.fiveYear;
+    isDirty() {
+      return (
+        JSON.stringify(this.draft) !==
+        this.savedFingerprint
+      );
+    },
+
+    visiblePrinciples() {
+      return (this.draft.principles || []).filter(
+        (item) => String(item.text || "").trim()
+      );
     },
 
     sortedReviews() {
-      return [...this.draft.reviews].sort(
+      return [...(this.draft.reviews || [])].sort(
         (a, b) =>
           new Date(b.date).getTime() -
           new Date(a.date).getTime()
       );
     },
 
-    isDirty() {
-      return (
-        JSON.stringify(this.draft) !==
-        this.savedFingerprint
-      );
+    visibleReviews() {
+      return this.showAllReviews
+        ? this.sortedReviews
+        : this.sortedReviews.slice(0, 3);
     },
 
     nextAction() {
@@ -533,12 +695,13 @@ export default {
         ...(this.draft.fiveYear?.goals || []),
       ];
 
-      const goal = goals.find(
-        (item) =>
-          !item.done && String(item.firstStep || "").trim()
+      const activeGoal = goals.find(
+        (goal) =>
+          !goal.done &&
+          String(goal.firstStep || "").trim()
       );
 
-      return goal?.firstStep || "";
+      return activeGoal?.firstStep || "";
     },
   },
 
@@ -547,9 +710,15 @@ export default {
       if (!value) return;
 
       const data = lifeImprintRepository.load();
+
       this.draft = clone(data);
-      this.savedFingerprint = JSON.stringify(this.draft);
-      this.activeTab = "north";
+      this.savedFingerprint = JSON.stringify(
+        this.draft
+      );
+      this.editingCard = null;
+      this.reviewComposerVisible = false;
+      this.showAllReviews = false;
+      this.resetReviewDraft();
 
       this.$nextTick(() => {
         this.$refs.backdrop?.focus();
@@ -558,18 +727,39 @@ export default {
   },
 
   methods: {
+    toggleEditor(key) {
+      this.editingCard =
+        this.editingCard === key ? null : key;
+    },
+
+    completedGoalCount(key) {
+      return (this.draft[key]?.goals || []).filter(
+        (goal) => goal.done
+      ).length;
+    },
+
     horizonProgress(key) {
       const goals = this.draft[key]?.goals || [];
 
       if (!goals.length) return 0;
 
-      const completed = goals.filter(
-        (goal) => goal.done
-      ).length;
-
       return Math.round(
-        (completed / goals.length) * 100
+        (this.completedGoalCount(key) /
+          goals.length) *
+          100
       );
+    },
+
+    horizonNextAction(key) {
+      const goal = (
+        this.draft[key]?.goals || []
+      ).find(
+        (item) =>
+          !item.done &&
+          String(item.firstStep || "").trim()
+      );
+
+      return goal?.firstStep || "";
     },
 
     addPrinciple() {
@@ -579,8 +769,8 @@ export default {
       });
     },
 
-    addGoal() {
-      this.currentHorizon.goals.push({
+    addGoal(key) {
+      this.draft[key].goals.push({
         id: createId("goal"),
         title: "",
         evidence: "",
@@ -589,12 +779,20 @@ export default {
       });
     },
 
+    resetReviewDraft() {
+      this.reviewDraft = {
+        date: moment().format("YYYY-MM-DD"),
+        title: "",
+        content: "",
+      };
+    },
+
     addReview() {
       if (
         !this.reviewDraft.title.trim() &&
         !this.reviewDraft.content.trim()
       ) {
-        window.alert("请至少写下标题或复盘内容。");
+        window.alert("请至少写下标题或印记内容。");
         return;
       }
 
@@ -607,40 +805,73 @@ export default {
         content: this.reviewDraft.content.trim(),
       });
 
-      this.reviewDraft = {
-        date: moment().format("YYYY-MM-DD"),
-        title: "",
-        content: "",
-      };
+      this.resetReviewDraft();
+      this.reviewComposerVisible = false;
     },
 
     removeReview(id) {
-      if (!window.confirm("确定删除这条阶段印记吗？")) {
+      if (
+        !window.confirm("确定删除这条阶段印记吗？")
+      ) {
         return;
       }
 
-      this.draft.reviews = this.draft.reviews.filter(
-        (item) => item.id !== id
-      );
+      this.draft.reviews =
+        this.draft.reviews.filter(
+          (item) => item.id !== id
+        );
+    },
+
+    formatTargetDate(date) {
+      if (!date) return "暂未设定日期";
+      return moment(date).format("YYYY.MM.DD");
     },
 
     formatReviewDate(date) {
-      return moment(date).format("YYYY年M月D日");
+      return moment(date).format("YYYY.MM.DD");
+    },
+
+    formatUpdatedAt(value) {
+      if (!value || !moment(value).isValid()) {
+        return "";
+      }
+
+      const date = moment(value);
+      const today = moment();
+
+      if (date.isSame(today, "day")) {
+        return "今天";
+      }
+
+      if (
+        date.isSame(
+          today.clone().subtract(1, "day"),
+          "day"
+        )
+      ) {
+        return "昨天";
+      }
+
+      return date.format("YYYY.MM.DD");
     },
 
     save() {
-      const saved = lifeImprintRepository.update(
-        this.draft
-      );
+      const saved =
+        lifeImprintRepository.update(this.draft);
 
       this.draft = clone(saved);
-      this.savedFingerprint = JSON.stringify(this.draft);
+      this.savedFingerprint = JSON.stringify(
+        this.draft
+      );
+      this.editingCard = null;
     },
 
     requestClose() {
       if (
         this.isDirty &&
-        !window.confirm("人生规划尚未保存，确定放弃修改吗？")
+        !window.confirm(
+          "人生印记中还有未保存的修改，确定关闭吗？"
+        )
       ) {
         return;
       }
@@ -660,21 +891,21 @@ export default {
   place-items: center;
   padding: 24px;
   outline: none;
-  background: rgba(24, 22, 32, 0.46);
+  background: rgba(22, 22, 29, 0.44);
   backdrop-filter: blur(7px);
 }
 
 .life-dialog {
   display: flex;
-  width: min(960px, calc(100vw - 48px));
-  height: min(780px, calc(100vh - 48px));
+  width: min(920px, calc(100vw - 48px));
+  height: min(800px, calc(100vh - 48px));
   min-height: 600px;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(31, 35, 41, 0.1);
   border-radius: 18px;
   background: #fff;
-  box-shadow: 0 30px 90px rgba(20, 20, 30, 0.28);
+  box-shadow: 0 30px 90px rgba(20, 20, 30, 0.27);
 
   .dark-theme & {
     border-color: #343d47;
@@ -682,53 +913,57 @@ export default {
   }
 }
 
-.life-header,
-.life-heading,
-.life-footer,
-.card-heading,
-.horizon-banner {
+.life-header {
   display: flex;
+  min-height: 72px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-}
-
-.life-header {
-  min-height: 76px;
-  padding: 15px 20px;
+  padding: 13px 19px;
   border-bottom: 1px solid #eaedf1;
 }
 
+.life-heading,
+.header-meta {
+  display: flex;
+  align-items: center;
+}
+
 .life-heading {
-  justify-content: flex-start;
-  gap: 12px;
+  gap: 11px;
 }
 
 .life-icon {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border-radius: 12px;
-  background: linear-gradient(
-    145deg,
-    #f1edff,
-    #fff0f5
-  );
+  background: #f1edff;
   color: #7950c7;
-  font-size: 19px;
-}
-
-h2 {
-  margin: 0;
-  color: #292f37;
   font-size: 18px;
 }
 
-.life-heading p,
-.horizon-banner p {
-  margin: 4px 0 0;
+.life-heading h2 {
+  margin: 0;
+  color: #292f37;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.life-heading p {
+  margin: 3px 0 0;
   color: #969da7;
-  font-size: 11px;
+  font-size: 10px;
+}
+
+.header-meta {
+  gap: 12px;
+
+  > span {
+    color: #a0a6ae;
+    font-size: 9px;
+  }
 }
 
 .close-button {
@@ -746,141 +981,175 @@ h2 {
   }
 }
 
-.life-overview {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) 1fr 1fr;
-  gap: 9px;
-  padding: 12px 20px;
+.life-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px 20px;
+  overflow-y: auto;
+  background: #f7f8fa;
 }
 
-.motto-card,
-.progress-card {
+.life-card {
+  padding: 15px 16px;
+  border: 1px solid #e5e8ec;
+  border-radius: 13px;
+  background: #fff;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+
+  &.editing {
+    border-color: #c9b9ec;
+    box-shadow: 0 8px 24px rgba(91, 64, 148, 0.07);
+  }
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  h3 {
+    margin: 2px 0 0;
+    color: #3c434c;
+    font-size: 13px;
+    font-weight: 650;
+  }
+}
+
+.card-eyebrow {
+  color: #a39aaa;
+  font-size: 7px;
+  letter-spacing: 0.15em;
+}
+
+.card-action {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #7f6aac;
+  font-size: 9px;
+  cursor: pointer;
+
+  &:hover {
+    background: #f3effc;
+  }
+}
+
+.north-star-card {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    position: absolute;
+    top: -65px;
+    right: -65px;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgba(121, 80, 199, 0.08),
+      transparent 68%
+    );
+    content: "";
+    pointer-events: none;
+  }
+}
+
+.north-star-display {
+  padding: 9px 4px 2px;
+
+  blockquote {
+    margin: 0;
+    color: #4f3c72;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.6;
+
+    &::before {
+      color: #b8a5dd;
+      content: "“";
+    }
+
+    &::after {
+      color: #b8a5dd;
+      content: "”";
+    }
+  }
+}
+
+.identity-text {
+  max-width: 720px;
+  margin: 8px 0 0;
+  color: #6f7680;
+  font-size: 11px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+
+  &.empty {
+    color: #aaaeb5;
+  }
+}
+
+.principle-display-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  margin: 13px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  span {
+    color: #a995cf;
+    font-size: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  p {
+    margin: 0;
+    color: #585f68;
+    font-size: 10px;
+    line-height: 1.55;
+  }
+}
+
+.north-star-editor {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 11px 13px;
+  margin-top: 12px;
+
+  .principle-editor {
+    grid-column: 1 / -1;
+  }
+}
+
+.field-block {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 5px;
-  padding: 10px 12px;
-  border: 1px solid #e8ebef;
-  border-radius: 10px;
-  background: #fafbfc;
 
   > span {
-    color: #969da7;
+    color: #727984;
     font-size: 9px;
-  }
-
-  > strong {
-    overflow: hidden;
-    color: #3f4650;
-    font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.motto-card {
-  border-color: #ded5f5;
-  background: linear-gradient(
-    135deg,
-    #f7f4ff,
-    #fff8fb
-  );
-}
-
-.progress-card i {
-  height: 5px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e9ecf0;
-
-  b {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(
-      90deg,
-      #7950c7,
-      #b197fc
-    );
-  }
-}
-
-.life-tabs {
-  display: flex;
-  gap: 5px;
-  padding: 0 20px 10px;
-  border-bottom: 1px solid #eceff2;
-
-  button {
-    display: inline-flex;
-    min-height: 33px;
-    align-items: center;
-    gap: 6px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
-    color: #747c86;
-    font-size: 11px;
-    cursor: pointer;
-
-    &:hover {
-      background: #f1f3f6;
-    }
-
-    &.active {
-      background: #f0edff;
-      color: #7048bd;
-      font-weight: 600;
-    }
-  }
-}
-
-.life-content {
-  min-height: 0;
-  flex: 1;
-  padding: 17px 20px;
-  overflow-y: auto;
-  background: #fafbfc;
-}
-
-.north-star-view,
-.horizon-view {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.form-card,
-.review-compose {
-  padding: 14px;
-  border: 1px solid #e5e9ed;
-  border-radius: 11px;
-  background: #fff;
-}
-
-.hero-form {
-  border-color: #ddd3f5;
-  box-shadow: 0 7px 20px rgba(92, 63, 150, 0.05);
-}
-
-.card-heading {
-  margin-bottom: 9px;
-
-  > div {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  strong {
-    color: #424953;
-    font-size: 12px;
-  }
-
-  span {
-    color: #9aa1aa;
-    font-size: 9px;
+    font-weight: 600;
   }
 }
 
@@ -891,60 +1160,308 @@ input {
   border-radius: 8px;
   outline: none;
   background: #fff;
-  color: #343b44;
+  color: #353c45;
   font-family: inherit;
-  font-size: 11px;
+  font-size: 10px;
 
   &:focus {
-    border-color: #a692dc;
-    box-shadow: 0 0 0 3px rgba(121, 80, 199, 0.08);
+    border-color: #a894d5;
+    box-shadow: 0 0 0 3px rgba(121, 80, 199, 0.07);
   }
 }
 
 textarea {
   width: 100%;
-  padding: 9px 10px;
-  line-height: 1.7;
+  padding: 8px 9px;
+  line-height: 1.65;
   resize: vertical;
 }
 
 input {
-  height: 34px;
-  padding: 0 9px;
+  height: 32px;
+  padding: 0 8px;
 }
 
-.text-button {
-  border: 0;
-  background: transparent;
-  color: #7048bd;
-  font-size: 10px;
-  cursor: pointer;
-}
-
-.principle-list {
+.field-title-row,
+.goal-editor-heading {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.principle-row {
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 24px;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  margin-bottom: 6px;
 
   > span {
-    display: grid;
-    width: 24px;
-    height: 24px;
-    place-items: center;
-    border-radius: 7px;
-    background: #f0edff;
-    color: #7048bd;
+    color: #727984;
     font-size: 9px;
+    font-weight: 600;
   }
 
   button {
+    border: 0;
+    background: transparent;
+    color: #7950c7;
+    font-size: 9px;
+    cursor: pointer;
+  }
+}
+
+.principle-editor-row {
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+
+  > span {
+    color: #aa98cd;
+    font-size: 8px;
+  }
+
+  > button {
+    border: 0;
+    background: transparent;
+    color: #9da3ab;
+    cursor: pointer;
+  }
+}
+
+.horizon-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.horizon-card {
+  position: relative;
+  min-width: 0;
+
+  &::before {
+    position: absolute;
+    top: 0;
+    right: 16px;
+    left: 16px;
+    height: 2px;
+    border-radius: 0 0 3px 3px;
+    content: "";
+  }
+}
+
+.horizon-one::before {
+  background: #748ffc;
+}
+
+.horizon-five::before {
+  background: #b197fc;
+}
+
+.vision-text {
+  min-height: 52px;
+  margin: 11px 0 0;
+  display: -webkit-box;
+  overflow: hidden;
+  color: #555d67;
+  font-size: 11px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+
+  &.empty {
+    color: #a0a5ad;
+  }
+}
+
+.horizon-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  color: #8e959e;
+  font-size: 8px;
+}
+
+.goal-progress {
+  height: 4px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf0f3;
+
+  i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #7950c7;
+    transition: width 0.2s ease;
+  }
+}
+
+.goal-display-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 11px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 7px;
+  }
+
+  li > span {
+    overflow: hidden;
+    color: #565e68;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  li.completed > span {
+    color: #a0a5ac;
+    text-decoration: line-through;
+  }
+
+  label {
+    display: flex;
+    flex: 0 0 auto;
+    cursor: pointer;
+  }
+
+  input {
+    display: none;
+  }
+
+  label i {
+    display: grid;
+    width: 13px;
+    height: 13px;
+    place-items: center;
+    border: 1px solid #c8cdd4;
+    border-radius: 50%;
+  }
+
+  input:checked + i {
+    border-color: #7950c7;
+    background: #7950c7;
+
+    &::after {
+      width: 5px;
+      height: 3px;
+      border-bottom: 1.5px solid #fff;
+      border-left: 1.5px solid #fff;
+      content: "";
+      transform: translateY(-1px) rotate(-45deg);
+    }
+  }
+}
+
+.more-goals {
+  margin: 7px 0 0 20px;
+  color: #a0a5ad;
+  font-size: 8px;
+}
+
+.empty-action {
+  margin-top: 11px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7950c7;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.next-step {
+  margin-top: 11px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: #f7f5fb;
+
+  span {
+    color: #9a8cab;
+    font-size: 7px;
+  }
+
+  p {
+    margin: 2px 0 0;
+    overflow: hidden;
+    color: #61566f;
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.horizon-editor {
+  margin-top: 11px;
+}
+
+.target-date-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 9px;
+
+  span {
+    color: #727984;
+    font-size: 9px;
+    font-weight: 600;
+  }
+
+  input {
+    width: 145px;
+  }
+}
+
+.goal-editor-heading {
+  margin-top: 12px;
+}
+
+.goal-editor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.goal-editor-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #e7e9ed;
+  border-radius: 8px;
+  background: #fafbfc;
+
+  > label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+
+    span {
+      color: #979da6;
+      font-size: 7px;
+    }
+  }
+}
+
+.goal-editor-title {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 5px;
+
+  label {
+    display: flex;
+  }
+
+  label input {
+    width: 13px;
+    height: 13px;
+  }
+
+  > button {
     border: 0;
     background: transparent;
     color: #9ba1aa;
@@ -952,276 +1469,201 @@ input {
   }
 }
 
-.horizon-banner {
-  padding: 15px 17px;
-  border-radius: 12px;
-  background: linear-gradient(
-    135deg,
-    #6253b7,
-    #9674d4
-  );
-  color: #fff;
-
-  > div {
-    display: flex;
-    flex-direction: column;
-  }
-
-  > div > span {
-    color: rgba(255, 255, 255, 0.65);
-    font-size: 8px;
-    letter-spacing: 0.16em;
-  }
-
-  > div > strong {
-    margin-top: 3px;
-    font-size: 17px;
-  }
-
-  p {
-    color: rgba(255, 255, 255, 0.72);
-  }
-
-  label {
-    display: flex;
-    align-items: flex-end;
-    flex-direction: column;
-    gap: 4px;
-    color: rgba(255, 255, 255, 0.72);
-    font-size: 8px;
-  }
-
-  input {
-    border-color: rgba(255, 255, 255, 0.28);
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
-    color-scheme: dark;
-  }
-}
-
-.goal-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.goal-card {
-  display: grid;
-  grid-template-columns: 25px minmax(0, 1fr) 24px;
-  align-items: flex-start;
-  gap: 7px;
-  padding: 10px;
-  border: 1px solid #e7e9ed;
-  border-radius: 9px;
-  background: #fcfcfd;
-
-  &.completed {
-    opacity: 0.65;
-
-    .goal-title {
-      text-decoration: line-through;
-    }
-  }
-}
-
-.goal-check {
-  display: grid;
-  padding-top: 7px;
-  place-items: center;
-}
-
-.goal-fields {
-  min-width: 0;
-}
-
-.goal-title {
-  width: 100%;
-  font-weight: 600;
-}
-
-.goal-detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-  margin-top: 7px;
-
-  label {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  span {
-    color: #999fa8;
-    font-size: 8px;
-  }
-
-  input {
-    width: 100%;
-  }
-}
-
-.goal-remove,
-.review-timeline article > button {
-  border: 0;
-  background: transparent;
-  color: #9aa1aa;
-  cursor: pointer;
-}
-
-.goal-empty,
-.review-empty {
-  display: flex;
-  min-height: 90px;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 5px;
-  color: #9ca2ab;
-  font-size: 10px;
+.editor-empty {
+  padding: 13px;
+  border: 1px dashed #dfe3e8;
+  border-radius: 8px;
+  color: #9ca2aa;
+  font-size: 9px;
+  line-height: 1.6;
   text-align: center;
+}
+
+.review-composer {
+  margin-top: 11px;
+  padding: 10px;
+  border: 1px solid #e2dcef;
+  border-radius: 9px;
+  background: #faf8ff;
 }
 
 .review-compose-row {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  gap: 8px;
-  margin-bottom: 8px;
+  grid-template-columns: 145px minmax(0, 1fr);
+  gap: 7px;
+  margin-bottom: 7px;
 }
 
-.review-add {
+.review-submit {
   display: block;
-  height: 32px;
-  margin: 9px 0 0 auto;
-  padding: 0 13px;
-  border: 1px solid #7048bd;
+  height: 30px;
+  margin: 7px 0 0 auto;
+  padding: 0 11px;
+  border: 1px solid #7950c7;
   border-radius: 7px;
-  background: #7048bd;
+  background: #7950c7;
   color: #fff;
-  font-size: 10px;
+  font-size: 9px;
   cursor: pointer;
 }
 
-.review-timeline {
-  position: relative;
-  margin-top: 15px;
-  padding-left: 12px;
+.review-list {
+  margin-top: 9px;
 
-  &::before {
-    position: absolute;
-    top: 8px;
-    bottom: 8px;
-    left: 17px;
-    width: 1px;
-    background: #dcd5ed;
-    content: "";
-  }
-
-  article {
-    position: relative;
+  > section {
     display: grid;
-    grid-template-columns: 12px minmax(0, 1fr) 24px;
-    gap: 10px;
-    padding: 8px 0 14px;
-  }
-
-  article > i {
-    z-index: 1;
-    width: 11px;
-    height: 11px;
-    margin-top: 3px;
-    border: 3px solid #8c6bcc;
-    border-radius: 50%;
-    background: #fff;
-  }
-
-  article > div {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
+    grid-template-columns: 76px minmax(0, 1fr) 22px;
+    gap: 9px;
+    padding: 9px 2px;
+    border-top: 1px solid #edf0f2;
   }
 
   time {
-    color: #9b91b4;
+    padding-top: 2px;
+    color: #9c8eb1;
     font-size: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  section > div {
+    min-width: 0;
   }
 
   strong {
-    color: #454c55;
-    font-size: 11px;
+    display: block;
+    color: #4e555f;
+    font-size: 10px;
   }
 
   p {
-    margin: 1px 0 0;
+    margin: 3px 0 0;
     color: #747c86;
-    font-size: 10px;
-    line-height: 1.65;
+    font-size: 9px;
+    line-height: 1.6;
     white-space: pre-wrap;
+  }
+
+  section > button {
+    border: 0;
+    background: transparent;
+    color: #a0a6ae;
+    cursor: pointer;
+  }
+}
+
+.reviews-toggle {
+  display: block;
+  margin: 7px auto 0;
+  border: 0;
+  background: transparent;
+  color: #7950c7;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.review-empty {
+  display: flex;
+  width: 100%;
+  min-height: 82px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+  border: 1px dashed #e1e4e8;
+  border-radius: 9px;
+  background: transparent;
+  color: #9299a2;
+  cursor: pointer;
+
+  i {
+    margin-bottom: 2px;
+    color: #a994d5;
+    font-size: 18px;
+  }
+
+  span {
+    font-size: 10px;
+  }
+
+  small {
+    color: #afb3b9;
+    font-size: 8px;
+  }
+
+  &:hover {
+    border-color: #cbbde7;
+    background: #faf8ff;
   }
 }
 
 .life-footer {
-  min-height: 61px;
-  gap: 8px;
-  padding: 10px 18px;
-  border-top: 1px solid #e8ebef;
+  display: flex;
+  min-height: 58px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 18px;
+  border-top: 1px solid #e9ecef;
+  background: #fff;
+}
 
-  > div {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    flex-direction: column;
-    gap: 2px;
+.footer-insight {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+
+  span {
+    color: #999fa8;
+    font-size: 8px;
   }
 
   strong {
     overflow: hidden;
-    color: #555d68;
+    color: #555d67;
     font-size: 10px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-
-  span {
-    color: #999fa8;
-    font-size: 9px;
-  }
 }
 
-.primary-button,
-.secondary-button {
-  min-width: 92px;
-  height: 34px;
+.unsaved-indicator {
+  color: #a1833e;
+  font-size: 8px;
+}
+
+.save-button {
+  min-width: 84px;
+  height: 33px;
+  border: 1px solid #7950c7;
   border-radius: 7px;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.primary-button {
-  border: 1px solid #7048bd;
-  background: #7048bd;
+  background: #7950c7;
   color: #fff;
-}
+  font-size: 10px;
+  cursor: pointer;
 
-.secondary-button {
-  border: 1px solid #dfe3e8;
-  background: #fff;
-  color: #59616b;
+  &:disabled {
+    border-color: #e1e4e8;
+    background: #f1f3f5;
+    color: #9da3ab;
+    cursor: default;
+  }
 }
 
 .dark-theme {
   .life-header,
-  .life-tabs,
   .life-footer {
     border-color: #303842;
+    background: #181e25;
   }
 
-  h2,
-  .motto-card strong,
-  .progress-card strong,
-  .card-heading strong,
-  .review-timeline strong {
+  .life-heading h2,
+  .card-header h3,
+  .north-star-display blockquote,
+  .review-list strong,
+  .footer-insight strong {
     color: #dce1e7;
   }
 
@@ -1229,51 +1671,81 @@ input {
     background: #151a20;
   }
 
-  .motto-card,
-  .progress-card,
-  .form-card,
-  .review-compose,
-  .goal-card {
+  .life-card,
+  .goal-editor-card {
     border-color: #303842;
     background: #1d232b;
   }
 
-  .motto-card {
-    background: linear-gradient(
-      135deg,
-      #27213a,
-      #2c222d
-    );
+  .life-card.editing {
+    border-color: #66518d;
   }
 
-  .life-tabs button:hover {
-    background: #252c35;
-  }
-
-  .life-tabs button.active {
+  .life-icon,
+  .principle-display-list span {
     background: #302744;
-    color: #b9a2ee;
+    color: #baa3ed;
+  }
+
+  .identity-text,
+  .principle-display-list p,
+  .vision-text,
+  .goal-display-list li > span,
+  .review-list p {
+    color: #adb4bd;
   }
 
   textarea,
-  input,
-  .secondary-button {
+  input {
     border-color: #36404a;
     background: #20262e;
     color: #d8dde3;
+    color-scheme: dark;
   }
 
-  .principle-row > span {
-    background: #302744;
-    color: #b9a2ee;
+  .goal-progress {
+    background: #2d353e;
   }
 
-  .review-timeline article > i {
-    background: #181e25;
+  .next-step {
+    background: #282331;
+
+    p {
+      color: #c5b9d3;
+    }
   }
 
-  .close-button:hover {
-    background: #252c35;
+  .goal-editor-card {
+    background: #1a2027;
+  }
+
+  .review-composer {
+    border-color: #473b5c;
+    background: #211d29;
+  }
+
+  .review-list > section {
+    border-color: #303842;
+  }
+
+  .review-empty {
+    border-color: #353d47;
+
+    &:hover {
+      border-color: #5f4c82;
+      background: #211d29;
+    }
+  }
+
+  .close-button:hover,
+  .card-action:hover {
+    background: #272e37;
+  }
+
+  .save-button:disabled {
+    border-color: #343c45;
+    background: #252c34;
+    color: #737b84;
   }
 }
 

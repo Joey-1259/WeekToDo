@@ -42,6 +42,8 @@
           :anniversaryCount="anniversaryList.length"
           @day-click="onDayClick"
           @open-anniversaries="openAnniversaryCenter"
+          @open-funds="openFundsManagement"
+          @open-life-imprint="openLifeImprint"
         ></month-calendar>
 
         <upcoming-events-tile
@@ -73,6 +75,16 @@
       @save="onSaveAnniversary"
       @remove="onRemoveAnniversary"
     ></anniversary-edit-modal>
+
+    <funds-management-modal
+      :visible="fundsManagementVisible"
+      @close="closeFundsManagement"
+    />
+
+    <life-imprint-modal
+      :visible="lifeImprintVisible"
+      @close="closeLifeImprint"
+    />
   </div>
 </template>
 
@@ -84,6 +96,8 @@ import monthCalendar from "./monthCalendar.vue";
 import anniversaryEditModal from "./anniversaryEditModal.vue";
 import AnniversaryCenterModal from "./AnniversaryCenterModal.vue";
 import CalendarInsightPanel from "./CalendarInsightPanel.vue";
+import FundsManagementModal from "./FundsManagementModal.vue";
+import LifeImprintModal from "./LifeImprintModal.vue";
 import upcomingEventsTile from "./upcomingEventsTile.vue";
 import anniversaryRepository from "../../repositories/anniversaryRepository";
 import holidayHelper from "../../helpers/holidayHelper";
@@ -98,6 +112,8 @@ export default {
     upcomingEventsTile,
     AnniversaryCenterModal,
     CalendarInsightPanel,
+    FundsManagementModal,
+    LifeImprintModal,
   },
   emits: ["close", "jump-to-date"],
   data() {
@@ -111,6 +127,8 @@ export default {
       editingItem: null,
       anniversaryCenterVisible: false,
       returnToAnniversaryCenter: false,
+      fundsManagementVisible: false,
+      lifeImprintVisible: false,
     };
   },
   mounted() {
@@ -143,6 +161,22 @@ export default {
     },
     openAnniversaryCenter: function () {
       this.anniversaryCenterVisible = true;
+    },
+
+    openFundsManagement: function () {
+      this.fundsManagementVisible = true;
+    },
+
+    closeFundsManagement: function () {
+      this.fundsManagementVisible = false;
+    },
+
+    openLifeImprint: function () {
+      this.lifeImprintVisible = true;
+    },
+
+    closeLifeImprint: function () {
+      this.lifeImprintVisible = false;
     },
 
     closeAnniversaryCenter: function () {

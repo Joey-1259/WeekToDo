@@ -36,8 +36,6 @@
       </footer>
     </section>
 
-    <weather-widget />
-
     <section class="time-progress-card">
       <header>
         <div>
@@ -113,9 +111,8 @@
 
 <script>
 import moment from "moment";
-import WeatherWidget from "./WeatherWidget.vue";
 
-/* CALENDAR_WEATHER_SYSTEM_20260907_V1 */
+/* CALENDAR_INSIGHT_SIMPLIFIED_20260907_V1 */
 
 const QUOTES = [
   {
@@ -170,10 +167,6 @@ const QUOTES = [
 
 export default {
   name: "CalendarInsightPanel",
-
-  components: {
-    WeatherWidget,
-  },
 
   data() {
     return {

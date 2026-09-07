@@ -24,6 +24,26 @@
             {{ anniversaryCount }}
           </span>
         </button>
+
+        <button
+          class="btn btn-sm funds-center-btn"
+          type="button"
+          title="查看资金快照与未来资金用途"
+          @click="$emit('open-funds')"
+        >
+          <i class="bi-wallet2"></i>
+          资金管理
+        </button>
+
+        <button
+          class="btn btn-sm life-imprint-btn"
+          type="button"
+          title="查看人生格言、长期愿景与阶段目标"
+          @click="$emit('open-life-imprint')"
+        >
+          <i class="bi-compass"></i>
+          人生印记
+        </button>
       </div>
 
       <year-month-picker
@@ -95,6 +115,8 @@ export default {
     "update:month",
     "day-click",
     "open-anniversaries",
+    "open-funds",
+    "open-life-imprint",
   ],
   data() {
     return {
@@ -240,7 +262,9 @@ export default {
   }
 
   .today-btn,
-  .anniversary-center-btn {
+  .anniversary-center-btn,
+  .funds-center-btn,
+  .life-imprint-btn {
     display: inline-flex;
     min-height: 30px;
     align-items: center;
@@ -265,6 +289,26 @@ export default {
         background: #20273a;
         color: #8198ef;
       }
+    }
+  }
+
+  .funds-center-btn {
+    i {
+      color: #16966a;
+    }
+
+    &:hover i {
+      color: inherit;
+    }
+  }
+
+  .life-imprint-btn {
+    i {
+      color: #7950c7;
+    }
+
+    &:hover i {
+      color: inherit;
     }
   }
 

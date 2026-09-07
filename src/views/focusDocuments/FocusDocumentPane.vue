@@ -92,6 +92,7 @@
       @update:model-value="scheduleContentSave"
       @request-task="taskComposerVisible = true"
       @open-task="$emit('open-task', $event)"
+      @jump-task="$emit('jump-task', $event)"
     />
 
     <footer class="focus-pane-footer">
@@ -172,6 +173,7 @@ export default {
     "edit",
     "document-action",
     "open-task",
+    "jump-task",
     "swap",
   ],
   data() {

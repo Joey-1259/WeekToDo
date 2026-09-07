@@ -398,6 +398,7 @@ export default {
     "update:modelValue",
     "request-task",
     "open-task",
+    "jump-task",
   ],
   data() {
     return {
@@ -525,6 +526,10 @@ export default {
       this.onTaskOpen
     );
     window.addEventListener(
+      "focus-task-jump",
+      this.onTaskJump
+    );
+    window.addEventListener(
       "focus-task-unlink",
       this.onTaskUnlink
     );
@@ -548,6 +553,10 @@ export default {
     window.removeEventListener(
       "focus-task-open",
       this.onTaskOpen
+    );
+    window.removeEventListener(
+      "focus-task-jump",
+      this.onTaskJump
     );
     window.removeEventListener(
       "focus-task-unlink",
@@ -836,6 +845,14 @@ export default {
     onTaskOpen(event) {
       if (event.detail?.taskId) {
         this.$emit("open-task", event.detail);
+      }
+    },
+
+    onTaskJump(event) {
+      const task = event.detail;
+
+      if (task?.taskId && task?.listId) {
+        this.$emit("jump-task", task);
       }
     },
 
@@ -1931,6 +1948,85 @@ export default {
   background: #e7eaee;
   color: #c84444;
 }
+
+/* 关联事项：正文等字号，穿透与解除操作仅在悬停时显现。 */
+.linked-task-main,
+.linked-task-title {
+  min-width: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.linked-task-main {
+  flex-direction: row;
+  align-items: center;
+}
+
+.linked-task-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linked-task-jump,
+.linked-task-unlink {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9299a3;
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity 0.14s ease,
+    color 0.14s ease,
+    background-color 0.14s ease;
+}
+
+.linked-task-jump svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.45;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.linked-task-block:hover .linked-task-jump,
+.linked-task-block:hover .linked-task-unlink,
+.linked-task-jump:focus-visible,
+.linked-task-unlink:focus-visible {
+  opacity: 1;
+}
+
+.linked-task-jump:hover {
+  background: #e9eefc;
+  color: #4263eb;
+}
+
+.linked-task-unlink:hover {
+  background: #fbecec;
+  color: #c84444;
+}
+
+.dark-theme .linked-task-jump:hover {
+  background: #29344d;
+  color: #87a0ff;
+}
+
+.dark-theme .linked-task-unlink:hover {
+  background: #44292d;
+  color: #ef9292;
+}
+
 </style>
 
 

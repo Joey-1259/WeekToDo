@@ -62,6 +62,17 @@ export default Node.create({
             <span class="linked-task-title"></span>
           </button>
           <button
+            class="linked-task-jump"
+            type="button"
+            title="前往每周事项表"
+          >
+            <svg viewBox="0 0 18 18" aria-hidden="true">
+              <path d="M7 4h7v7" />
+              <path d="m14 4-8 8" />
+              <path d="M12 10v4H4V6h4" />
+            </svg>
+          </button>
+          <button
             class="linked-task-unlink"
             type="button"
             title="解除关联"
@@ -91,6 +102,15 @@ export default Node.create({
             })
           );
         };
+
+        dom.querySelector(".linked-task-jump").onclick =
+          () => {
+            window.dispatchEvent(
+              new CustomEvent("focus-task-jump", {
+                detail: { ...attrs },
+              })
+            );
+          };
 
         dom.querySelector(".linked-task-unlink").onclick = () => {
           if (typeof getPos === "function") {

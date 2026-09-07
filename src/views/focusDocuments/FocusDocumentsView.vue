@@ -83,6 +83,7 @@
             @edit="editDocument"
             @document-action="handleDocumentAction"
             @open-task="openTask"
+            @jump-task="jumpTask"
             @swap="swapPane(index - 1, $event)"
           />
 
@@ -140,6 +141,7 @@
       @close="closeModal"
       @saved="finishModal"
       @open-task="openTask"
+      @jump-task="jumpTask"
     />
   </main>
 </template>
@@ -726,6 +728,20 @@ export default {
 
         await this.reload();
       }
+    },
+
+    jumpTask(task) {
+      if (!task?.taskId || !task?.listId) {
+        window.alert("关联事项不存在或已经被删除。");
+        return;
+      }
+
+      this.modalDocument = null;
+      this.modalIsNew = false;
+      this.$emit("open-week", {
+        taskId: task.taskId,
+        listId: task.listId,
+      });
     },
 
     openTask(task) {

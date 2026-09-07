@@ -35,6 +35,7 @@
         @update:model-value="scheduleSave"
         @request-task="openTaskComposer"
         @open-task="$emit('open-task', $event)"
+        @jump-task="$emit('jump-task', $event)"
       />
 
       <footer>
@@ -97,7 +98,7 @@ export default {
       default: false,
     },
   },
-  emits: ["close", "saved", "open-task"],
+  emits: ["close", "saved", "open-task", "jump-task",],
   data() {
     return {
       draft: JSON.parse(JSON.stringify(this.document)),

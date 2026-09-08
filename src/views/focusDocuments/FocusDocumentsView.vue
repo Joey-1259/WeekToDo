@@ -43,15 +43,22 @@
           </Teleport>
         </div>
 
-        <select v-model.number="columns">
-          <option :value="1">1 列</option>
-          <option :value="2">2 列</option>
-          <option :value="3">3 列</option>
-          <option :value="4">4 列</option>
-        </select>
+        <span
+          v-if="pageCount > 1"
+          class="focus-workspace-page-status"
+          aria-live="polite"
+        >
+          {{ pageIndex + 1 }}/{{ pageCount }}
+        </span>
 
-        <button class="primary" @click="createDocument()">
-          ＋ 新建文档
+        <button
+          type="button"
+          class="primary focus-create-button"
+          title="新建文档"
+          aria-label="新建文档"
+          @click="createDocument()"
+        >
+          ＋
         </button>
       </div>
     </header>
@@ -59,20 +66,48 @@
     <div class="focus-workspace-body">
 
 
+      <button
+        v-if="pageCount > 1"
+        type="button"
+        class="focus-page-arrow focus-page-arrow-left"
+        :disabled="pageIndex <= 0"
+        title="上一组文档"
+        aria-label="上一组文档"
+        @click="changePage(pageIndex - 1)"
+      >
+        <i class="bi-chevron-left"></i>
+      </button>
+
       <section
         class="focus-grid"
-        :style="{ '--columns': columns }"
+        :class="{ 'has-pages': pageCount > 1 }"
+        :style="{ '--columns': visibleColumnCount }"
+        role="group"
+        aria-roledescription="carousel"
+        :aria-label="
+          `重点事项工作区，第 ${pageIndex + 1} 组，共 ${pageCount} 组`
+        "
+        aria-live="polite"
       >
-        <template v-for="index in columns" :key="index">
+        <template
+          v-for="index in visibleColumnCount"
+          :key="`${pageIndex}-${index}`"
+        >
           <FocusDocumentPane
-            v-if="documentForPane(index - 1)"
-            :document="documentForPane(index - 1)"
-            :can-swap-left="index > 1"
-            :can-swap-right="index < columns"
+            v-if="documentForVisiblePane(index - 1)"
+            ref="visiblePanes"
+            :document="documentForVisiblePane(index - 1)"
+            :can-swap-left="
+              globalPaneIndex(index - 1) > 0
+            "
+            :can-swap-right="
+              globalPaneIndex(index - 1) <
+              openIds.length - 1
+            "
             @pane-dragstart="
               startPaneDrag(
                 $event,
-                documentForPane(index - 1).id
+                documentForVisiblePane(index - 1).id
               )
             "
             @pane-dragend="endPaneDrag"
@@ -85,15 +120,19 @@
             @jump-task="jumpTask"
             @create-task="createLinkedTask"
             @swap="swapPane(index - 1, $event)"
+            @manage="openWorkspaceManager"
           />
 
           <div
             v-else
             class="focus-empty-pane"
             :class="{
-              'is-drop-target': emptyDropIndex === index - 1,
+              'is-drop-target':
+                emptyDropIndex === index - 1,
             }"
-            @dragover.prevent="emptyDropIndex = index - 1"
+            @dragover.prevent="
+              emptyDropIndex = index - 1
+            "
             @dragleave="
               clearEmptyDrag(index - 1, $event)
             "
@@ -117,442 +156,57 @@
                 :open-ids="openIds"
                 :selected-folder-id="selectedFolderId"
                 @open-document="
-                  selectDocument($event, index - 1)
-                "
-              />
+              
+selectDocument(id, localIndex) {
+  const targetIndex =
+    this.globalPaneIndex(localIndex);
+  const next = [...this.openIds];
+  const sourceIndex = next.indexOf(id);
+  const targetId = next[targetIndex];
 
-              <button
-                type="button"
-                class="focus-empty-create"
-                @click="createDocument()"
-              >
-                ＋ 新建文档
-              </button>
-            </div>
-          </div>
-        </template>
-      </section>
-    </div>
-
-    <FocusDocumentModal
-      v-if="modalDocument"
-      :document="modalDocument"
-      :require-folder="modalIsNew"
-      @close="closeModal"
-      @saved="finishModal"
-      @open-task="openTask"
-      @jump-task="jumpTask"
-      @create-task="createLinkedTask"
-    />
-
-    <div
-      v-if="moveDialogDocument"
-      class="focus-move-backdrop"
-      role="presentation"
-      @mousedown.self="closeMoveDialog"
-    >
-      <section
-        class="focus-move-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="focus-move-dialog-title"
-        @keydown.esc.stop.prevent="closeMoveDialog"
-      >
-        <header>
-          <div>
-            <strong id="focus-move-dialog-title">
-              移动到目录
-            </strong>
-            <small>
-              {{ moveDialogDocument.title || "未命名文档" }}
-            </small>
-          </div>
-
-          <button
-            type="button"
-            aria-label="关闭"
-            title="关闭"
-            :disabled="moveSaving"
-            @click="closeMoveDialog"
-          >
-            ×
-          </button>
-        </header>
-
-        <div class="focus-move-dialog-body">
-          <FocusFolderPicker
-            ref="moveFolderPicker"
-            v-model="moveFolderId"
-            :folders="moveFolders"
-            :current-folder-id="
-              moveDialogDocument.folderId
-            "
-          />
-
-          <p class="focus-move-dialog-hint">
-            文档内容和关联事项不会改变，仅调整目录归属。
-          </p>
-        </div>
-
-        <footer>
-          <button
-            type="button"
-            :disabled="moveSaving"
-            @click="closeMoveDialog"
-          >
-            取消
-          </button>
-
-          <button
-            type="button"
-            class="primary"
-            :disabled="
-              moveSaving ||
-              moveFolderId ===
-                (moveDialogDocument.folderId || '__root__')
-            "
-            @click="confirmMoveDocument"
-          >
-            {{ moveSaving ? "移动中…" : "确认移动" }}
-          </button>
-        </footer>
-      </section>
-    </div>
-  </main>
-</template>
-
-<script>
-/* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
-import FocusDocumentPane from "./FocusDocumentPane.vue";
-import FocusDocumentModal from "./FocusDocumentModal.vue";
-import FocusDocumentTree from "./FocusDocumentTree.vue";
-import FocusDirectoryManager from "./FocusDirectoryManager.vue";
-import FocusFolderPicker from "./FocusFolderPicker.vue";
-import focusDocumentService from "../../services/focusDocumentService";
-import focusFolderService from "../../services/focusFolderService";
-import focusTaskService from "../../services/focusTaskService";
-
-function extractText(value) {
-  if (!value) return "";
-  if (typeof value === "string") return value;
-
-  if (Array.isArray(value)) {
-    return value.map(extractText).join(" ");
+  if (
+    sourceIndex >= 0 &&
+    sourceIndex !== targetIndex
+  ) {
+    next[sourceIndex] = targetId || null;
   }
 
-  return [
-    value.text || "",
-    value.attrs?.title || "",
-    extractText(value.content),
-  ].join(" ");
-}
+  next[targetIndex] = id;
 
-function escapeMarkdown(value) {
-  return String(value || "").replace(
-    /([\\`*_[\]<>])/g,
-    "\\$1"
+  while (
+    next.length &&
+    !next[next.length - 1]
+  ) {
+    next.pop();
+  }
+
+  this.openIds = next;
+},
+
+openDocumentFromTree(id) {
+  this.treeVisible = false;
+
+  const existingIndex =
+    this.openIds.indexOf(id);
+
+  if (existingIndex >= 0) {
+    this.pageIndex = Math.floor(
+      existingIndex /
+        this.visibleColumnCount
+    );
+    return;
+  }
+
+  this.openIds = [
+    ...this.openIds,
+    id,
+  ];
+
+  this.pageIndex = Math.floor(
+    (this.openIds.length - 1) /
+      this.visibleColumnCount
   );
-}
-
-function contentToMarkdown(node, depth = 0) {
-  if (!node) return "";
-
-  if (node.type === "text") {
-    let text = escapeMarkdown(node.text || "");
-
-    for (const mark of node.marks || []) {
-      if (mark.type === "bold") text = `**${text}**`;
-      if (mark.type === "italic") text = `*${text}*`;
-      if (mark.type === "strike") text = `~~${text}~~`;
-      if (mark.type === "code") text = `\`${text}\``;
-      if (mark.type === "link") {
-        text = `[${text}](${mark.attrs?.href || ""})`;
-      }
-    }
-
-    return text;
-  }
-
-  const children = (node.content || [])
-    .map((item) => contentToMarkdown(item, depth + 1))
-    .join("");
-
-  switch (node.type) {
-    case "doc":
-      return children.trim();
-    case "paragraph":
-      return `${children}\n\n`;
-    case "heading":
-      return `${"#".repeat(node.attrs?.level || 1)} ${children}\n\n`;
-    case "blockquote":
-      return children
-        .trim()
-        .split("\n")
-        .map((line) => `> ${line}`)
-        .join("\n") + "\n\n";
-    case "bulletList":
-    case "orderedList":
-    case "taskList":
-      return `${children}\n`;
-    case "listItem":
-      return `- ${children.trim()}\n`;
-    case "taskItem":
-      return `- [${node.attrs?.checked ? "x" : " "}] ${children.trim()}\n`;
-    case "codeBlock":
-      return `\`\`\`${node.attrs?.language || ""}\n${children}\n\`\`\`\n\n`;
-    case "horizontalRule":
-      return "---\n\n";
-    case "hardBreak":
-      return "  \n";
-    case "linkedTask":
-      return `- [${node.attrs?.checked ? "x" : " "}] ${
-        node.attrs?.title || "关联事项"
-      }\n`;
-    case "detailsSummary":
-      return `**${children.trim()}**\n\n`;
-    case "detailsContent":
-      return children;
-    case "details":
-      return children;
-    default:
-      return children;
-  }
-}
-
-function safeFilename(value) {
-  return (
-    String(value || "未命名文档")
-      .replace(/[\\/:*?"<>|]/g, "-")
-      .trim()
-      .slice(0, 80) || "未命名文档"
-  );
-}
-
-export default {
-  name: "FocusDocumentsView",
-  components: {
-    FocusFolderPicker,
-    FocusDocumentPane,
-    FocusDocumentModal,
-    FocusDocumentTree,
-    FocusDirectoryManager,
-  },
-  emits: ["open-week", "open-task-detail"],
-  data() {
-    return {
-      documents: [],
-      openIds: [],
-      columns: 3,
-      search: "",
-      modalDocument: null,
-      modalIsNew: false,
-      treeVisible: false,
-      selectedFolderId: null,
-      draggedDocumentId: null,
-      emptyDropIndex: null,
-      moveDialogDocument: null,
-      moveFolderId: "__root__",
-      moveFolders: [],
-      moveSaving: false,
-    };
-  },
-  computed: {
-    filteredDocuments() {
-      const terms = this.search
-        .toLowerCase()
-        .split(/\s+/)
-        .filter(Boolean);
-
-      if (!terms.length) return this.documents;
-
-      return this.documents.filter((document) => {
-        const text = [
-          document.title,
-          ...(document.tags || []),
-          extractText(document.content),
-          document.linkedTaskText || "",
-        ]
-          .join(" ")
-          .toLowerCase();
-
-        return terms.every((term) => text.includes(term));
-      });
-    },
-
-    visiblePickerDocuments() {
-      if (!this.selectedFolderId) {
-        return this.filteredDocuments;
-      }
-
-      if (this.selectedFolderId === "__root__") {
-        return this.filteredDocuments.filter(
-          (document) => !document.folderId
-        );
-      }
-
-      return this.filteredDocuments.filter(
-        (document) =>
-          document.folderId === this.selectedFolderId
-      );
-    },
-  },
-  watch: {
-    columns(value) {
-      localStorage.setItem(
-        "focusDocumentColumns",
-        String(value)
-      );
-    },
-
-    openIds: {
-      deep: true,
-      handler(value) {
-        localStorage.setItem(
-          "focusDocumentOpenIds",
-          JSON.stringify(value)
-        );
-      },
-    },
-  },
-  async mounted() {
-    const savedColumns = Number(
-      localStorage.getItem("focusDocumentColumns")
-    );
-
-    if (savedColumns >= 1 && savedColumns <= 4) {
-      this.columns = savedColumns;
-    }
-
-    try {
-      const ids = JSON.parse(
-        localStorage.getItem("focusDocumentOpenIds") || "[]"
-      );
-      this.openIds = Array.isArray(ids) ? ids : [];
-    } catch {
-      this.openIds = [];
-    }
-
-    await focusTaskService.initializeTaskIds();
-    await this.reload();
-
-    window.addEventListener(
-      "weektodo:focus-refresh",
-      this.reload
-    );
-    window.addEventListener("focus", this.reload);
-  },
-  beforeUnmount() {
-    window.removeEventListener(
-      "weektodo:focus-refresh",
-      this.reload
-    );
-    window.removeEventListener("focus", this.reload);
-  },
-  methods: {
-    toggleDirectory() {
-      this.treeVisible = !this.treeVisible;
-    },
-
-    closeDirectory() {
-      this.treeVisible = false;
-
-      this.$nextTick(() => {
-        this.$refs.directoryButton?.focus();
-      });
-    },
-
-    openDirectoryDocument({ id, index }) {
-      this.selectDocument(id, index);
-    },
-
-    createFromDirectory(folderId) {
-      this.closeDirectory();
-      this.createDocument(folderId);
-    },
-
-    clearEmptyDrag(index, event) {
-      if (
-        this.emptyDropIndex === index &&
-        !event.currentTarget.contains(event.relatedTarget)
-      ) {
-        this.emptyDropIndex = null;
-      }
-    },
-
-    async dropIntoPane(index, event) {
-      this.emptyDropIndex = null;
-      await this.dropPane(index, event);
-    },
-
-    async reload() {
-      const documents =
-        await focusDocumentService.listDocuments();
-
-      this.documents = await Promise.all(
-        documents.map(async (document) => ({
-          ...document,
-          linkedTaskText:
-            await focusTaskService.getLinkedTaskText(
-              document.id
-            ),
-        }))
-      );
-
-      const existing = new Set(
-        this.documents.map((item) => item.id)
-      );
-
-      this.openIds = this.openIds.filter((id) =>
-        existing.has(id)
-      );
-    },
-
-    documentForPane(index) {
-      const id = this.openIds[index];
-
-      return (
-        this.documents.find((item) => item.id === id) ||
-        null
-      );
-    },
-
-    selectDocument(id, index) {
-      const next = Array.from(
-        { length: this.columns },
-        (_, paneIndex) =>
-          this.openIds[paneIndex] || null
-      );
-
-      const sourceIndex = next.indexOf(id);
-      const targetId = next[index];
-
-      if (sourceIndex >= 0 && sourceIndex !== index) {
-        next[sourceIndex] = targetId || null;
-      }
-
-      next[index] = id;
-
-      while (next.length && !next[next.length - 1]) {
-        next.pop();
-      }
-
-      this.openIds = next;
-    },
-
-    openDocumentFromTree(id) {
-      this.treeVisible = false;
-      if (this.openIds.includes(id)) return;
-
-      const next = [...this.openIds];
-      const emptyIndex = Array.from(
-        { length: this.columns },
-        (_, index) => index
-      ).find((index) => !next[index]);
-
-      next[emptyIndex ?? 0] = id;
-      this.openIds = next;
-    },
-
+},
     createDocument(folderId = undefined) {
       this.modalIsNew = true;
 

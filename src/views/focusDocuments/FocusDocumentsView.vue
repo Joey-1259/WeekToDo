@@ -3,7 +3,10 @@
     <header class="focus-workspace-header">
       <div>
         <h1>重点事项</h1>
-        <span>{{ documents.length }} 篇文档</span>
+        <span>
+          {{ openIds.length }} 个工作区文档
+          · {{ documents.length }} 篇全部文档
+        </span>
       </div>
 
       <div class="focus-workspace-actions">
@@ -34,7 +37,7 @@
               v-if="treeVisible"
               :documents="documents"
               :open-ids="openIds"
-              :columns="columns"
+              :columns="visibleColumnCount"
               @close="closeDirectory"
               @changed="reload"
               @open-in-pane="openDirectoryDocument"
@@ -43,15 +46,49 @@
           </Teleport>
         </div>
 
-        <select v-model.number="columns">
-          <option :value="1">1 列</option>
-          <option :value="2">2 列</option>
-          <option :value="3">3 列</option>
-          <option :value="4">4 列</option>
-        </select>
+        <div
+          class="focus-page-navigation"
+          role="group"
+          aria-label="工作区翻页"
+        >
+          <button
+            type="button"
+            class="focus-page-button"
+            :disabled="pageIndex <= 0"
+            aria-label="上一页"
+            title="上一页"
+            @click="changePage(pageIndex - 1)"
+          >
+            ‹
+          </button>
 
-        <button class="primary" @click="createDocument()">
-          ＋ 新建文档
+          <span
+            class="focus-page-status"
+            aria-live="polite"
+          >
+            {{ pageIndex + 1 }} / {{ pageCount }}
+          </span>
+
+          <button
+            type="button"
+            class="focus-page-button"
+            :disabled="pageIndex >= pageCount - 1"
+            aria-label="下一页"
+            title="下一页"
+            @click="changePage(pageIndex + 1)"
+          >
+            ›
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="primary focus-create-icon"
+          aria-label="新建文档"
+          title="新建文档"
+          @click="createDocument()"
+        >
+          ＋
         </button>
       </div>
     </header>
@@ -61,30 +98,46 @@
 
       <section
         class="focus-grid"
-        :style="{ '--columns': columns }"
+        :style="{ '--columns': visibleColumnCount }"
+        role="region"
+        aria-label="重点事项分页工作区"
       >
-        <template v-for="index in columns" :key="index">
+        <template
+          v-for="index in visibleColumnCount"
+          :key="`${pageIndex}-${index}`"
+        >
           <FocusDocumentPane
-            v-if="documentForPane(index - 1)"
-            :document="documentForPane(index - 1)"
-            :can-swap-left="index > 1"
-            :can-swap-right="index < columns"
+            v-if="documentForPane(globalPaneIndex(index - 1))"
+            ref="visiblePanes"
+            :document="documentForPane(globalPaneIndex(index - 1))"
+            :can-swap-left="
+              globalPaneIndex(index - 1) > 0
+            "
+            :can-swap-right="
+              globalPaneIndex(index - 1) <
+              openIds.length - 1
+            "
             @pane-dragstart="
               startPaneDrag(
                 $event,
-                documentForPane(index - 1).id
+                documentForPane(globalPaneIndex(index - 1)).id
               )
             "
             @pane-dragend="endPaneDrag"
             @dragover.prevent
-            @drop="dropPane(index - 1, $event)"
+            @drop="
+              dropVisiblePane(index - 1, $event)
+            "
             @saved="replaceDocument"
             @edit="editDocument"
             @document-action="handleDocumentAction"
             @open-task="openTask"
             @jump-task="jumpTask"
             @create-task="createLinkedTask"
-            @swap="swapPane(index - 1, $event)"
+            @manage="openWorkspaceManager"
+            @swap="
+              swapVisiblePane(index - 1, $event)
+            "
           />
 
           <div
@@ -97,7 +150,9 @@
             @dragleave="
               clearEmptyDrag(index - 1, $event)
             "
-            @drop="dropIntoPane(index - 1, $event)"
+            @drop="
+              dropIntoVisiblePane(index - 1, $event)
+            "
           >
             <div class="focus-empty-state">
               <span
@@ -117,7 +172,10 @@
                 :open-ids="openIds"
                 :selected-folder-id="selectedFolderId"
                 @open-document="
-                  selectDocument($event, index - 1)
+                  selectDocument(
+                    $event,
+                    globalPaneIndex(index - 1)
+                  )
                 "
               />
 
@@ -133,6 +191,16 @@
         </template>
       </section>
     </div>
+
+    <Teleport to="body">
+      <FocusWorkspaceManager
+        v-if="workspaceManagerVisible"
+        :documents="documents"
+        :open-ids="openIds"
+        @close="closeWorkspaceManager"
+        @save="saveWorkspaceManagement"
+      />
+    </Teleport>
 
     <FocusDocumentModal
       v-if="modalDocument"
@@ -227,6 +295,7 @@ import FocusDocumentPane from "./FocusDocumentPane.vue";
 import FocusDocumentModal from "./FocusDocumentModal.vue";
 import FocusDocumentTree from "./FocusDocumentTree.vue";
 import FocusDirectoryManager from "./FocusDirectoryManager.vue";
+import FocusWorkspaceManager from "./FocusWorkspaceManager.vue";
 import FocusFolderPicker from "./FocusFolderPicker.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 import focusFolderService from "../../services/focusFolderService";
@@ -336,13 +405,15 @@ export default {
     FocusDocumentModal,
     FocusDocumentTree,
     FocusDirectoryManager,
+    FocusWorkspaceManager,
   },
   emits: ["open-week", "open-task-detail"],
   data() {
     return {
       documents: [],
       openIds: [],
-      columns: 3,
+      pageIndex: 0,
+      workspaceManagerVisible: false,
       search: "",
       modalDocument: null,
       modalIsNew: false,
@@ -357,6 +428,35 @@ export default {
     };
   },
   computed: {
+    visibleColumnCount() {
+      return 3;
+    },
+
+    pageCount() {
+      return Math.max(
+        1,
+        Math.ceil(
+          this.openIds.length /
+            this.visibleColumnCount
+        )
+      );
+    },
+
+    pageStartIndex() {
+      return (
+        this.pageIndex *
+        this.visibleColumnCount
+      );
+    },
+
+    visibleOpenIds() {
+      return this.openIds.slice(
+        this.pageStartIndex,
+        this.pageStartIndex +
+          this.visibleColumnCount
+      );
+    },
+
     filteredDocuments() {
       const terms = this.search
         .toLowerCase()
@@ -397,13 +497,6 @@ export default {
     },
   },
   watch: {
-    columns(value) {
-      localStorage.setItem(
-        "focusDocumentColumns",
-        String(value)
-      );
-    },
-
     openIds: {
       deep: true,
       handler(value) {
@@ -411,16 +504,39 @@ export default {
           "focusDocumentOpenIds",
           JSON.stringify(value)
         );
+
+        this.pageIndex = Math.min(
+          this.pageIndex,
+          Math.max(
+            0,
+            Math.ceil(
+              value.length /
+                this.visibleColumnCount
+            ) - 1
+          )
+        );
       },
+    },
+
+    pageIndex(value) {
+      localStorage.setItem(
+        "focusDocumentPageIndex",
+        String(value)
+      );
     },
   },
   async mounted() {
-    const savedColumns = Number(
-      localStorage.getItem("focusDocumentColumns")
+    const savedPage = Number(
+      localStorage.getItem(
+        "focusDocumentPageIndex"
+      )
     );
 
-    if (savedColumns >= 1 && savedColumns <= 4) {
-      this.columns = savedColumns;
+    if (
+      Number.isInteger(savedPage) &&
+      savedPage >= 0
+    ) {
+      this.pageIndex = savedPage;
     }
 
     try {
@@ -449,6 +565,159 @@ export default {
     window.removeEventListener("focus", this.reload);
   },
   methods: {
+    globalPaneIndex(localIndex) {
+      return (
+        this.pageStartIndex +
+        Number(localIndex)
+      );
+    },
+
+    async flushVisiblePanes() {
+      const source = this.$refs.visiblePanes;
+      const panes = Array.isArray(source)
+        ? source
+        : source
+          ? [source]
+          : [];
+
+      await Promise.all(
+        panes.map((pane) =>
+          pane?.flushSave?.()
+        )
+      );
+    },
+
+    async changePage(nextPage) {
+      const target = Math.max(
+        0,
+        Math.min(
+          this.pageCount - 1,
+          Number(nextPage)
+        )
+      );
+
+      if (target === this.pageIndex) return;
+
+      await this.flushVisiblePanes();
+      this.pageIndex = target;
+    },
+
+    async dropVisiblePane(
+      localIndex,
+      event
+    ) {
+      await this.flushVisiblePanes();
+
+      return this.dropPane(
+        this.globalPaneIndex(localIndex),
+        event
+      );
+    },
+
+    async dropIntoVisiblePane(
+      localIndex,
+      event
+    ) {
+      await this.flushVisiblePanes();
+
+      return this.dropIntoPane(
+        this.globalPaneIndex(localIndex),
+        event
+      );
+    },
+
+    async swapVisiblePane(
+      localIndex,
+      step
+    ) {
+      await this.flushVisiblePanes();
+
+      const target =
+        this.globalPaneIndex(localIndex) +
+        Number(step);
+
+      this.swapPane(
+        this.globalPaneIndex(localIndex),
+        step
+      );
+
+      if (
+        target >= 0 &&
+        target < this.openIds.length
+      ) {
+        this.pageIndex = Math.floor(
+          target /
+            this.visibleColumnCount
+        );
+      }
+    },
+
+    async openWorkspaceManager() {
+      await this.flushVisiblePanes();
+      this.workspaceManagerVisible = true;
+    },
+
+    closeWorkspaceManager() {
+      this.workspaceManagerVisible = false;
+    },
+
+    async saveWorkspaceManagement(
+      payload
+    ) {
+      const orderedIds = Array.isArray(
+        payload?.orderedIds
+      )
+        ? payload.orderedIds
+        : [];
+
+      const openIds = Array.isArray(
+        payload?.openIds
+      )
+        ? payload.openIds
+        : [];
+
+      const pinnedIds = new Set(
+        Array.isArray(payload?.pinnedIds)
+          ? payload.pinnedIds
+          : []
+      );
+
+      try {
+        await Promise.all(
+          this.documents.map((document) => {
+            const pinned = pinnedIds.has(
+              document.id
+            );
+
+            if (
+              pinned ===
+              Boolean(document.pinned)
+            ) {
+              return Promise.resolve();
+            }
+
+            return focusDocumentService
+              .updateDocument(
+                document.id,
+                { pinned }
+              );
+          })
+        );
+
+        await focusDocumentService
+          .reorderDocuments(orderedIds);
+
+        this.openIds = openIds;
+        this.workspaceManagerVisible = false;
+
+        await this.reload();
+      } catch (error) {
+        console.error(error);
+        window.alert(
+          "保存工作区排列失败，请重试。"
+        );
+      }
+    },
     toggleDirectory() {
       this.treeVisible = !this.treeVisible;
     },
@@ -511,8 +780,9 @@ export default {
       const id = this.openIds[index];
 
       return (
-        this.documents.find((item) => item.id === id) ||
-        null
+        this.documents.find(
+          (item) => item.id === id
+        ) || null
       );
     },
 
@@ -541,16 +811,27 @@ export default {
 
     openDocumentFromTree(id) {
       this.treeVisible = false;
-      if (this.openIds.includes(id)) return;
 
-      const next = [...this.openIds];
-      const emptyIndex = Array.from(
-        { length: this.columns },
-        (_, index) => index
-      ).find((index) => !next[index]);
+      const existingIndex =
+        this.openIds.indexOf(id);
 
-      next[emptyIndex ?? 0] = id;
-      this.openIds = next;
+      if (existingIndex >= 0) {
+        this.pageIndex = Math.floor(
+          existingIndex /
+            this.visibleColumnCount
+        );
+        return;
+      }
+
+      this.openIds = [
+        ...this.openIds,
+        id,
+      ];
+
+      this.pageIndex = Math.floor(
+        (this.openIds.length - 1) /
+          this.visibleColumnCount
+      );
     },
 
     createDocument(folderId = undefined) {
@@ -1686,4 +1967,69 @@ export default {
   font-size: 10px;
   line-height: 1.55;
 }
+
+/* FOCUS_WORKSPACE_PAGINATION_20260908_V3 */
+.focus-page-navigation {
+  display: inline-grid;
+  height: var(--focus-control-height);
+  grid-template-columns: 34px 54px 34px;
+  align-items: center;
+  border: 1px solid #dfe3e8;
+  border-radius: 9px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.focus-workspace-actions .focus-page-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #626b76;
+  font-size: 20px;
+}
+
+.focus-workspace-actions
+.focus-page-button:hover:not(:disabled) {
+  background: #eef1f5;
+  color: #4263eb;
+}
+
+.focus-page-button:disabled {
+  cursor: default;
+  opacity: 0.32;
+}
+
+.focus-page-status {
+  color: #747c87;
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.focus-workspace-actions
+.focus-create-icon {
+  width: var(--focus-control-height);
+  min-width: var(--focus-control-height);
+  padding: 0;
+  font-size: 21px;
+}
+
+.dark-theme .focus-page-navigation {
+  border-color: #343b45;
+  background: #161b22;
+}
+
+.dark-theme
+.focus-workspace-actions
+.focus-page-button {
+  color: #cbd1d8;
+}
+
+.dark-theme .focus-page-status {
+  color: #aeb5be;
+}
+
 </style>

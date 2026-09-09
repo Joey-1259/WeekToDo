@@ -183,6 +183,22 @@
 
       <button
         type="button"
+        class="focus-pane-manage"
+        title="排列工作区文档"
+        aria-label="打开工作区排列"
+        @click="$emit('manage')"
+      >
+        <svg
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+        >
+          <path d="M3 4h7M3 8h10M3 12h5" />
+          <path d="m11 2 2 2-2 2" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
         class="focus-pane-swap"
         :disabled="!canSwapRight"
         :aria-disabled="String(!canSwapRight)"
@@ -229,6 +245,7 @@ export default {
     "open-task",
     "jump-task",
     "create-task",
+    "manage",
     "swap",
     "pane-dragstart",
     "pane-dragend",
@@ -238,6 +255,8 @@ export default {
       localTitle: this.document.title,
       localContent: this.document.content,
       timer: null,
+      pendingPatch: {},
+      savePromise: null,
       saveState: "saved",
       menuVisible: false,
       menuStyle: {},
@@ -279,7 +298,7 @@ export default {
     );
   },
   beforeUnmount() {
-    clearTimeout(this.timer);
+    void this.flushSave();
     document.removeEventListener(
       "mousedown",
       this.closeDocumentMenu
@@ -399,24 +418,100 @@ export default {
     },
 
     scheduleSave(patch) {
+      this.pendingPatch = {
+        ...this.pendingPatch,
+        ...patch,
+      };
+
       this.saveState = "saving";
       clearTimeout(this.timer);
 
-      this.timer = setTimeout(async () => {
-        try {
-          const saved =
-            await focusDocumentService.updateDocument(
-              this.document.id,
-              patch
-            );
-
-          this.saveState = "saved";
-          this.$emit("saved", saved);
-        } catch (error) {
-          console.error(error);
-          this.saveState = "failed";
-        }
+      this.timer = setTimeout(() => {
+        this.timer = null;
+        void this.persistPendingSave();
       }, 800);
+    },
+
+    async persistPendingSave() {
+      if (this.savePromise) {
+        await this.savePromise.catch(
+          () => null
+        );
+
+        if (
+          Object.keys(
+            this.pendingPatch
+          ).length
+        ) {
+          return this.persistPendingSave();
+        }
+
+        return null;
+      }
+
+      if (
+        !Object.keys(
+          this.pendingPatch
+        ).length
+      ) {
+        return null;
+      }
+
+      const patch = {
+        ...this.pendingPatch,
+      };
+
+      this.pendingPatch = {};
+      this.saveState = "saving";
+
+      this.savePromise =
+        focusDocumentService.updateDocument(
+          this.document.id,
+          patch
+        );
+
+      try {
+        const saved =
+          await this.savePromise;
+
+        this.saveState = "saved";
+        this.$emit("saved", saved);
+
+        return saved;
+      } catch (error) {
+        console.error(error);
+
+        this.pendingPatch = {
+          ...patch,
+          ...this.pendingPatch,
+        };
+
+        this.saveState = "failed";
+        return null;
+      } finally {
+        this.savePromise = null;
+      }
+    },
+
+    async flushSave() {
+      clearTimeout(this.timer);
+      this.timer = null;
+
+      if (this.savePromise) {
+        await this.savePromise.catch(
+          () => null
+        );
+      }
+
+      if (
+        Object.keys(
+          this.pendingPatch
+        ).length
+      ) {
+        return this.persistPendingSave();
+      }
+
+      return null;
     },
 
     requestTask() {
@@ -1139,4 +1234,50 @@ export default {
     min-width: 22px;
   }
 }
+
+/* FOCUS_WORKSPACE_MANAGER_TRIGGER_20260908_V3 */
+.focus-pane-footer {
+  grid-template-columns:
+    32px minmax(0, 1fr) 32px 32px;
+}
+
+.focus-pane-manage {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  margin: auto;
+  place-items: center;
+  padding: 0;
+  border-radius: 6px;
+  color: #8e959f;
+  cursor: pointer;
+}
+
+.focus-pane-manage svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.45;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.focus-pane-manage:hover {
+  background: #eceff3;
+  color: #4263eb;
+}
+
+.focus-pane-manage:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px
+    rgba(66, 99, 235, 0.25);
+}
+
+.dark-theme .focus-pane-manage:hover {
+  background: #252c35;
+  color: #8fa5ee;
+}
+
 </style>

@@ -778,4 +778,22 @@ body.focus-resizing {
 body.focus-resizing * {
   cursor: col-resize !important;
 }
+
+/* FOCUS_UI_SYSTEM_20260911_V6
+   tail rail 原本 34px，而首列前的 rail 是 16px，导致看板左右不对称：
+   最后一张卡片离右边 58px、第一张离左边 40px。统一到 16px 之后，
+   卡片区左右都是 gutter + rail = 40px，与头部完全同基线。
+   22px 的 + 按钮会向 24px 的 gutter 里溢出 3px，视觉上正好
+   悬在页面留白中，不与卡片抢边界。 */
+.focus-rail.is-tail {
+  width: var(--focus-rail, 16px);
+  flex: 0 0 var(--focus-rail, 16px);
+}
+
+/* 空态卡也对齐到同一条基线，否则"没有分栏"和"有分栏"
+   两个状态之间会出现 16px 的横向跳动。 */
+.focus-board.is-empty {
+  margin: 0 var(--focus-rail, 16px);
+  background: #fcfcfd;
+}
 </style>

@@ -75,6 +75,7 @@ import financialAccountService, {
   ACCOUNT_KINDS,
   DEFAULT_ACCOUNT_ID,
 } from "../../services/financialAccountService";
+import financialSnapshotRepository from "../../repositories/financialSnapshotRepository";
 
 export default {
   name: "FundsAccountManagerDialog",
@@ -116,6 +117,15 @@ export default {
       );
 
       if (!ok) return;
+
+      /* FOCUS_UI_SYSTEM_20260911_V6-reassign
+         顺序很重要：先把明细改挂默认账户，再删账户。反过来会留下
+         accountId 指向已不存在账户的明细，分账小计里就会冒出一个
+         叫"未归属"的匿名分组，且各账户净额之和不再等于总净资产。 */
+      financialSnapshotRepository.reassignAccount(
+        account.id,
+        DEFAULT_ACCOUNT_ID
+      );
 
       financialAccountService.remove(account.id);
       this.refresh();

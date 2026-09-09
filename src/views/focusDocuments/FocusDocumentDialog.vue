@@ -123,9 +123,13 @@
           </Teleport>
         </div>
 
+        <!-- FOCUS_UI_SYSTEM_20260911_V6
+          原本一行塞了三条快捷键。提示位一次只教一件事，
+          三条并列等于零条——用户不会在写作时停下来读一排 kbd。
+          留最高频的 /，格式刷与 esc 交给工具栏悬停提示。 -->
         <span class="focus-dialog-hint">
-          <kbd>/</kbd> 插入内容 · <kbd>⌘</kbd><kbd>⌥</kbd><kbd>C</kbd>
-          取样格式 · <kbd>esc</kbd> 关闭
+          <kbd>/</kbd>
+          <span>插入进阶内容</span>
         </span>
       </footer>
     </section>
@@ -686,5 +690,38 @@ export default {
   border-color: #3a424d;
   background: #20262e;
   color: #d8dde3;
+}
+
+/* FOCUS_UI_SYSTEM_20260911_V6
+   全屏态的提示钉在 footer 右下角，和分栏卡底部的提示同一套量值，
+   两种形态之间切换时这条线不会跳。 */
+.focus-dialog-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: #aeb4bd;
+  font-size: 10.5px;
+}
+
+.focus-dialog-hint kbd {
+  display: inline-grid;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  padding: 0 4px;
+  border: 1px solid #e2e6ec;
+  border-radius: 4px;
+  background: #fff;
+  color: #868d96;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.dark-theme .focus-dialog-hint kbd {
+  border-color: #39414c;
+  background: #20262e;
+  color: #9aa1ab;
 }
 </style>

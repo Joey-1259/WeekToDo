@@ -63,15 +63,33 @@
           </button>
 
           <Teleport to="body">
-            <FocusDirectoryManager
+            <!-- FOCUS_UI_SYSTEM_20260911_V6
+              旧版左右双栏（左目录 / 右该目录下的文档）把层级关系藏了起来，
+              而层级正是目录唯一要表达的东西。新版单一树：目录与文档同处
+              一棵树，文档就是目录的子节点——Notion / 语雀都是这个形态。
+
+              排序从 ··· 菜单里的"向上 / 向下移动"改为拖拽三段落点：
+              上缘=排在它前面，中间=放进它里面，下缘=排在它后面。
+              一个手势覆盖三个旧菜单项。
+
+              事件由 focusDirectoryBridge mixin 实现，move-* 事件带
+              beforeId / afterId 并真正落地 reorder，不是只移动不排序。 -->
+            <FocusDirectoryBrowser
               v-if="treeVisible"
+              :folders="folders"
               :documents="documents"
               :open-ids="openIds"
-              :columns="layout.pageSize"
+              :selected-folder-id="selectedFolderId"
               @close="closeDirectory"
-              @changed="reload"
-              @open-in-pane="openDirectoryDocument"
-              @create-document="createFromDirectory"
+              @open-document="openDirectoryDocument"
+              @select-folder="fdSelectFolder"
+              @create-folder="fdCreateFolder"
+              @rename-folder="fdRenameFolder"
+              @delete-folder="fdDeleteFolder"
+              @rename-document="fdRenameDocument"
+              @delete-document="fdDeleteDocument"
+              @move-document="fdMoveDocument"
+              @move-folder="fdMoveFolder"
             />
           </Teleport>
         </div>
@@ -1345,5 +1363,47 @@ export default {
 .focus-workspace-header :deep(.module-header) {
   min-height: 56px;
   margin-bottom: 0;
+}
+
+/* FOCUS_UI_SYSTEM_20260911_V6
+   一、底色统一为白。层次交给 1px 分隔线，而不是灰底色块——
+      白底上的浅灰区块会读成"另一个面板"，把一个模块视觉切成两半。
+
+   二、单一基线。看板结构是「rail → 列 → rail → 列 → tail rail」，
+      第一列前面也有一条 rail，所以卡片左边界 = 24 + 16 = 40px，
+      而头部图标在 24 + 2 = 26px，右侧 tail rail 34px 又让最后一张
+      卡片离右边 58px。左差 14、右差 32 且不对称——这就是肉眼看到的
+      "右边缺一块"。修法不是微调 padding，而是让头部内缩一个 rail 宽，
+      并把 tail rail 统一到 16px（见 FocusColumnBoard 的追加块）。
+      于是三者共用同一条 40px 基线。 */
+.focus-workspace {
+  --focus-gutter: 24px;
+  --focus-rail: 16px;
+
+  padding: 14px var(--focus-gutter) 16px;
+  background: #ffffff;
+}
+
+.focus-workspace-header {
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0 var(--focus-rail) 10px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.focus-workspace-header :deep(.module-header) {
+  min-height: 52px;
+  margin-bottom: 0;
+}
+
+/* 搜索浮层跟着头部内缩，否则它的左边界会比搜索框还靠外。 */
+.focus-search-results {
+  box-shadow:
+    0 14px 38px rgba(24, 29, 38, 0.14),
+    0 2px 7px rgba(24, 29, 38, 0.06);
+}
+
+.dark-theme .focus-workspace-header {
+  border-color: #262d36;
 }
 </style>

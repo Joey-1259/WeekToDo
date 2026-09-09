@@ -113,7 +113,19 @@
         <span>{{ folderPath }}</span>
       </button>
 
-      <span class="focus-column-meta">{{ wordCount }} 字</span>
+      <!-- FOCUS_UI_SYSTEM_20260911_V6
+        字数在个人文稿场景里不驱动任何决策，却占着底部最后一条
+        视觉线。把这个位置让给 / 提示：斜杠命令是编辑器里最有价值
+        的能力，而它零可发现性——不说，用户就永远不知道有这回事。 -->
+      <button
+        type="button"
+        class="focus-column-hint"
+        title="聚焦编辑器"
+        @click="focusEditor"
+      >
+        <kbd>/</kbd>
+        <span>插入进阶内容</span>
+      </button>
     </footer>
 
     <Teleport to="body">
@@ -281,6 +293,12 @@ export default {
 
     focusTitle() {
       this.$refs.title?.focus();
+    },
+
+    /* FOCUS_UI_SYSTEM_20260911_V6：底部提示点一下就把光标放进正文，
+       提示本身即入口，而不是一句只能读的说明。 */
+    focusEditor() {
+      this.$refs.editor?.focus();
     },
 
     onTitleStyle(styles) {
@@ -683,5 +701,59 @@ export default {
 
 .dark-theme .focus-column-menu .menu-divider {
   background: #333a44;
+}
+
+/* FOCUS_UI_SYSTEM_20260911_V6 */
+.focus-column-meta {
+  display: none;
+}
+
+.focus-column-hint {
+  display: inline-flex;
+  min-width: 0;
+  height: 24px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #aeb4bd;
+  font-family: inherit;
+  font-size: 10.5px;
+  white-space: nowrap;
+  cursor: text;
+  transition: color 0.14s ease, background-color 0.14s ease;
+}
+
+.focus-column-hint:hover {
+  background: #f1f3f6;
+  color: #6d747e;
+}
+
+.focus-column-hint kbd {
+  display: inline-grid;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  padding: 0 4px;
+  border: 1px solid #e2e6ec;
+  border-radius: 4px;
+  background: #fff;
+  color: #868d96;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.dark-theme .focus-column-hint:hover {
+  background: #252c35;
+}
+
+.dark-theme .focus-column-hint kbd {
+  border-color: #39414c;
+  background: #20262e;
+  color: #9aa1ab;
 }
 </style>

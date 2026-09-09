@@ -44,20 +44,41 @@
           </div>
         </header>
 
+        <!-- FOCUS_UI_SYSTEM_20260911_V6
+          账户是互斥的归属维度：一条明细只能挂一个 accountId。
+          它与"应急金 / 教育储备"这类多值用途标签是两条正交轴，
+          混成一个标签，合并统计时必然出现"算一次还是两次"的歧义。
+          正因为互斥，各账户净额相加才恒等于「全部」口径的净资产。 -->
+        <div class="funds-scope-host">
+          <FundsAccountScopeBar
+            :accounts="faAccounts"
+            :scope="faScope"
+            :snapshot="faActiveSnapshot"
+            @update:scope="faSetScope"
+            @manage="faManagerOpen = true"
+          />
+        </div>
+
+        <FundsAccountManagerDialog
+          v-if="faManagerOpen"
+          @close="faManagerOpen = false"
+          @changed="faReloadAccounts"
+        />
+
         <div class="funds-summary">
           <div class="summary-card">
             <span>总资产</span>
-            <strong>{{ formatMoney(assetTotal) }}</strong>
+            <strong>{{ formatMoney(faScopedSummary.assetTotal) }}</strong>
           </div>
 
           <div class="summary-card">
             <span>总负债</span>
-            <strong>{{ formatMoney(liabilityTotal) }}</strong>
+            <strong>{{ formatMoney(faScopedSummary.liabilityTotal) }}</strong>
           </div>
 
           <div class="summary-card is-primary">
             <span>净资产</span>
-            <strong>{{ formatMoney(netWorth) }}</strong>
+            <strong>{{ formatMoney(faScopedSummary.netWorth) }}</strong>
           </div>
 
           <div class="summary-card">
@@ -87,67 +108,11 @@
             </span>
           </div>
 
-          <div
-            v-if="chartPoints.length < 2"
-            class="chart-empty"
-          >
-            再记录一个时间节点后，这里会呈现变化趋势
-          </div>
-
-          <svg
-            v-else
-            class="trend-chart"
-            viewBox="0 0 720 130"
-            preserveAspectRatio="none"
-            aria-label="净资产变化趋势图"
-          >
-            <defs>
-              <linearGradient
-                id="fundAreaGradient"
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
-                <stop
-                  offset="0%"
-                  stop-color="#4263eb"
-                  stop-opacity="0.25"
-                />
-                <stop
-                  offset="100%"
-                  stop-color="#4263eb"
-                  stop-opacity="0"
-                />
-              </linearGradient>
-            </defs>
-
-            <path
-              :d="chartAreaPath"
-              fill="url(#fundAreaGradient)"
-            />
-
-            <polyline
-              :points="chartPolyline"
-              fill="none"
-              stroke="#4263eb"
-              stroke-width="3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-
-            <circle
-              v-for="point in chartPoints"
-              :key="point.id"
-              :cx="point.x"
-              :cy="point.y"
-              r="5"
-              :class="{
-                selected: point.id === selectedId,
-              }"
-              @click="selectSnapshotById(point.id)"
-            />
-          </svg>
+          <!-- FOCUS_UI_SYSTEM_20260911_V6
+            图形类型随样本数自适应，这是可视化通则而非本项目特例：
+            1 点 → 资产构成条；2 点 → 哑铃对比（说清"各是多少 + 差多少"）；
+            3 点以上 → 带零基线的面积折线。 -->
+          <FundsTrendChart :series="faTrendSeries" />
         </div>
 
         <div class="funds-body">
@@ -273,6 +238,14 @@
                       placeholder="资产名称"
                     />
 
+                    <!-- FOCUS_UI_SYSTEM_20260911_V6：归属账户就地可改，
+                         不必为了分账跳去另一个界面。 -->
+                    <FundsRowAccount
+                      :model-value="faRowAccount(item)"
+                      :accounts="faAccounts"
+                      @update:model-value="faAssignRow(item, $event)"
+                    />
+
                     <div class="amount-input">
                       <span>¥</span>
                       <input
@@ -326,6 +299,12 @@
                       v-model.trim="item.name"
                       type="text"
                       placeholder="负债名称"
+                    />
+
+                    <FundsRowAccount
+                      :model-value="faRowAccount(item)"
+                      :accounts="faAccounts"
+                      @update:model-value="faAssignRow(item, $event)"
                     />
 
                     <div class="amount-input">
@@ -498,7 +477,11 @@
 <script>
 import moment from "moment";
 import financialSnapshotRepository from "../../repositories/financialSnapshotRepository";
+import { DEFAULT_ACCOUNT_ID } from "../../services/financialAccountService";
 
+
+/* FOCUS_UI_SYSTEM_20260911_V6 */
+import fundsAccountMixin from "./fundsAccountMixin";
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -518,10 +501,19 @@ function createRow(prefix, values = {}) {
     name: values.name || "",
     amount: numberValue(values.amount),
     liquid: Boolean(values.liquid),
+    /* FOCUS_UI_SYSTEM_20260911_V6：新行必须带归属，空 accountId 会让
+       分账小计出现一个匿名分组。 */
+    accountId: values.accountId || DEFAULT_ACCOUNT_ID,
+    purposeTags: [],
   };
 }
 
 export default {
+  /* FOCUS_UI_SYSTEM_20260911_V6：mixin 内部已注册 components，
+     所以这里不需要动 import 与 components 两个列表——
+     那正是成员顺序敏感、正则最容易失配的位置。 */
+  mixins: [fundsAccountMixin],
+
   name: "FundsManagementModal",
 
   props: {
@@ -1498,5 +1490,34 @@ textarea {
     justify-content: start;
     overflow-x: auto;
   }
+}
+
+/* FOCUS_UI_SYSTEM_20260911_V6
+   范围条要和四张合计卡共用 20px 的左右基线，所以套一层
+   host 提供内边距，而不是让子组件自己猜宿主的排版。 */
+.funds-scope-host {
+  padding: 0 20px;
+}
+
+/* 明细行多了一个账户 chip：四列变五列。
+   chip 限宽 78px，保证 1120px 弹窗下两栏并排仍不换行。 */
+.money-row {
+  grid-template-columns:
+    minmax(72px, 1fr) auto 104px auto 20px;
+}
+
+.money-row.debt-row {
+  grid-template-columns: minmax(72px, 1fr) auto 104px 20px;
+}
+
+.money-row :deep(.fr-chip) {
+  max-width: 78px;
+}
+
+/* 自适应图表的三种形态高度不同，给一个下限
+   避免切换样本数时整个弹窗跳动。 */
+.funds-chart {
+  min-height: 172px;
+  padding: 11px 14px 10px;
 }
 </style>

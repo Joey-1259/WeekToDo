@@ -1,35 +1,69 @@
 <template>
   <main class="focus-workspace">
     <header class="focus-workspace-header">
-      <div>
+      <div class="focus-workspace-heading">
         <h1>重点事项</h1>
         <span>
-          {{ openIds.length }} 个工作区文档
-          · {{ documents.length }} 篇全部文档
+          {{ documents.length }} 篇文档 ·
+          {{ layout.columns.length }} 栏 ·
+          第 {{ layout.page + 1 }} / {{ pageCount }} 版面
         </span>
       </div>
 
       <div class="focus-workspace-actions">
-        <label class="focus-search">
-          <span>⌕</span>
-          <input
-            v-model.trim="search"
-            type="search"
-            placeholder="搜索标题、标签、正文、关联事项"
-          />
-        </label>
+        <div class="focus-search-anchor">
+          <label class="focus-search">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5" />
+              <path d="m13 13 4 4" />
+            </svg>
+            <input
+              v-model.trim="search"
+              type="text"
+              placeholder="查找文档，回车在新分栏中打开"
+              @focus="searchOpen = true"
+              @keydown.esc.stop.prevent="closeSearch"
+              @keydown.enter.prevent="openFirstSearchResult"
+            />
+          </label>
+
+          <div
+            v-if="searchOpen && search && searchResults.length"
+            class="focus-search-results"
+          >
+            <button
+              v-for="row in searchResults"
+              :key="row.id"
+              type="button"
+              @click="openFromSearch(row.id)"
+            >
+              <strong>{{ row.title || "未命名文档" }}</strong>
+              <small>{{ row.path }}</small>
+            </button>
+          </div>
+
+          <div
+            v-else-if="searchOpen && search"
+            class="focus-search-results is-empty"
+          >
+            没有匹配的文档
+          </div>
+        </div>
 
         <div class="focus-directory-anchor">
           <button
             ref="directoryButton"
             type="button"
+            class="focus-icon-button"
             :class="{ active: treeVisible }"
             :aria-expanded="String(treeVisible)"
             aria-haspopup="dialog"
             title="管理文档目录"
             @click.stop="toggleDirectory"
           >
-            ☷
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M3 5h5l1.5 2H17v8H3Z" />
+            </svg>
           </button>
 
           <Teleport to="body">
@@ -37,7 +71,7 @@
               v-if="treeVisible"
               :documents="documents"
               :open-ids="openIds"
-              :columns="visibleColumnCount"
+              :columns="layout.pageSize"
               @close="closeDirectory"
               @changed="reload"
               @open-in-pane="openDirectoryDocument"
@@ -47,167 +81,70 @@
         </div>
 
         <div
-          class="focus-page-navigation"
+          class="focus-pagesize"
           role="group"
-          aria-label="工作区翻页"
+          aria-label="每个版面的分栏数量"
         >
           <button
+            v-for="size in pageSizeOptions"
+            :key="size"
             type="button"
-            class="focus-page-button"
-            :disabled="pageIndex <= 0"
-            aria-label="上一页"
-            title="上一页"
-            @click="changePage(pageIndex - 1)"
+            :class="{ active: layout.pageSize === size }"
+            :title="`每个版面显示 ${size} 栏`"
+            :aria-pressed="String(layout.pageSize === size)"
+            @click="setPageSize(size)"
           >
-            ‹
-          </button>
-
-          <span
-            class="focus-page-status"
-            aria-live="polite"
-          >
-            {{ pageIndex + 1 }} / {{ pageCount }}
-          </span>
-
-          <button
-            type="button"
-            class="focus-page-button"
-            :disabled="pageIndex >= pageCount - 1"
-            aria-label="下一页"
-            title="下一页"
-            @click="changePage(pageIndex + 1)"
-          >
-            ›
+            <i
+              v-for="bar in size"
+              :key="bar"
+              aria-hidden="true"
+            ></i>
           </button>
         </div>
 
         <button
           type="button"
-          class="primary focus-create-icon"
-          aria-label="新建文档"
-          title="新建文档"
+          class="focus-icon-button"
+          title="均分所有分栏宽度"
+          :disabled="layout.columns.length < 2"
+          @click="equalizeColumns"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M10 3v14M4 7 1.5 10 4 13M16 7l2.5 3-2.5 3" />
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          class="primary"
           @click="createDocument()"
         >
-          ＋
+          + 新建文档
         </button>
       </div>
     </header>
 
-    <div class="focus-workspace-body">
+    <FocusColumnBoard
+      :layout="layout"
+      :documents="documents"
+      :folders="folders"
+      :folder-paths="folderPaths"
+      @update:layout="applyLayout"
+      @create-document="createDocumentAt"
+      @saved="replaceDocument"
+      @expand="editDocument"
+      @action="handleDocumentAction"
+      @open-task="openTask"
+      @jump-task="jumpTask"
+      @create-task="createLinkedTask"
+    />
 
-
-      <section
-        class="focus-grid"
-        :style="{ '--columns': visibleColumnCount }"
-        role="region"
-        aria-label="重点事项分页工作区"
-      >
-        <template
-          v-for="index in visibleColumnCount"
-          :key="`${pageIndex}-${index}`"
-        >
-          <FocusDocumentPane
-            v-if="documentForPane(globalPaneIndex(index - 1))"
-            ref="visiblePanes"
-            :document="documentForPane(globalPaneIndex(index - 1))"
-            :can-swap-left="
-              globalPaneIndex(index - 1) > 0
-            "
-            :can-swap-right="
-              globalPaneIndex(index - 1) <
-              openIds.length - 1
-            "
-            @pane-dragstart="
-              startPaneDrag(
-                $event,
-                documentForPane(globalPaneIndex(index - 1)).id
-              )
-            "
-            @pane-dragend="endPaneDrag"
-            @dragover.prevent
-            @drop="
-              dropVisiblePane(index - 1, $event)
-            "
-            @saved="replaceDocument"
-            @edit="editDocument"
-            @document-action="handleDocumentAction"
-            @open-task="openTask"
-            @jump-task="jumpTask"
-            @create-task="createLinkedTask"
-            @manage="openWorkspaceManager"
-            @swap="
-              swapVisiblePane(index - 1, $event)
-            "
-          />
-
-          <div
-            v-else
-            class="focus-empty-pane"
-            :class="{
-              'is-drop-target': emptyDropIndex === index - 1,
-            }"
-            @dragover.prevent="emptyDropIndex = index - 1"
-            @dragleave="
-              clearEmptyDrag(index - 1, $event)
-            "
-            @drop="
-              dropIntoVisiblePane(index - 1, $event)
-            "
-          >
-            <div class="focus-empty-state">
-              <span
-                class="focus-empty-icon"
-                aria-hidden="true"
-              >
-                ▤
-              </span>
-
-              <strong>选择一篇文档</strong>
-              <small>从目录拖入，或在下方直接选择</small>
-
-              <FocusDocumentTree
-                class="focus-tree-compact"
-                compact
-                :documents="filteredDocuments"
-                :open-ids="openIds"
-                :selected-folder-id="selectedFolderId"
-                @open-document="
-                  selectDocument(
-                    $event,
-                    globalPaneIndex(index - 1)
-                  )
-                "
-              />
-
-              <button
-                type="button"
-                class="focus-empty-create"
-                @click="createDocument()"
-              >
-                ＋ 新建文档
-              </button>
-            </div>
-          </div>
-        </template>
-      </section>
-    </div>
-
-    <Teleport to="body">
-      <FocusWorkspaceManager
-        v-if="workspaceManagerVisible"
-        :documents="documents"
-        :open-ids="openIds"
-        @close="closeWorkspaceManager"
-        @save="saveWorkspaceManagement"
-      />
-    </Teleport>
-
-    <FocusDocumentModal
-      v-if="modalDocument"
-      :document="modalDocument"
-      :require-folder="modalIsNew"
-      @close="closeModal"
-      @saved="finishModal"
+    <FocusDocumentDialog
+      v-if="dialogDocument"
+      :document="dialogDocument"
+      :folder-paths="folderPaths"
+      @close="closeDialog"
+      @saved="replaceDocument"
       @open-task="openTask"
       @jump-task="jumpTask"
       @create-task="createLinkedTask"
@@ -228,9 +165,7 @@
       >
         <header>
           <div>
-            <strong id="focus-move-dialog-title">
-              移动到目录
-            </strong>
+            <strong id="focus-move-dialog-title">移动到目录</strong>
             <small>
               {{ moveDialogDocument.title || "未命名文档" }}
             </small>
@@ -243,7 +178,7 @@
             :disabled="moveSaving"
             @click="closeMoveDialog"
           >
-            ×
+            &times;
           </button>
         </header>
 
@@ -252,9 +187,7 @@
             ref="moveFolderPicker"
             v-model="moveFolderId"
             :folders="moveFolders"
-            :current-folder-id="
-              moveDialogDocument.folderId
-            "
+            :current-folder-id="moveDialogDocument.folderId"
           />
 
           <p class="focus-move-dialog-hint">
@@ -274,11 +207,7 @@
           <button
             type="button"
             class="primary"
-            :disabled="
-              moveSaving ||
-              moveFolderId ===
-                (moveDialogDocument.folderId || '__root__')
-            "
+            :disabled="moveSaving || !moveDialogDirty"
             @click="confirmMoveDocument"
           >
             {{ moveSaving ? "移动中…" : "确认移动" }}
@@ -290,99 +219,110 @@
 </template>
 
 <script>
-/* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
-import FocusDocumentPane from "./FocusDocumentPane.vue";
-import FocusDocumentModal from "./FocusDocumentModal.vue";
-import FocusDocumentTree from "./FocusDocumentTree.vue";
+/* FOCUS_COLUMN_PAGES_20260909_V3 */
+import FocusColumnBoard from "./FocusColumnBoard.vue";
+import FocusDocumentDialog from "./FocusDocumentDialog.vue";
 import FocusDirectoryManager from "./FocusDirectoryManager.vue";
-import FocusWorkspaceManager from "./FocusWorkspaceManager.vue";
 import FocusFolderPicker from "./FocusFolderPicker.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 import focusFolderService from "../../services/focusFolderService";
+import focusLayoutService from "../../services/focusLayoutService";
 import focusTaskService from "../../services/focusTaskService";
 
 function extractText(value) {
   if (!value) return "";
   if (typeof value === "string") return value;
-
-  if (Array.isArray(value)) {
-    return value.map(extractText).join(" ");
-  }
+  if (Array.isArray(value)) return value.map(extractText).join(" ");
 
   return [
     value.text || "",
-    value.attrs?.title || "",
+    (value.attrs && value.attrs.title) || "",
     extractText(value.content),
   ].join(" ");
 }
 
 function escapeMarkdown(value) {
-  return String(value || "").replace(
-    /([\\`*_[\]<>])/g,
-    "\\$1"
-  );
+  return String(value || "").replace(/([\\`*_[\]<>])/g, "\\$1");
 }
 
-function contentToMarkdown(node, depth = 0) {
+function contentToMarkdown(node) {
   if (!node) return "";
 
   if (node.type === "text") {
     let text = escapeMarkdown(node.text || "");
 
-    for (const mark of node.marks || []) {
-      if (mark.type === "bold") text = `**${text}**`;
-      if (mark.type === "italic") text = `*${text}*`;
-      if (mark.type === "strike") text = `~~${text}~~`;
-      if (mark.type === "code") text = `\`${text}\``;
+    (node.marks || []).forEach((mark) => {
+      if (mark.type === "bold") text = "**" + text + "**";
+      if (mark.type === "italic") text = "*" + text + "*";
+      if (mark.type === "strike") text = "~~" + text + "~~";
+      if (mark.type === "code") text = "`" + text + "`";
       if (mark.type === "link") {
-        text = `[${text}](${mark.attrs?.href || ""})`;
+        text =
+          "[" +
+          text +
+          "](" +
+          ((mark.attrs && mark.attrs.href) || "") +
+          ")";
       }
-    }
+    });
 
     return text;
   }
 
   const children = (node.content || [])
-    .map((item) => contentToMarkdown(item, depth + 1))
+    .map((item) => contentToMarkdown(item))
     .join("");
+
+  const level = (node.attrs && node.attrs.level) || 1;
+  const checked = node.attrs && node.attrs.checked;
 
   switch (node.type) {
     case "doc":
       return children.trim();
     case "paragraph":
-      return `${children}\n\n`;
+      return children + "\n\n";
     case "heading":
-      return `${"#".repeat(node.attrs?.level || 1)} ${children}\n\n`;
+      return "#".repeat(level) + " " + children + "\n\n";
     case "blockquote":
-      return children
-        .trim()
-        .split("\n")
-        .map((line) => `> ${line}`)
-        .join("\n") + "\n\n";
+      return (
+        children
+          .trim()
+          .split("\n")
+          .map((line) => "> " + line)
+          .join("\n") + "\n\n"
+      );
     case "bulletList":
     case "orderedList":
     case "taskList":
-      return `${children}\n`;
+      return children + "\n";
     case "listItem":
-      return `- ${children.trim()}\n`;
+      return "- " + children.trim() + "\n";
     case "taskItem":
-      return `- [${node.attrs?.checked ? "x" : " "}] ${children.trim()}\n`;
+      return (
+        "- [" + (checked ? "x" : " ") + "] " + children.trim() + "\n"
+      );
     case "codeBlock":
-      return `\`\`\`${node.attrs?.language || ""}\n${children}\n\`\`\`\n\n`;
+      return (
+        "```" +
+        ((node.attrs && node.attrs.language) || "") +
+        "\n" +
+        children +
+        "\n```\n\n"
+      );
     case "horizontalRule":
       return "---\n\n";
     case "hardBreak":
       return "  \n";
     case "linkedTask":
-      return `- [${node.attrs?.checked ? "x" : " "}] ${
-        node.attrs?.title || "关联事项"
-      }\n`;
+      return (
+        "- [" +
+        (checked ? "x" : " ") +
+        "] " +
+        ((node.attrs && node.attrs.title) || "关联事项") +
+        "\n"
+      );
     case "detailsSummary":
-      return `**${children.trim()}**\n\n`;
-    case "detailsContent":
-      return children;
-    case "details":
-      return children;
+      return "**" + children.trim() + "**\n\n";
     default:
       return children;
   }
@@ -399,325 +339,202 @@ function safeFilename(value) {
 
 export default {
   name: "FocusDocumentsView",
+
   components: {
-    FocusFolderPicker,
-    FocusDocumentPane,
-    FocusDocumentModal,
-    FocusDocumentTree,
+    FocusColumnBoard,
+    FocusDocumentDialog,
     FocusDirectoryManager,
-    FocusWorkspaceManager,
+    FocusFolderPicker,
   },
+
   emits: ["open-week", "open-task-detail"],
+
   data() {
     return {
       documents: [],
-      openIds: [],
-      pageIndex: 0,
-      workspaceManagerVisible: false,
+      layout: focusLayoutService.empty(),
+      folders: [],
       search: "",
-      modalDocument: null,
-      modalIsNew: false,
+      searchOpen: false,
+      dialogDocument: null,
       treeVisible: false,
       selectedFolderId: null,
-      draggedDocumentId: null,
-      emptyDropIndex: null,
       moveDialogDocument: null,
       moveFolderId: "__root__",
       moveFolders: [],
       moveSaving: false,
+      pageSizeOptions: [1, 2, 3],
     };
   },
+
   computed: {
-    visibleColumnCount() {
-      return 3;
+    openIds() {
+      return (this.layout.columns || []).map(
+        (column) => column.documentId
+      );
     },
 
     pageCount() {
-      return Math.max(
-        1,
-        Math.ceil(
-          this.openIds.length /
-            this.visibleColumnCount
-        )
-      );
+      return focusLayoutService.pageCount(this.layout);
     },
 
-    pageStartIndex() {
+    moveDialogDirty() {
+      if (!this.moveDialogDocument) return false;
+
       return (
-        this.pageIndex *
-        this.visibleColumnCount
+        this.moveFolderId !==
+        (this.moveDialogDocument.folderId || "__root__")
       );
     },
 
-    visibleOpenIds() {
-      return this.openIds.slice(
-        this.pageStartIndex,
-        this.pageStartIndex +
-          this.visibleColumnCount
+    folderPaths() {
+      const map = new Map(
+        this.folders.map((folder) => [folder.id, folder])
       );
+      const paths = {};
+
+      this.folders.forEach((folder) => {
+        const names = [];
+        const seen = new Set();
+        let cursor = folder;
+
+        while (cursor && !seen.has(cursor.id)) {
+          seen.add(cursor.id);
+          names.unshift(cursor.name);
+          cursor = cursor.parentId
+            ? map.get(cursor.parentId)
+            : null;
+        }
+
+        paths[folder.id] = names.join(" / ") || "未分类";
+      });
+
+      return paths;
     },
 
-    filteredDocuments() {
+    /**
+     * 搜索不再过滤画布（那会让正在对照的分栏凭空消失），
+     * 而是作为一个查找器，命中后在新分栏中打开。
+     */
+    searchResults() {
       const terms = this.search
         .toLowerCase()
         .split(/\s+/)
         .filter(Boolean);
 
-      if (!terms.length) return this.documents;
+      if (!terms.length) return [];
 
-      return this.documents.filter((document) => {
-        const text = [
-          document.title,
-          ...(document.tags || []),
-          extractText(document.content),
-          document.linkedTaskText || "",
-        ]
-          .join(" ")
-          .toLowerCase();
+      return this.documents
+        .filter((document) => {
+          const text = [
+            document.title,
+            ...(document.tags || []),
+            extractText(document.content),
+            document.linkedTaskText || "",
+          ]
+            .join(" ")
+            .toLowerCase();
 
-        return terms.every((term) => text.includes(term));
-      });
-    },
-
-    visiblePickerDocuments() {
-      if (!this.selectedFolderId) {
-        return this.filteredDocuments;
-      }
-
-      if (this.selectedFolderId === "__root__") {
-        return this.filteredDocuments.filter(
-          (document) => !document.folderId
-        );
-      }
-
-      return this.filteredDocuments.filter(
-        (document) =>
-          document.folderId === this.selectedFolderId
-      );
+          return terms.every((term) => text.includes(term));
+        })
+        .slice(0, 12)
+        .map((document) => ({
+          id: document.id,
+          title: document.title,
+          path: document.folderId
+            ? this.folderPaths[document.folderId] || "未分类"
+            : "未分类",
+        }));
     },
   },
-  watch: {
-    openIds: {
-      deep: true,
-      handler(value) {
-        localStorage.setItem(
-          "focusDocumentOpenIds",
-          JSON.stringify(value)
-        );
 
-        this.pageIndex = Math.min(
-          this.pageIndex,
-          Math.max(
-            0,
-            Math.ceil(
-              value.length /
-                this.visibleColumnCount
-            ) - 1
-          )
-        );
-      },
-    },
-
-    pageIndex(value) {
-      localStorage.setItem(
-        "focusDocumentPageIndex",
-        String(value)
-      );
-    },
-  },
   async mounted() {
-    const savedPage = Number(
-      localStorage.getItem(
-        "focusDocumentPageIndex"
-      )
-    );
-
-    if (
-      Number.isInteger(savedPage) &&
-      savedPage >= 0
-    ) {
-      this.pageIndex = savedPage;
-    }
-
-    try {
-      const ids = JSON.parse(
-        localStorage.getItem("focusDocumentOpenIds") || "[]"
-      );
-      this.openIds = Array.isArray(ids) ? ids : [];
-    } catch {
-      this.openIds = [];
-    }
+    this.folders = focusFolderService.listFolders();
+    this.layout = focusLayoutService.load();
 
     await focusTaskService.initializeTaskIds();
     await this.reload();
 
+    window.addEventListener("weektodo:focus-refresh", this.reload);
     window.addEventListener(
-      "weektodo:focus-refresh",
-      this.reload
+      "weektodo:focus-folders-changed",
+      this.reloadFolders
     );
     window.addEventListener("focus", this.reload);
+    document.addEventListener("mousedown", this.onGlobalPointerDown);
   },
+
   beforeUnmount() {
     window.removeEventListener(
       "weektodo:focus-refresh",
       this.reload
     );
+    window.removeEventListener(
+      "weektodo:focus-folders-changed",
+      this.reloadFolders
+    );
     window.removeEventListener("focus", this.reload);
+    document.removeEventListener(
+      "mousedown",
+      this.onGlobalPointerDown
+    );
   },
+
   methods: {
-    globalPaneIndex(localIndex) {
-      return (
-        this.pageStartIndex +
-        Number(localIndex)
+    onGlobalPointerDown(event) {
+      if (event.target.closest(".focus-search-anchor")) return;
+
+      this.searchOpen = false;
+    },
+
+    closeSearch() {
+      this.search = "";
+      this.searchOpen = false;
+    },
+
+    reloadFolders() {
+      this.folders = focusFolderService.listFolders();
+    },
+
+    applyLayout(next) {
+      this.layout = focusLayoutService.save(next);
+    },
+
+    setPageSize(size) {
+      this.applyLayout(
+        focusLayoutService.setPageSize(this.layout, size)
       );
     },
 
-    async flushVisiblePanes() {
-      const source = this.$refs.visiblePanes;
-      const panes = Array.isArray(source)
-        ? source
-        : source
-          ? [source]
-          : [];
-
-      await Promise.all(
-        panes.map((pane) =>
-          pane?.flushSave?.()
-        )
-      );
+    equalizeColumns() {
+      this.applyLayout(focusLayoutService.equalize(this.layout));
     },
 
-    async changePage(nextPage) {
-      const target = Math.max(
-        0,
-        Math.min(
-          this.pageCount - 1,
-          Number(nextPage)
-        )
+    async reload() {
+      const documents = await focusDocumentService.listDocuments();
+
+      this.documents = await Promise.all(
+        documents.map(async (document) => ({
+          ...document,
+          linkedTaskText:
+            await focusTaskService.getLinkedTaskText(document.id),
+        }))
       );
 
-      if (target === this.pageIndex) return;
+      this.reloadFolders();
 
-      await this.flushVisiblePanes();
-      this.pageIndex = target;
-    },
-
-    async dropVisiblePane(
-      localIndex,
-      event
-    ) {
-      await this.flushVisiblePanes();
-
-      return this.dropPane(
-        this.globalPaneIndex(localIndex),
-        event
-      );
-    },
-
-    async dropIntoVisiblePane(
-      localIndex,
-      event
-    ) {
-      await this.flushVisiblePanes();
-
-      return this.dropIntoPane(
-        this.globalPaneIndex(localIndex),
-        event
-      );
-    },
-
-    async swapVisiblePane(
-      localIndex,
-      step
-    ) {
-      await this.flushVisiblePanes();
-
-      const target =
-        this.globalPaneIndex(localIndex) +
-        Number(step);
-
-      this.swapPane(
-        this.globalPaneIndex(localIndex),
-        step
+      const sanitized = focusLayoutService.sanitize(
+        this.layout,
+        this.documents.map((item) => item.id)
       );
 
       if (
-        target >= 0 &&
-        target < this.openIds.length
+        JSON.stringify(sanitized) !== JSON.stringify(this.layout)
       ) {
-        this.pageIndex = Math.floor(
-          target /
-            this.visibleColumnCount
-        );
+        this.applyLayout(sanitized);
       }
     },
 
-    async openWorkspaceManager() {
-      await this.flushVisiblePanes();
-      this.workspaceManagerVisible = true;
-    },
-
-    closeWorkspaceManager() {
-      this.workspaceManagerVisible = false;
-    },
-
-    async saveWorkspaceManagement(
-      payload
-    ) {
-      const orderedIds = Array.isArray(
-        payload?.orderedIds
-      )
-        ? payload.orderedIds
-        : [];
-
-      const openIds = Array.isArray(
-        payload?.openIds
-      )
-        ? payload.openIds
-        : [];
-
-      const pinnedIds = new Set(
-        Array.isArray(payload?.pinnedIds)
-          ? payload.pinnedIds
-          : []
-      );
-
-      try {
-        await Promise.all(
-          this.documents.map((document) => {
-            const pinned = pinnedIds.has(
-              document.id
-            );
-
-            if (
-              pinned ===
-              Boolean(document.pinned)
-            ) {
-              return Promise.resolve();
-            }
-
-            return focusDocumentService
-              .updateDocument(
-                document.id,
-                { pinned }
-              );
-          })
-        );
-
-        await focusDocumentService
-          .reorderDocuments(orderedIds);
-
-        this.openIds = openIds;
-        this.workspaceManagerVisible = false;
-
-        await this.reload();
-      } catch (error) {
-        console.error(error);
-        window.alert(
-          "保存工作区排列失败，请重试。"
-        );
-      }
-    },
     toggleDirectory() {
       this.treeVisible = !this.treeVisible;
     },
@@ -726,12 +543,72 @@ export default {
       this.treeVisible = false;
 
       this.$nextTick(() => {
-        this.$refs.directoryButton?.focus();
+        if (this.$refs.directoryButton) {
+          this.$refs.directoryButton.focus();
+        }
       });
     },
 
-    openDirectoryDocument({ id, index }) {
-      this.selectDocument(id, index);
+    openFromSearch(documentId) {
+      this.closeSearch();
+      this.openAtEnd(documentId);
+    },
+
+    openFirstSearchResult() {
+      const first = this.searchResults[0];
+      if (first) this.openFromSearch(first.id);
+    },
+
+    openAtEnd(documentId) {
+      const existing = focusLayoutService.indexOfDocument(
+        this.layout,
+        documentId
+      );
+
+      if (existing >= 0) {
+        // 已经打开了：直接翻到它所在的版面。
+        this.applyLayout(
+          focusLayoutService.goToPage(
+            this.layout,
+            focusLayoutService.pageOfIndex(this.layout, existing)
+          )
+        );
+        return;
+      }
+
+      this.applyLayout(
+        focusLayoutService.insert(
+          this.layout,
+          (this.layout.columns || []).length,
+          documentId
+        )
+      );
+
+      focusDocumentService
+        .touchDocument(documentId)
+        .catch(() => {});
+    },
+
+    /** 目录里的"第 N 栏"指当前版面的第 N 个槽位。 */
+    openDirectoryDocument(payload) {
+      const id = (payload && payload.id) || payload;
+      if (!id) return;
+
+      const slot = payload && Number(payload.index);
+
+      if (!Number.isFinite(slot)) {
+        this.openAtEnd(id);
+        return;
+      }
+
+      const absolute =
+        focusLayoutService.pageStart(this.layout) + slot;
+
+      this.applyLayout(
+        focusLayoutService.replace(this.layout, absolute, id)
+      );
+
+      focusDocumentService.touchDocument(id).catch(() => {});
     },
 
     createFromDirectory(folderId) {
@@ -739,143 +616,77 @@ export default {
       this.createDocument(folderId);
     },
 
-    clearEmptyDrag(index, event) {
-      if (
-        this.emptyDropIndex === index &&
-        !event.currentTarget.contains(event.relatedTarget)
-      ) {
-        this.emptyDropIndex = null;
-      }
+    async createDocument(folderId = undefined) {
+      const target =
+        folderId === undefined ? this.selectedFolderId : folderId;
+
+      await this.createDocumentAt({
+        folderId: target === "__root__" ? null : target || null,
+        index: (this.layout.columns || []).length,
+        open: true,
+      });
     },
 
-    async dropIntoPane(index, event) {
-      this.emptyDropIndex = null;
-      await this.dropPane(index, event);
-    },
+    /** 新建即落盘：不再有"草稿丢失"的可能。 */
+    async createDocumentAt({
+      title = "",
+      folderId = null,
+      index = null,
+      open = false,
+    } = {}) {
+      try {
+        const created = await focusDocumentService.createDocument({
+          title,
+          folderId,
+        });
 
-    async reload() {
-      const documents =
-        await focusDocumentService.listDocuments();
+        this.documents.unshift({
+          ...created,
+          linkedTaskText: "",
+        });
 
-      this.documents = await Promise.all(
-        documents.map(async (document) => ({
-          ...document,
-          linkedTaskText:
-            await focusTaskService.getLinkedTaskText(
-              document.id
-            ),
-        }))
-      );
+        const position = Number.isFinite(index)
+          ? index
+          : (this.layout.columns || []).length;
 
-      const existing = new Set(
-        this.documents.map((item) => item.id)
-      );
-
-      this.openIds = this.openIds.filter((id) =>
-        existing.has(id)
-      );
-    },
-
-    documentForPane(index) {
-      const id = this.openIds[index];
-
-      return (
-        this.documents.find(
-          (item) => item.id === id
-        ) || null
-      );
-    },
-
-    selectDocument(id, index) {
-      const next = Array.from(
-        { length: this.columns },
-        (_, paneIndex) =>
-          this.openIds[paneIndex] || null
-      );
-
-      const sourceIndex = next.indexOf(id);
-      const targetId = next[index];
-
-      if (sourceIndex >= 0 && sourceIndex !== index) {
-        next[sourceIndex] = targetId || null;
-      }
-
-      next[index] = id;
-
-      while (next.length && !next[next.length - 1]) {
-        next.pop();
-      }
-
-      this.openIds = next;
-    },
-
-    openDocumentFromTree(id) {
-      this.treeVisible = false;
-
-      const existingIndex =
-        this.openIds.indexOf(id);
-
-      if (existingIndex >= 0) {
-        this.pageIndex = Math.floor(
-          existingIndex /
-            this.visibleColumnCount
+        this.applyLayout(
+          focusLayoutService.insert(
+            this.layout,
+            position,
+            created.id
+          )
         );
-        return;
+
+        if (open || !title) {
+          this.dialogDocument = created;
+        }
+
+        return created;
+      } catch (error) {
+        console.error(error);
+        window.alert("新建文档失败，请重试。");
+        return null;
       }
-
-      this.openIds = [
-        ...this.openIds,
-        id,
-      ];
-
-      this.pageIndex = Math.floor(
-        (this.openIds.length - 1) /
-          this.visibleColumnCount
-      );
-    },
-
-    createDocument(folderId = undefined) {
-      this.modalIsNew = true;
-
-      const targetFolder =
-        folderId === undefined
-          ? this.selectedFolderId
-          : folderId;
-
-      this.modalDocument =
-        focusDocumentService.createDraftRecord(
-          targetFolder === "__root__"
-            ? null
-            : targetFolder || null
-        );
     },
 
     editDocument(id) {
-      this.modalIsNew = false;
-      this.modalDocument =
-        this.documents.find((item) => item.id === id) ||
-        null;
+      this.dialogDocument =
+        this.documents.find((item) => item.id === id) || null;
     },
 
-    async closeModal(saved) {
-      this.modalDocument = null;
-      this.modalIsNew = false;
+    async closeDialog(saved) {
+      this.dialogDocument = null;
 
-      if (saved?.id) {
+      if (saved && saved.id) {
         this.replaceDocument(saved);
       } else {
         await this.reload();
       }
     },
 
-    finishModal(saved) {
-      this.replaceDocument(saved);
-      this.modalDocument = null;
-      this.modalIsNew = false;
-      this.openDocumentFromTree(saved.id);
-    },
-
     replaceDocument(saved) {
+      if (!saved || !saved.id) return;
+
       const index = this.documents.findIndex(
         (item) => item.id === saved.id
       );
@@ -890,137 +701,16 @@ export default {
       }
     },
 
-    startPaneDrag(event, id) {
-      this.draggedDocumentId = id;
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData(
-        "application/x-weektodo-pane",
-        id
-      );
-
-      event.currentTarget
-        .closest(".focus-pane")
-        ?.classList.add("is-dragging");
-    },
-
-    endPaneDrag() {
-      this.draggedDocumentId = null;
-      this.emptyDropIndex = null;
-
-      document
-        .querySelectorAll(".focus-pane.is-dragging")
-        .forEach((item) =>
-          item.classList.remove("is-dragging")
-        );
-    },
-
-    async dropPane(targetIndex, event) {
-      const transferredId =
-        event?.dataTransfer?.getData(
-          "application/x-weektodo-document"
-        ) ||
-        event?.dataTransfer?.getData(
-          "application/x-weektodo-pane"
-        );
-
-      const id = transferredId || this.draggedDocumentId;
-      this.draggedDocumentId = null;
-
-      document
-        .querySelectorAll(".focus-pane.is-dragging")
-        .forEach((item) =>
-          item.classList.remove("is-dragging")
-        );
-
-      if (!id) return;
-
-      const next = Array.from(
-        { length: this.columns },
-        (_, index) => this.openIds[index] || null
-      );
-
-      const sourceIndex = next.indexOf(id);
-      const targetId = next[targetIndex];
-
-      if (sourceIndex >= 0 && sourceIndex !== targetIndex) {
-        // 已在其他栏：交换两栏。
-        next[sourceIndex] = targetId || null;
-        next[targetIndex] = id;
-      } else {
-        // 从目录拖入：替换目标栏。
-        next[targetIndex] = id;
-      }
-
-      this.openIds = next.filter(
-        (item, index) =>
-          item || next.slice(index + 1).some(Boolean)
-      );
-
-      const remaining = this.documents
-        .map((item) => item.id)
-        .filter((item) => !this.openIds.includes(item));
-
-      await focusDocumentService.reorderDocuments([
-        ...this.openIds.filter(Boolean),
-        ...remaining,
-      ]);
-
-      await this.reload();
-    },
-
-    swapPane(index, step) {
-      const target = index + Number(step);
-
-      if (
-        target < 0 ||
-        target >= this.columns ||
-        !this.openIds[index]
-      ) {
-        return;
-      }
-
-      const next = Array.from(
-        { length: this.columns },
-        (_, itemIndex) => this.openIds[itemIndex] || null
-      );
-
-      [next[index], next[target]] = [
-        next[target],
-        next[index],
-      ];
-
-      this.openIds = next;
-    },
-
-    async moveDocument({ documentId, folderId }) {
-      const saved =
-        await focusDocumentService.moveDocument(
-          documentId,
-          folderId
-        );
-
-      this.replaceDocument(saved);
-    },
-
-    async releaseFolder(folderId) {
-      await focusDocumentService.releaseFolder(folderId);
-
-      if (this.selectedFolderId === folderId) {
-        this.selectedFolderId = null;
-      }
-
-      await this.reload();
-    },
-
     openMoveDialog(document) {
       this.moveFolders = focusFolderService.listFolders();
       this.moveDialogDocument = document;
-      this.moveFolderId =
-        document.folderId || "__root__";
+      this.moveFolderId = document.folderId || "__root__";
       this.moveSaving = false;
 
       this.$nextTick(() => {
-        this.$refs.moveFolderPicker?.focus();
+        if (this.$refs.moveFolderPicker) {
+          this.$refs.moveFolderPicker.focus();
+        }
       });
     },
 
@@ -1033,21 +723,19 @@ export default {
     },
 
     async confirmMoveDocument() {
-      if (!this.moveDialogDocument || this.moveSaving) {
-        return;
-      }
+      if (!this.moveDialogDocument || this.moveSaving) return;
 
       this.moveSaving = true;
 
       try {
-        await this.moveDocument({
-          documentId: this.moveDialogDocument.id,
-          folderId:
-            this.moveFolderId === "__root__"
-              ? null
-              : this.moveFolderId,
-        });
+        const saved = await focusDocumentService.moveDocument(
+          this.moveDialogDocument.id,
+          this.moveFolderId === "__root__"
+            ? null
+            : this.moveFolderId
+        );
 
+        this.replaceDocument(saved);
         this.moveDialogDocument = null;
         this.moveFolderId = "__root__";
         this.moveFolders = [];
@@ -1061,13 +749,12 @@ export default {
 
     async handleDocumentAction({ action, document }) {
       if (action === "duplicate") {
-        const copy =
-          await focusDocumentService.duplicateDocument(
-            document.id
-          );
+        const copy = await focusDocumentService.duplicateDocument(
+          document.id
+        );
 
         this.replaceDocument(copy);
-        this.openDocumentFromTree(copy.id);
+        this.openAtEnd(copy.id);
         return;
       }
 
@@ -1078,13 +765,16 @@ export default {
 
       if (action === "export") {
         const markdown = [
-          `# ${document.title || "未命名文档"}`,
+          "# " + (document.title || "未命名文档"),
           "",
-          ...(document.tags?.length
-            ? [`标签：${document.tags.join("、")}`, ""]
-            : []),
-          contentToMarkdown(document.content),
-        ].join("\n");
+        ]
+          .concat(
+            (document.tags || []).length
+              ? ["标签：" + document.tags.join("、"), ""]
+              : []
+          )
+          .concat([contentToMarkdown(document.content)])
+          .join("\n");
 
         const blob = new Blob([markdown], {
           type: "text/markdown;charset=utf-8",
@@ -1093,9 +783,7 @@ export default {
         const anchor = window.document.createElement("a");
 
         anchor.href = url;
-        anchor.download = `${safeFilename(
-          document.title
-        )}.md`;
+        anchor.download = safeFilename(document.title) + ".md";
         anchor.click();
 
         setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -1103,51 +791,57 @@ export default {
       }
 
       if (action === "delete") {
-        if (
-          !window.confirm(
-            `确定删除“${
-              document.title || "未命名文档"
-            }”吗？\n该操作会同时解除文档中的事项关联。`
+        const confirmed = window.confirm(
+          "确定删除「" +
+            (document.title || "未命名文档") +
+            "」吗？\n该操作会同时解除文档中的事项关联。"
+        );
+
+        if (!confirmed) return;
+
+        await focusDocumentService.deleteDocument(document.id);
+
+        this.applyLayout(
+          focusLayoutService.removeDocument(
+            this.layout,
+            document.id
           )
+        );
+
+        if (
+          this.dialogDocument &&
+          this.dialogDocument.id === document.id
         ) {
-          return;
+          this.dialogDocument = null;
         }
-
-        await focusDocumentService.deleteDocument(
-          document.id
-        );
-
-        this.openIds = this.openIds.filter(
-          (id) => id !== document.id
-        );
 
         await this.reload();
       }
     },
 
     async createLinkedTask(payload) {
-      if (!payload?.documentId) return;
+      if (!payload || !payload.documentId) return;
 
       try {
-        const attrs =
-          await focusTaskService.createLinkedTask(
-            payload.documentId,
-            {
-              text: "新建事项",
-              desc: "",
-              listId:
-                focusTaskService.listTargets()[0]?.listId,
-              time: null,
-              priority: 0,
-              alarm: false,
-              reminders: [],
-              tags: [],
-              color: "none",
-              subTaskList: [],
-            }
-          );
+        const targets = focusTaskService.listTargets();
 
-        payload.insert?.(attrs);
+        const attrs = await focusTaskService.createLinkedTask(
+          payload.documentId,
+          {
+            text: "新建事项",
+            desc: "",
+            listId: targets[0] && targets[0].listId,
+            time: null,
+            priority: 0,
+            alarm: false,
+            reminders: [],
+            tags: [],
+            color: "none",
+            subTaskList: [],
+          }
+        );
+
+        if (payload.insert) payload.insert(attrs);
 
         await this.$nextTick();
         this.openTask(attrs);
@@ -1158,13 +852,12 @@ export default {
     },
 
     jumpTask(task) {
-      if (!task?.taskId || !task?.listId) {
+      if (!task || !task.taskId || !task.listId) {
         window.alert("关联事项不存在或已经被删除。");
         return;
       }
 
-      this.modalDocument = null;
-      this.modalIsNew = false;
+      this.dialogDocument = null;
       this.$emit("open-week", {
         taskId: task.taskId,
         listId: task.listId,
@@ -1172,7 +865,7 @@ export default {
     },
 
     openTask(task) {
-      if (!task?.taskId || !task?.listId) {
+      if (!task || !task.taskId || !task.listId) {
         window.alert("关联事项不存在或已经被删除。");
         return;
       }
@@ -1182,74 +875,92 @@ export default {
         listId: task.listId,
       });
     },
-
-    formatDate(value) {
-      if (!value) return "";
-
-      return new Intl.DateTimeFormat("zh-CN", {
-        month: "numeric",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(value));
-    },
   },
 };
 </script>
 
 <style scoped lang="scss">
 .focus-workspace {
+  --focus-control-height: 36px;
+
   display: flex;
   min-width: 0;
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  padding: 16px;
+  padding: 16px 18px 18px;
   background: #f5f7f9;
 }
 
 .focus-workspace-header {
   display: flex;
+  min-height: 48px;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 0 2px 14px;
+  padding: 0 2px 12px;
 }
 
-.focus-workspace-header > div:first-child {
+.focus-workspace-heading {
   display: flex;
   align-items: baseline;
   gap: 9px;
 }
 
-.focus-workspace-header h1 {
+.focus-workspace-heading h1 {
   margin: 0;
   color: #272b31;
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 680;
+  letter-spacing: -0.015em;
 }
 
-.focus-workspace-header > div:first-child span {
+.focus-workspace-heading span {
   color: #969ca5;
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .focus-workspace-actions {
   display: flex;
+  min-width: 0;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+}
+
+.focus-search-anchor {
+  position: relative;
+  flex: 0 1 auto;
 }
 
 .focus-search {
   display: flex;
-  width: 250px;
-  height: 34px;
+  width: 246px;
+  height: var(--focus-control-height);
+  box-sizing: border-box;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px;
+  gap: 7px;
+  padding: 0 11px;
   border: 1px solid #dfe3e8;
-  border-radius: 8px;
+  border-radius: 9px;
   background: #fff;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.focus-search:focus-within {
+  border-color: #91a5e9;
+  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.09);
+}
+
+.focus-search svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  fill: none;
+  stroke: #a2a8b1;
+  stroke-width: 1.6;
+  stroke-linecap: round;
 }
 
 .focus-search input {
@@ -1258,459 +969,115 @@ export default {
   border: 0;
   outline: none;
   background: transparent;
+  font-family: inherit;
   font-size: 12px;
 }
 
-.focus-workspace-actions select,
-.focus-workspace-actions button {
-  height: 34px;
-  padding: 0 11px;
-  border: 1px solid #dfe3e8;
-  border-radius: 8px;
+.focus-search-results {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 306px;
+  max-height: 320px;
+  padding: 5px;
+  border: 1px solid rgba(31, 35, 41, 0.12);
+  border-radius: 11px;
   background: #fff;
-  color: #505761;
+  box-shadow:
+    0 16px 42px rgba(24, 29, 38, 0.16),
+    0 2px 8px rgba(24, 29, 38, 0.07);
+  overflow-y: auto;
 }
 
-.focus-workspace-actions button.active {
+.focus-search-results.is-empty {
+  padding: 14px;
+  color: #a0a6af;
+  font-size: 11px;
+  text-align: center;
+}
+
+.focus-search-results button {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.focus-search-results button:hover {
+  background: #eef2ff;
+}
+
+.focus-search-results strong {
+  overflow: hidden;
+  color: #2f343c;
+  font-size: 12.5px;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-search-results small {
+  color: #9aa0a9;
+  font-size: 10px;
+}
+
+.focus-workspace-actions > button,
+.focus-directory-anchor > button {
+  height: var(--focus-control-height);
+  box-sizing: border-box;
+  padding: 0 11px;
+  border: 1px solid #dfe3e8;
+  border-radius: 9px;
+  outline: none;
+  background: #fff;
+  color: #505761;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.focus-icon-button {
+  display: grid;
+  width: var(--focus-control-height);
+  place-items: center;
+  padding: 0 !important;
+}
+
+.focus-icon-button svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.focus-workspace-actions button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.focus-workspace-actions button.active,
+.focus-directory-anchor button.active {
   border-color: #9aacec;
   background: #eef2ff;
   color: #4263eb;
 }
 
 .focus-workspace-actions button.primary {
+  padding: 0 14px;
   border-color: #4263eb;
   background: #4263eb;
   color: #fff;
-}
-
-.focus-workspace-body {
-  display: flex;
-  min-width: 0;
-  min-height: 0;
-  flex: 1;
-  gap: 10px;
-}
-
-.focus-grid {
-  display: grid;
-  min-width: 0;
-  min-height: 0;
-  flex: 1;
-  grid-template-columns:
-    repeat(var(--columns), minmax(290px, 1fr));
-  gap: 10px;
-  overflow-x: auto;
-}
-
-.focus-empty-pane {
-  display: grid;
-  min-width: 290px;
-  place-items: center;
-  border: 1px dashed #d6dbe1;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.58);
-}
-
-.focus-empty-pane > div {
-  display: flex;
-  width: min(290px, calc(100% - 30px));
-  max-height: 80%;
-  flex-direction: column;
-  align-items: center;
-  color: #747b85;
-}
-
-.empty-icon {
-  margin-bottom: 7px;
-  color: #a5abb4;
-  font-size: 34px;
-}
-
-.focus-empty-pane > div > small {
-  margin-top: 4px;
-  color: #9da3ac;
-}
-
-.focus-picker {
-  width: 100%;
-  max-height: 250px;
-  margin: 15px 0 9px;
-  overflow-y: auto;
-}
-
-.focus-picker button {
-  display: flex;
-  width: 100%;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 9px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: #505761;
-  text-align: left;
-  cursor: pointer;
-}
-
-.focus-picker button:hover {
-  background: #edf1f5;
-}
-
-.focus-picker button > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.focus-picker em {
-  margin-left: 5px;
-  color: #a77b15;
-  font-size: 9px;
-  font-style: normal;
-}
-
-.focus-picker small {
-  flex: 0 0 auto;
-  color: #9ba1aa;
-  font-size: 9px;
-}
-
-.create-link {
-  padding: 7px 12px;
-  border: 1px solid #dfe3e8;
-  border-radius: 7px;
-  background: #fff;
-  color: #59616c;
-  cursor: pointer;
-}
-
-.dark-theme .focus-workspace {
-  background: #0f141a;
-}
-
-.dark-theme .focus-workspace-header h1 {
-  color: #e1e5ea;
-}
-
-.dark-theme .focus-search,
-.dark-theme .focus-workspace-actions select,
-.dark-theme .focus-workspace-actions button:not(.primary) {
-  border-color: #343b45;
-  background: #161b22;
-  color: #d1d6dc;
-}
-
-.dark-theme .focus-empty-pane {
-  border-color: #353d47;
-  background: rgba(22, 27, 34, 0.62);
-}
-
-.dark-theme .focus-picker button {
-  color: #cbd0d7;
-}
-
-.dark-theme .focus-picker button:hover {
-  background: #252c35;
-}
-
-@media (max-width: 900px) {
-  .focus-workspace-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .focus-workspace-actions {
-    width: 100%;
-    flex-wrap: wrap;
-  }
-
-  .focus-search {
-    min-width: 220px;
-    flex: 1;
-  }
-
-  .focus-workspace-body {
-    flex-direction: column;
-  }
-
-  .focus-workspace-body :deep(.focus-tree) {
-    width: 100%;
-    max-width: none;
-    max-height: 280px;
-  }
-}
-
-.focus-directory-anchor {
-  position: relative;
-}
-
-.focus-directory-popover {
-  position: absolute !important;
-  z-index: 14000;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 300px !important;
-  height: min(520px, calc(100vh - 120px));
-  box-shadow:
-    0 18px 48px rgba(25, 30, 40, 0.16),
-    0 3px 10px rgba(25, 30, 40, 0.08);
-}
-
-.focus-empty-tree {
-  display: flex;
-  width: 100% !important;
-  height: 100%;
-  max-height: none !important;
-  align-items: stretch !important;
-  flex-direction: column;
-}
-
-.focus-empty-heading {
-  display: flex;
-  min-height: 42px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 13px;
-  border-bottom: 1px solid #eceff2;
-  color: #6f7680;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.focus-empty-heading button {
-  border: 0;
-  background: transparent;
-  color: #4263eb;
-  cursor: pointer;
-}
-
-.focus-empty-pane {
-  align-items: stretch;
-  justify-items: stretch;
-  overflow: hidden;
-}
-
-.dark-theme .focus-empty-heading {
-  border-color: #303740;
-}
-
-/*
- * 顶部目录按钮只保留为浮层定位锚点。
- * Teleport 后的目录不参与页面布局。
- */
-.focus-directory-anchor {
-  display: flex;
-  flex: 0 0 auto;
-}
-
-.focus-directory-anchor > button {
-  width: 34px;
-  padding: 0;
-  font-size: 15px;
-}
-
-.focus-directory-popover {
-  z-index: 16000;
-  box-sizing: border-box;
-  border-radius: 11px;
-  filter:
-    drop-shadow(0 18px 38px rgba(24, 29, 38, 0.14))
-    drop-shadow(0 3px 9px rgba(24, 29, 38, 0.08));
-}
-
-.focus-directory-popover :deep(.focus-tree) {
-  width: 100%;
-  min-width: 0;
-  max-width: none;
-  max-height: var(--directory-height, 440px);
-  border-color: rgba(31, 35, 41, 0.12);
-  box-shadow: none;
-}
-
-/*
- * 空栏自身就是文档选择界面。
- * 不再在大面板中嵌套第二张卡片。
- */
-.focus-empty-pane {
-  display: flex;
-  min-width: 290px;
-  align-items: center;
-  justify-content: center;
-  border: 1px dashed #d9dde3;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.46);
-  overflow: hidden;
-  transition:
-    border-color 0.16s ease,
-    background-color 0.16s ease,
-    box-shadow 0.16s ease;
-}
-
-.focus-empty-pane.is-drop-target {
-  border-color: #8fa5ee;
-  background: rgba(238, 242, 255, 0.78);
-  box-shadow:
-    inset 0 0 0 2px rgba(66, 99, 235, 0.08);
-}
-
-.focus-empty-state {
-  display: flex;
-  width: min(250px, calc(100% - 38px));
-  max-height: calc(100% - 44px);
-  flex-direction: column;
-  align-items: center;
-  color: #656d78;
-}
-
-.focus-empty-icon {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  margin-bottom: 8px;
-  place-items: center;
-  border-radius: 10px;
-  background: #f0f2f5;
-  color: #969da7;
-  font-size: 17px;
-}
-
-.focus-empty-state > strong {
-  color: #555d67;
-  font-size: 13px;
-  font-weight: 560;
-}
-
-.focus-empty-state > small {
-  margin: 4px 0 14px;
-  color: #a0a6ae;
-  font-size: 10px;
-  line-height: 1.5;
-  text-align: center;
-}
-
-.focus-empty-state :deep(.focus-tree-compact) {
-  width: 100%;
-  max-height: min(270px, 45vh);
-}
-
-.focus-empty-create {
-  margin-top: 10px;
-  padding: 6px 9px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #687181;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.focus-empty-create:hover {
-  background: #eef1f5;
-  color: #4263eb;
-}
-
-.dark-theme .focus-empty-pane {
-  border-color: #343b45;
-  background: rgba(22, 27, 34, 0.48);
-}
-
-.dark-theme .focus-empty-pane.is-drop-target {
-  border-color: #738ce3;
-  background: rgba(39, 48, 74, 0.58);
-}
-
-.dark-theme .focus-empty-icon {
-  background: #252c35;
-  color: #9ca5b0;
-}
-
-.dark-theme .focus-empty-state > strong {
-  color: #c7cdd4;
-}
-
-.dark-theme .focus-empty-create:hover {
-  background: #252c35;
-}
-
-/* 目录入口只显示状态，不再承担浮层定位。 */
-.focus-directory-anchor {
-  position: static;
-}
-
-.focus-directory-anchor > button {
-  display: grid;
-  width: 34px;
-  place-items: center;
-  padding: 0;
-  font-size: 15px;
-}
-
-/* ==========================================================
- * 重点事项 · 页面级操作区统一规范
- * ========================================================== */
-
-.focus-workspace {
-  --focus-control-height: 36px;
-  padding: 16px 18px 18px;
-}
-
-.focus-workspace-header {
-  min-height: 48px;
-  padding: 0 2px 12px;
-}
-
-.focus-workspace-header h1 {
-  font-size: 20px;
-  letter-spacing: -0.015em;
-}
-
-.focus-workspace-actions {
-  min-width: 0;
-  gap: 7px;
-}
-
-.focus-search,
-.focus-workspace-actions select,
-.focus-workspace-actions button {
-  height: var(--focus-control-height);
-  box-sizing: border-box;
-}
-
-.focus-search {
-  border-color: #dfe3e8;
-  border-radius: 9px;
-  transition:
-    border-color 0.14s ease,
-    box-shadow 0.14s ease;
-}
-
-.focus-search:focus-within {
-  border-color: #91a5e9;
-  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.09);
-}
-
-.focus-workspace-actions select,
-.focus-workspace-actions button {
-  border-radius: 9px;
-  outline: none;
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.focus-workspace-actions button:focus-visible,
-.focus-workspace-actions select:focus-visible {
-  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.13);
-}
-
-.focus-directory-anchor > button {
-  width: var(--focus-control-height);
-  height: var(--focus-control-height);
-}
-
-.focus-workspace-actions button.primary {
-  padding: 0 14px;
-  border-color: #4263eb;
   box-shadow: 0 1px 2px rgba(49, 81, 204, 0.18);
   font-weight: 550;
 }
@@ -1720,45 +1087,60 @@ export default {
   background: #3456d7;
 }
 
-.focus-grid {
-  gap: 12px;
+.focus-workspace-actions button:focus-visible {
+  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.13);
 }
 
-.focus-pane,
-.focus-empty-pane {
-  border-radius: 12px;
+.focus-directory-anchor {
+  display: flex;
+  flex: 0 0 auto;
 }
 
-@media (max-width: 1100px) {
-  .focus-search {
-    width: 210px;
-  }
+/* 版面分栏数：1 / 2 / 3 的图形化分段控件 */
+.focus-pagesize {
+  display: flex;
+  height: var(--focus-control-height);
+  box-sizing: border-box;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #dfe3e8;
+  border-radius: 9px;
+  background: #fff;
 }
 
-@media (max-width: 760px) {
-  .focus-workspace {
-    padding: 12px;
-  }
-
-  .focus-workspace-actions {
-    display: grid;
-    grid-template-columns:
-      minmax(0, 1fr) 36px minmax(82px, auto);
-  }
-
-  .focus-search {
-    width: auto;
-    grid-column: 1 / -1;
-  }
-
-  .focus-workspace-actions button.primary {
-    white-space: nowrap;
-  }
+.focus-pagesize button {
+  display: flex;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.14s ease;
 }
 
-/* FOCUS_SYSTEM_FIX_20260907_V3: view */
-.focus-grid {
-  scrollbar-gutter: stable;
+.focus-pagesize button:hover {
+  background: #f2f4f7;
+}
+
+.focus-pagesize button.active {
+  background: #eef2ff;
+}
+
+.focus-pagesize i {
+  width: 3px;
+  height: 13px;
+  border-radius: 1.5px;
+  background: #b8bec6;
+  transition: background-color 0.14s ease;
+}
+
+.focus-pagesize button.active i {
+  background: #4263eb;
 }
 
 .focus-move-backdrop {
@@ -1773,7 +1155,7 @@ export default {
 }
 
 .focus-move-dialog {
-  width: min(440px, calc(100vw - 32px));
+  width: min(560px, calc(100vw - 32px));
   border: 1px solid rgba(31, 35, 41, 0.13);
   border-radius: 14px;
   outline: none;
@@ -1838,40 +1220,15 @@ export default {
 .focus-move-dialog-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 20px 18px 22px;
+  gap: 12px;
+  padding: 16px 18px 18px;
 }
 
-.focus-move-dialog-body label {
-  color: #505761;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.focus-move-dialog-body select {
-  width: 100%;
-  height: 38px;
-  box-sizing: border-box;
-  padding: 0 34px 0 11px;
-  border: 1px solid #dfe3e8;
-  border-radius: 8px;
-  outline: none;
-  background: #fff;
-  color: #343a42;
-  font-family: inherit;
-  font-size: 13px;
-}
-
-.focus-move-dialog-body select:focus {
-  border-color: #8fa5ee;
-  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.1);
-}
-
-.focus-move-dialog-body p {
-  margin: 1px 0 0;
+.focus-move-dialog-hint {
+  margin: 0;
   color: #969ca5;
-  font-size: 11px;
-  line-height: 1.6;
+  font-size: 10px;
+  line-height: 1.55;
 }
 
 .focus-move-dialog > footer {
@@ -1908,6 +1265,41 @@ export default {
   opacity: 0.55;
 }
 
+.dark-theme .focus-workspace {
+  background: #0f141a;
+}
+
+.dark-theme .focus-workspace-heading h1 {
+  color: #e1e5ea;
+}
+
+.dark-theme .focus-search,
+.dark-theme .focus-pagesize,
+.dark-theme .focus-workspace-actions > button:not(.primary),
+.dark-theme .focus-directory-anchor > button {
+  border-color: #343b45;
+  background: #161b22;
+  color: #d1d6dc;
+}
+
+.dark-theme .focus-search-results {
+  border-color: #39414c;
+  background: #1d232b;
+}
+
+.dark-theme .focus-search-results strong {
+  color: #dfe4ea;
+}
+
+.dark-theme .focus-search-results button:hover,
+.dark-theme .focus-pagesize button:hover {
+  background: #28303c;
+}
+
+.dark-theme .focus-pagesize button.active {
+  background: #223052;
+}
+
 .dark-theme .focus-move-dialog {
   border-color: #38414b;
   background: #1d232b;
@@ -1922,114 +1314,38 @@ export default {
   color: #e1e5ea;
 }
 
-.dark-theme .focus-move-dialog > header button:hover {
-  background: #29313b;
-  color: #fff;
+.dark-theme .focus-move-dialog > footer {
+  background: #181e25;
 }
 
-.dark-theme .focus-move-dialog-body label {
-  color: #d1d6dc;
-}
-
-.dark-theme .focus-move-dialog-body select,
 .dark-theme .focus-move-dialog > footer button {
   border-color: #3a424d;
   background: #20262e;
   color: #d8dde3;
 }
 
-.dark-theme .focus-move-dialog > footer {
-  background: #181e25;
-}
+@media (max-width: 1000px) {
+  .focus-workspace-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 
-.dark-theme
-  .focus-move-dialog
-  > footer
-  button.primary {
-  border-color: #5573dc;
-  background: #4263eb;
-  color: #fff;
-}
+  .focus-workspace-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
 
-/* FOCUS_FOLDER_TREE_SYSTEM_20260907_V1: workspace move tree */
-.focus-move-dialog {
-  width: min(560px, calc(100vw - 32px));
-}
+  .focus-search {
+    width: 100%;
+    min-width: 200px;
+  }
 
-.focus-move-dialog-body {
-  gap: 12px;
-  padding: 16px 18px 18px;
-}
+  .focus-search-anchor {
+    flex: 1 1 200px;
+  }
 
-.focus-move-dialog-hint {
-  margin: 0;
-  color: #969ca5;
-  font-size: 10px;
-  line-height: 1.55;
+  .focus-search-results {
+    width: 100%;
+  }
 }
-
-/* FOCUS_WORKSPACE_PAGINATION_20260908_V3 */
-.focus-page-navigation {
-  display: inline-grid;
-  height: var(--focus-control-height);
-  grid-template-columns: 34px 54px 34px;
-  align-items: center;
-  border: 1px solid #dfe3e8;
-  border-radius: 9px;
-  background: #fff;
-  overflow: hidden;
-}
-
-.focus-workspace-actions .focus-page-button {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: #626b76;
-  font-size: 20px;
-}
-
-.focus-workspace-actions
-.focus-page-button:hover:not(:disabled) {
-  background: #eef1f5;
-  color: #4263eb;
-}
-
-.focus-page-button:disabled {
-  cursor: default;
-  opacity: 0.32;
-}
-
-.focus-page-status {
-  color: #747c87;
-  font-size: 11px;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.focus-workspace-actions
-.focus-create-icon {
-  width: var(--focus-control-height);
-  min-width: var(--focus-control-height);
-  padding: 0;
-  font-size: 21px;
-}
-
-.dark-theme .focus-page-navigation {
-  border-color: #343b45;
-  background: #161b22;
-}
-
-.dark-theme
-.focus-workspace-actions
-.focus-page-button {
-  color: #cbd1d8;
-}
-
-.dark-theme .focus-page-status {
-  color: #aeb5be;
-}
-
 </style>

@@ -41,6 +41,51 @@
 
       <span class="divider"></span>
 
+
+      <button
+
+        class="focus-painter-button"
+
+        :class="{ active: Boolean(formatSample) }"
+
+        :title="formatPainterHint"
+
+        @mousedown.prevent
+
+        @click="sampleFormat(false)"
+
+        @dblclick="sampleFormat(true)"
+
+      >&#9101;</button>
+
+      <button
+
+        class="focus-clear-format-button"
+
+        title="清除格式"
+
+        @mousedown.prevent
+
+        @click="clearFormat"
+
+      >&#10683;</button>
+
+      <button
+
+        class="focus-paste-mode-button"
+
+        :class="{ active: keepPasteStyle }"
+
+        :title="pasteModeHint"
+
+        @mousedown.prevent
+
+        @click="toggleKeepPasteStyle"
+
+      >&#8681;</button>
+
+
+      <span class="divider"></span>
       <button
         :class="{ active: editor.isActive('bold') }"
         title="粗体"
@@ -503,6 +548,9 @@ import SmartFormatting from "../../editor/extensions/SmartFormatting";
 import { createSlashCommandItems } from "../../editor/slashCommandItems";
 import focusTaskService from "../../services/focusTaskService";
 
+/* FOCUS_PAINTER_PATCH_V3 */
+import FormatPainter from "../../editor/extensions/FormatPainter";
+import PasteCleanup from "../../editor/extensions/PasteCleanup";
 /* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
 const lowlight = createLowlight(common);
 
@@ -573,6 +621,9 @@ export default {
   data() {
     return {
       editor: null,
+      formatSample: null,
+      keepPasteStyle:
+        localStorage.getItem("focusKeepPasteStyle") === "true",
       markdownVisible: false,
       markdownSource: "",
       externalUpdate: false,
@@ -596,6 +647,23 @@ export default {
     };
   },
   computed: {
+  formatPainterHint() {
+    if (!this.formatSample) {
+      return "格式刷：把光标放在样板文字上点此取样，再选中目标文字应用（双击可连续刷）";
+    }
+
+    return (
+      "格式刷已取样（" +
+      this.formatSample.summary +
+      "）：选中文字即应用，Esc 取消"
+    );
+  },
+
+  pasteModeHint() {
+    return this.keepPasteStyle
+      ? "粘贴时保留来源样式（点击改为清洗）"
+      : "粘贴时清洗来源样式（点击改为保留；Cmd+Shift+V 始终纯文本）";
+  },
     currentBlock() {
       if (!this.editor) return "paragraph";
       for (const level of [1, 2, 3]) {
@@ -676,6 +744,14 @@ export default {
         Color,
         FontSize,
         SmartFormatting,
+        FormatPainter.configure({
+          onChange: (sample) => {
+            this.formatSample = sample;
+          },
+        }),
+        PasteCleanup.configure({
+          keepSource: () => this.keepPasteStyle,
+        }),
         Highlight.configure({ multicolor: true }),
         CodeBlockLowlight.configure({
           lowlight,
@@ -818,6 +894,30 @@ export default {
     this.editor?.destroy();
   },
   methods: {
+  /* 单击取样一次性刷；双击锁定连续刷；Esc 退出。 */
+  sampleFormat(sticky) {
+    if (!this.editor) return;
+
+    if (this.formatSample) {
+      this.editor.commands.stopFormatPainter();
+      if (!sticky) return;
+    }
+
+    this.editor.commands.sampleFormat({ sticky: Boolean(sticky) });
+  },
+
+  clearFormat() {
+    if (!this.editor) return;
+    this.editor.chain().focus().clearInlineFormat().run();
+  },
+
+  toggleKeepPasteStyle() {
+    this.keepPasteStyle = !this.keepPasteStyle;
+    localStorage.setItem(
+      "focusKeepPasteStyle",
+      String(this.keepPasteStyle)
+    );
+  },
     chooseImage() {
       if (this.imageSaving) return;
       this.$refs.imageInput?.click();
@@ -4020,6 +4120,20 @@ export default {
   border-color: #3a424d;
 }
 
+/* FOCUS_PAINTER_PATCH_V3 */
+.focus-painter-button.active,
+.focus-paste-mode-button.active {
+  background: #eef2ff !important;
+  box-shadow: inset 0 0 0 1px #a8b8f0;
+  color: #4263eb !important;
+}
+
+.dark-theme .focus-painter-button.active,
+.dark-theme .focus-paste-mode-button.active {
+  background: #223052 !important;
+  box-shadow: inset 0 0 0 1px #4a5f9e;
+  color: #93a8f5 !important;
+}
 </style>
 
 

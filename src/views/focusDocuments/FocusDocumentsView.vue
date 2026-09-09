@@ -224,7 +224,6 @@
 /* FOCUS_COLUMN_PAGES_20260909_V3 */
 import FocusColumnBoard from "./FocusColumnBoard.vue";
 import FocusDocumentDialog from "./FocusDocumentDialog.vue";
-import FocusDirectoryManager from "./FocusDirectoryManager.vue";
 import FocusFolderPicker from "./FocusFolderPicker.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 import focusFolderService from "../../services/focusFolderService";
@@ -233,6 +232,9 @@ import focusTaskService from "../../services/focusTaskService";
 
 /* FOCUS_UI_SYSTEM_20260909_V4 */
 import ModuleHeader from "../../components/layout/ModuleHeader.vue";
+
+/* FOCUS_UI_SYSTEM_20260912_V7 */
+import focusDirectoryBridge from "./focusDirectoryBridge";
 function extractText(value) {
   if (!value) return "";
   if (typeof value === "string") return value;
@@ -342,13 +344,18 @@ function safeFilename(value) {
 }
 
 export default {
+  /* FOCUS_UI_SYSTEM_20260912_V7：mixin 内部已注册 components。
+     V6 这里注入失败且被静默跳过，导致模板里的
+     <FocusDirectoryBrowser> 成了未注册组件，
+     Vue 只 warn 不报错 → 目录按钮点了没反应。 */
+  mixins: [focusDirectoryBridge],
+
   name: "FocusDocumentsView",
 
   components: {
     ModuleHeader,
     FocusColumnBoard,
     FocusDocumentDialog,
-    FocusDirectoryManager,
     FocusFolderPicker,
   },
 
@@ -1405,5 +1412,40 @@ export default {
 
 .dark-theme .focus-workspace-header {
   border-color: #262d36;
+}
+
+/* FOCUS_UI_SYSTEM_20260912_V7
+   一、去掉标题下的分隔线。
+      加它的初衷是"白底上用线做层次"，但这里头部与看板之间
+      已经有 12px 留白 + 卡片自身的边框两重分隔，再加一条
+      通栏线就成了第三重，把一个模块视觉切成上下两块。
+      Notion / 语雀的顶栏都不画这条线，靠的正是留白本身。
+
+   二、右侧功能区与卡片右边界对齐。
+      看板结构是「rail(16) 列 rail(16) 列 … tail rail(16)」，
+      所以最后一张卡片的右边界 = gutter(24) + tail rail(16) = 40px。
+      头部此前 padding-right 是一个 rail(16)，按钮落在 40px —— 数值
+      是对的，但 .primary 按钮有 1px 边框且 box-shadow 外扩，
+      视觉重心比几何边界更靠右，看起来就是"顶出去了"。
+      这里显式用同一个表达式声明左右内边距，把意图写进代码，
+      而不是依赖两处各自算出同一个数。 */
+.focus-workspace-header {
+  padding: 0 var(--focus-rail) 0;
+  border-bottom: 0;
+  margin-bottom: 10px;
+}
+
+/* 功能区整体右边界 = 卡片右边界。primary 按钮不再有向外的
+   投影，避免它比卡片边界更"重"。 */
+.focus-workspace-actions {
+  margin-right: 0;
+}
+
+.focus-workspace-actions button.primary {
+  box-shadow: none;
+}
+
+.dark-theme .focus-workspace-header {
+  border-bottom: 0;
 }
 </style>

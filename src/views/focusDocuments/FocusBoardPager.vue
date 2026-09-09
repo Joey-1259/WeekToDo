@@ -96,9 +96,15 @@ export default {
   pointer-events: none;
 }
 
+/* FOCUS_UI_SYSTEM_20260912_V7
+   翻页箭头与 rail 上的 + 号原本都钉在垂直中线，必然重叠。
+   两者的语义层级不同：+ 号属于"这一栏"（局部、频次高），
+   箭头属于"整个版面"（全局、频次低）。所以把全局的箭头
+   下移到 62%，局部的 + 号留在中线 —— 既错开，也让层级
+   在空间上可读，而不是随便挪开了事。 */
 .focus-pager-arrow {
   position: absolute;
-  top: calc(50% - 17px);
+  top: calc(62% - 17px);
   display: grid;
   width: 34px;
   height: 34px;

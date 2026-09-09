@@ -796,4 +796,13 @@ body.focus-resizing * {
   margin: 0 var(--focus-rail, 16px);
   background: #fcfcfd;
 }
+
+/* FOCUS_UI_SYSTEM_20260912_V7
+   仅 tail rail 上的 + 号上移到 38%：它和翻页箭头共处最右侧
+   这一条窄带，是唯一会打架的一个。列间的 + 号没有这个问题，
+   保持中线不动 —— 同类控件不该因为个别位置的冲突而整体位移。 */
+.focus-rail.is-tail {
+  align-items: flex-start;
+  padding-top: 38%;
+}
 </style>

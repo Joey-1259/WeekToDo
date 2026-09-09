@@ -1,6 +1,6 @@
 <template>
   <div class="fx-toolbar" role="toolbar" aria-label="文档格式工具栏">
-    <!-- 1. 格式工具：格式刷 / 清除格式 / 粘贴模式 -->
+    <!-- 1 · 格式工具 -->
     <div class="fx-group">
       <button
         type="button"
@@ -12,7 +12,7 @@
         @dblclick="onPainterDoubleClick"
       >
         <AppIcon name="formatPainter" />
-        <i v-if="isPainterLocked" class="fx-lock" aria-hidden="true"></i>
+        <i v-if="isPainterLocked" class="fx-dot" aria-hidden="true"></i>
       </button>
 
       <button
@@ -39,10 +39,9 @@
 
     <span class="fx-sep"></span>
 
-    <!-- 2. 段落样式与字号 -->
+    <!-- 2 · 段落样式与字号 -->
     <div class="fx-group">
       <button
-        ref="blockTrigger"
         type="button"
         class="fx-select"
         :class="{ 'is-open': pop === 'block' }"
@@ -55,7 +54,6 @@
       </button>
 
       <button
-        ref="sizeTrigger"
         type="button"
         class="fx-select is-narrow"
         :class="{ 'is-open': pop === 'size' }"
@@ -70,7 +68,7 @@
 
     <span class="fx-sep"></span>
 
-    <!-- 3. 行内样式 -->
+    <!-- 3 · 行内样式 -->
     <div class="fx-group">
       <button
         type="button"
@@ -78,7 +76,7 @@
         :class="{ 'is-on': isActive('bold') }"
         v-tip="{ label: '加粗', keys: '⌘B' }"
         @mousedown.prevent
-        @click="run('toggleBold')"
+        @click="$emit('run', 'toggleBold')"
       >
         <AppIcon name="bold" />
       </button>
@@ -89,7 +87,7 @@
         :class="{ 'is-on': isActive('italic') }"
         v-tip="{ label: '斜体', keys: '⌘I' }"
         @mousedown.prevent
-        @click="run('toggleItalic')"
+        @click="$emit('run', 'toggleItalic')"
       >
         <AppIcon name="italic" />
       </button>
@@ -101,7 +99,7 @@
         :class="{ 'is-on': isActive('underline') }"
         v-tip="{ label: '下划线', keys: '⌘U' }"
         @mousedown.prevent
-        @click="run('toggleUnderline')"
+        @click="$emit('run', 'toggleUnderline')"
       >
         <AppIcon name="underline" />
       </button>
@@ -113,27 +111,26 @@
         :class="{ 'is-on': isActive('strike') }"
         v-tip="{ label: '删除线', keys: '⌘⇧X' }"
         @mousedown.prevent
-        @click="run('toggleStrike')"
+        @click="$emit('run', 'toggleStrike')"
       >
         <AppIcon name="strike" />
       </button>
 
-      <!-- 文字颜色：主区域直接套用当前色，箭头开调色板 -->
+      <!-- 文字颜色：主区域套用当前色，箭头开调色板 -->
       <div class="fx-split" :class="{ 'is-open': pop === 'color' }">
         <button
           type="button"
           class="fx-split-main"
           :class="{ 'is-on': hasTextColor }"
-          v-tip="{ label: '文字颜色' }"
+          v-tip="{ label: '文字颜色（套用当前色）' }"
           @mousedown.prevent
-          @click="applyTextColor(currentTextColor)"
+          @click="$emit('apply-text-color', selectedTextColor)"
         >
           <AppIcon name="textColor" />
-          <i class="fx-bar" :style="{ background: currentTextColor }"></i>
+          <i class="fx-bar" :style="{ background: selectedTextColor }"></i>
         </button>
 
         <button
-          ref="colorTrigger"
           type="button"
           class="fx-split-caret"
           v-tip="{ label: '选择文字颜色' }"
@@ -150,16 +147,15 @@
           type="button"
           class="fx-split-main"
           :class="{ 'is-on': isActive('highlight') }"
-          v-tip="{ label: '高亮' }"
+          v-tip="{ label: '高亮（套用当前色）' }"
           @mousedown.prevent
-          @click="applyHighlight(currentHighlight)"
+          @click="$emit('apply-highlight', selectedHighlightColor)"
         >
           <AppIcon name="highlight" />
-          <i class="fx-bar" :style="{ background: currentHighlight }"></i>
+          <i class="fx-bar" :style="{ background: selectedHighlightColor }"></i>
         </button>
 
         <button
-          ref="highlightTrigger"
           type="button"
           class="fx-split-caret"
           v-tip="{ label: '选择高亮色' }"
@@ -169,11 +165,23 @@
           <AppIcon name="chevronDown" class="fx-caret" />
         </button>
       </div>
+
+      <button
+        v-if="spacious"
+        type="button"
+        class="fx-btn"
+        :class="{ 'is-on': isActive('code') }"
+        v-tip="{ label: '行内代码', keys: '⌘E' }"
+        @mousedown.prevent
+        @click="$emit('run', 'toggleCode')"
+      >
+        <AppIcon name="inlineCode" />
+      </button>
     </div>
 
     <span class="fx-sep"></span>
 
-    <!-- 4. 列表与缩进 -->
+    <!-- 4 · 列表与缩进 -->
     <div class="fx-group">
       <button
         type="button"
@@ -181,7 +189,7 @@
         :class="{ 'is-on': isActive('bulletList') }"
         v-tip="{ label: '无序列表' }"
         @mousedown.prevent
-        @click="run('toggleBulletList')"
+        @click="$emit('run', 'toggleBulletList')"
       >
         <AppIcon name="bulletList" />
       </button>
@@ -192,7 +200,7 @@
         :class="{ 'is-on': isActive('orderedList') }"
         v-tip="{ label: '有序列表' }"
         @mousedown.prevent
-        @click="run('toggleOrderedList')"
+        @click="$emit('run', 'toggleOrderedList')"
       >
         <AppIcon name="orderedList" />
       </button>
@@ -203,7 +211,7 @@
         :class="{ 'is-on': isActive('taskList') }"
         v-tip="{ label: '待办清单' }"
         @mousedown.prevent
-        @click="run('toggleTaskList')"
+        @click="$emit('run', 'toggleTaskList')"
       >
         <AppIcon name="taskList" />
       </button>
@@ -215,7 +223,7 @@
         :class="{ 'is-on': isActive('blockquote') }"
         v-tip="{ label: '引用' }"
         @mousedown.prevent
-        @click="run('toggleBlockquote')"
+        @click="$emit('run', 'toggleBlockquote')"
       >
         <AppIcon name="quote" />
       </button>
@@ -226,7 +234,7 @@
         class="fx-btn"
         v-tip="{ label: '减少缩进', keys: '⇧Tab' }"
         @mousedown.prevent
-        @click="outdent"
+        @click="$emit('outdent')"
       >
         <AppIcon name="indentDecrease" />
       </button>
@@ -237,7 +245,7 @@
         class="fx-btn"
         v-tip="{ label: '增加缩进', keys: 'Tab' }"
         @mousedown.prevent
-        @click="indent"
+        @click="$emit('indent')"
       >
         <AppIcon name="indentIncrease" />
       </button>
@@ -245,15 +253,16 @@
 
     <span class="fx-sep"></span>
 
-    <!-- 5. 插入 -->
+    <!-- 5 · 插入 -->
     <div class="fx-group">
       <button
+        v-if="hasLinkMark"
         type="button"
         class="fx-btn"
-        :class="{ 'is-on': isActive('link') }"
-        v-tip="{ label: '链接' }"
+        :class="{ 'is-on': isActive('link') || pop === 'link' }"
+        v-tip="{ label: '链接', keys: '⌘K' }"
         @mousedown.prevent
-        @click="$emit('edit-link')"
+        @click.stop="openLinkPop($event)"
       >
         <AppIcon name="link" />
       </button>
@@ -282,21 +291,32 @@
         v-if="spacious"
         type="button"
         class="fx-btn"
+        :class="{ 'is-on': isActive('codeBlock') }"
+        v-tip="{ label: '代码块' }"
+        @mousedown.prevent
+        @click="$emit('run', 'toggleCodeBlock')"
+      >
+        <AppIcon name="codeBlock" />
+      </button>
+
+      <button
+        v-if="spacious"
+        type="button"
+        class="fx-btn"
         v-tip="{ label: '分割线' }"
         @mousedown.prevent
-        @click="run('setHorizontalRule')"
+        @click="$emit('run', 'setHorizontalRule')"
       >
         <AppIcon name="horizontalRule" />
       </button>
     </div>
 
-    <!-- 6. 代码块上下文工具（仅光标在代码块内时出现） -->
+    <!-- 6 · 代码块上下文工具 -->
     <template v-if="inCodeBlock">
       <span class="fx-sep"></span>
 
       <div class="fx-group">
         <button
-          ref="langTrigger"
           type="button"
           class="fx-select"
           :class="{ 'is-open': pop === 'lang' }"
@@ -354,7 +374,6 @@
         @mousedown.stop
         @click.stop
       >
-        <!-- 段落样式 -->
         <template v-if="pop === 'block'">
           <button
             v-for="item in blockOptions"
@@ -362,106 +381,136 @@
             type="button"
             class="fx-pop-row"
             :class="{ selected: currentBlock === item.value }"
-            @click="setBlock(item.value)"
+            @click="chooseBlock(item.value)"
           >
             <span :class="item.preview">{{ item.label }}</span>
           </button>
         </template>
 
-        <!-- 字号 -->
         <template v-else-if="pop === 'size'">
           <div class="fx-pop-scroll">
             <button
               v-for="item in sizeOptions"
-              :key="String(item.value)"
+              :key="item.label"
               type="button"
               class="fx-pop-row is-compact"
-              :class="{ selected: currentFontSize === item.value }"
-              @click="setFontSize(item.value)"
+              :class="{ selected: normalizedFontSize === item.value }"
+              @click="chooseFontSize(item.value)"
             >
               {{ item.label }}
             </button>
           </div>
         </template>
 
-        <!-- 代码语言 -->
         <template v-else-if="pop === 'lang'">
           <div class="fx-pop-scroll">
             <button
-              v-for="item in codeLanguages"
+              v-for="item in (codeLanguages || [])"
               :key="item.value"
               type="button"
               class="fx-pop-row is-compact"
-              :class="{ selected: currentLanguage === item.value }"
-              @click="setLanguage(item.value)"
+              :class="{ selected: currentCodeLanguage === item.value }"
+              @click="chooseLanguage(item.value)"
             >
               {{ item.label }}
             </button>
           </div>
         </template>
 
-        <!-- 文字颜色 -->
         <template v-else-if="pop === 'color'">
           <strong class="fx-pop-title">文字颜色</strong>
           <div class="fx-swatches">
             <button
               type="button"
               class="fx-swatch-reset"
-              @click="clearTextColor"
+              @click="emitAndClose('clear-text-color')"
             >
               自动
             </button>
             <button
-              v-for="color in textColors"
+              v-for="color in (textColors || [])"
               :key="color"
               type="button"
               class="fx-swatch"
-              :class="{ selected: currentTextColor === color }"
+              :class="{ selected: selectedTextColor === color }"
               :style="{ background: color }"
               :title="color"
-              @click="applyTextColor(color)"
+              @click="emitAndClose('apply-text-color', color)"
             ></button>
           </div>
           <label class="fx-custom">
             <span>自定义</span>
             <input
               type="color"
-              :value="currentTextColor"
-              @input="applyTextColor($event.target.value)"
+              :value="selectedTextColor"
+              @input="$emit('apply-text-color', $event.target.value)"
             />
           </label>
         </template>
 
-        <!-- 高亮 -->
         <template v-else-if="pop === 'highlight'">
           <strong class="fx-pop-title">高亮颜色</strong>
           <div class="fx-swatches">
             <button
               type="button"
               class="fx-swatch-reset"
-              @click="clearHighlight"
+              @click="emitAndClose('clear-highlight')"
             >
               无
             </button>
             <button
-              v-for="color in highlightColors"
+              v-for="color in (highlightColors || [])"
               :key="color"
               type="button"
               class="fx-swatch"
-              :class="{ selected: currentHighlight === color }"
+              :class="{ selected: selectedHighlightColor === color }"
               :style="{ background: color }"
               :title="color"
-              @click="applyHighlight(color)"
+              @click="emitAndClose('apply-highlight', color)"
             ></button>
           </div>
           <label class="fx-custom">
             <span>自定义</span>
             <input
               type="color"
-              :value="currentHighlight"
-              @input="applyHighlight($event.target.value)"
+              :value="selectedHighlightColor"
+              @input="$emit('apply-highlight', $event.target.value)"
             />
           </label>
+        </template>
+
+        <template v-else-if="pop === 'link'">
+          <strong class="fx-pop-title">链接地址</strong>
+          <input
+            ref="linkInput"
+            v-model.trim="linkDraft"
+            class="fx-link-input"
+            type="text"
+            placeholder="https://"
+            @keydown.enter.prevent="commitLink"
+            @keydown.esc.stop.prevent="closePop"
+          />
+          <div class="fx-pop-footer">
+            <button
+              v-if="isActive('link')"
+              type="button"
+              class="fx-text-button"
+              @click="removeLink"
+            >
+              移除链接
+            </button>
+            <span class="fx-spacer"></span>
+            <button type="button" class="fx-text-button" @click="closePop">
+              取消
+            </button>
+            <button
+              type="button"
+              class="fx-text-button is-primary"
+              @click="commitLink"
+            >
+              确定
+            </button>
+          </div>
         </template>
       </div>
     </Teleport>
@@ -473,21 +522,25 @@
 import AppIcon from "../../components/ui/AppIcon.vue";
 import { tip } from "../../directives/tooltip";
 
-const TEXT_COLORS = [
-  "#292d33", "#626a75", "#d14343", "#c26a22", "#9a7614",
-  "#2f7d4a", "#267a8a", "#3f63c8", "#7354b5",
-];
-
-const HIGHLIGHT_COLORS = [
-  "#fff0a6", "#ffd8a8", "#ffc9c9", "#d3f9d8",
-  "#c5f6fa", "#d0ebff", "#e5dbff", "#f1f3f5",
-];
+/**
+ * 单文本工具栏（纯受控表现层）。
+ *
+ * 设计原则：这个组件不持有任何编辑器业务逻辑。
+ * 所有状态由 FocusDocumentEditor 以 props 注入，所有动作 emit 回去，
+ * 由父组件里已经存在并且久经使用的方法（run / setBlock / setFontSize /
+ * applyTextColor / increaseIndent ...）执行。
+ *
+ * 这么做的原因很实际：直接在工具栏里调 editor.chain().setFontSize() 之类
+ * 需要假设对应的 tiptap 扩展命令存在，而本项目的字号、缩进、颜色能力是
+ * 由父组件的方法实现的，绕过去必然 "chain[x] is not a function"。
+ *
+ * 唯一的例外是链接浮层——父组件目前没有对应方法，所以这里直连 editor，
+ * 并且用 hasLinkMark 守住：schema 里没有 link mark 时按钮根本不渲染。
+ */
 
 const SIZE_OPTIONS = [
-  { label: "默认", value: null },
   { label: "12px", value: "12px" },
-  { label: "13px", value: "13px" },
-  { label: "14px", value: "14px" },
+  { label: "14px（默认）", value: "" },
   { label: "16px", value: "16px" },
   { label: "18px", value: "18px" },
   { label: "20px", value: "20px" },
@@ -502,24 +555,6 @@ const BLOCK_OPTIONS = [
   { value: "h1", label: "一级标题", preview: "fx-preview-h1" },
   { value: "h2", label: "二级标题", preview: "fx-preview-h2" },
   { value: "h3", label: "三级标题", preview: "fx-preview-h3" },
-  { value: "blockquote", label: "引用", preview: "fx-preview-quote" },
-  { value: "codeBlock", label: "代码块", preview: "fx-preview-code" },
-];
-
-const CODE_LANGUAGES = [
-  { value: "plaintext", label: "纯文本" },
-  { value: "javascript", label: "JavaScript" },
-  { value: "typescript", label: "TypeScript" },
-  { value: "python", label: "Python" },
-  { value: "java", label: "Java" },
-  { value: "json", label: "JSON" },
-  { value: "html", label: "HTML" },
-  { value: "css", label: "CSS" },
-  { value: "scss", label: "SCSS" },
-  { value: "bash", label: "Shell" },
-  { value: "sql", label: "SQL" },
-  { value: "xml", label: "XML" },
-  { value: "markdown", label: "Markdown" },
 ];
 
 const DOUBLE_CLICK_WINDOW = 210;
@@ -537,18 +572,35 @@ export default {
     formatSample: { type: Object, default: null },
     keepPasteStyle: { type: Boolean, default: false },
     codeWrap: { type: Boolean, default: true },
+    currentBlock: { type: String, default: "paragraph" },
+    currentFontSize: { type: String, default: "" },
+    currentCodeLanguage: { type: String, default: "" },
+    codeLanguages: { type: Array, default: () => [] },
+    textColors: { type: Array, default: () => [] },
+    highlightColors: { type: Array, default: () => [] },
+    selectedTextColor: { type: String, default: "#292d33" },
+    selectedHighlightColor: { type: String, default: "#fff0a6" },
   },
 
   emits: [
+    "run",
+    "set-block",
+    "set-font-size",
+    "set-code-language",
     "sample-format",
     "clear-format",
     "toggle-paste-style",
     "toggle-code-wrap",
     "copy-code",
-    "edit-link",
     "insert-image",
     "request-task",
     "open-markdown",
+    "indent",
+    "outdent",
+    "apply-text-color",
+    "clear-text-color",
+    "apply-highlight",
+    "clear-highlight",
   ],
 
   data() {
@@ -556,13 +608,9 @@ export default {
       pop: null,
       popStyle: {},
       painterTimer: null,
-      textColors: TEXT_COLORS,
-      highlightColors: HIGHLIGHT_COLORS,
+      linkDraft: "",
       sizeOptions: SIZE_OPTIONS,
       blockOptions: BLOCK_OPTIONS,
-      codeLanguages: CODE_LANGUAGES,
-      lastTextColor: TEXT_COLORS[2],
-      lastHighlight: HIGHLIGHT_COLORS[0],
     };
   },
 
@@ -573,43 +621,30 @@ export default {
 
     painterTip() {
       if (!this.formatSample) {
-        return {
-          label: "格式刷：单击取样，双击锁定连刷",
-          keys: "⌘⌥C",
-        };
+        return { label: "格式刷：单击取样，双击锁定连刷", keys: "⌘⌥C" };
       }
+
+      const summary = this.formatSample.summary || "默认样式";
 
       return {
         label:
           (this.isPainterLocked ? "连刷中" : "已取样") +
           "（" +
-          (this.formatSample.summary || "默认样式") +
+          summary +
           "）：选中文字即套用，Esc 退出",
       };
     },
 
     pasteTip() {
       return this.keepPasteStyle
-        ? { label: "粘贴保留来源样式（点击改为清洗）", keys: "⌘⇧V 纯文本" }
-        : { label: "粘贴清洗来源样式（点击改为保留）", keys: "⌘⇧V 纯文本" };
-    },
-
-    currentBlock() {
-      if (!this.editor) return "paragraph";
-
-      if (this.editor.isActive("codeBlock")) return "codeBlock";
-      if (this.editor.isActive("blockquote")) return "blockquote";
-
-      for (const level of [1, 2, 3]) {
-        if (this.editor.isActive("heading", { level })) {
-          return "h" + level;
-        }
-      }
-
-      return "paragraph";
+        ? { label: "粘贴保留来源样式（点击改为清洗）" }
+        : { label: "粘贴清洗来源样式（点击改为保留）" };
     },
 
     blockLabel() {
+      if (this.isActive("codeBlock")) return "代码块";
+      if (this.isActive("blockquote")) return "引用";
+
       const found = BLOCK_OPTIONS.find(
         (item) => item.value === this.currentBlock
       );
@@ -617,14 +652,13 @@ export default {
       return found ? found.label : "正文";
     },
 
-    currentFontSize() {
-      if (!this.editor) return null;
-
-      return this.editor.getAttributes("textStyle").fontSize || null;
+    /** 父组件用 "" 表示 14px 默认值，这里统一成同一套口径。 */
+    normalizedFontSize() {
+      return this.currentFontSize || "";
     },
 
     sizeLabel() {
-      return this.currentFontSize || "默认";
+      return this.normalizedFontSize || "14px";
     },
 
     hasTextColor() {
@@ -633,42 +667,22 @@ export default {
       return Boolean(this.editor.getAttributes("textStyle").color);
     },
 
-    currentTextColor() {
-      if (!this.editor) return this.lastTextColor;
-
-      return (
-        this.editor.getAttributes("textStyle").color ||
-        this.lastTextColor
-      );
-    },
-
-    currentHighlight() {
-      if (!this.editor) return this.lastHighlight;
-
-      return (
-        this.editor.getAttributes("highlight").color ||
-        this.lastHighlight
-      );
-    },
-
     inCodeBlock() {
-      return Boolean(this.editor && this.editor.isActive("codeBlock"));
-    },
-
-    currentLanguage() {
-      if (!this.editor) return "plaintext";
-
-      return (
-        this.editor.getAttributes("codeBlock").language || "plaintext"
-      );
+      return this.isActive("codeBlock");
     },
 
     languageLabel() {
-      const found = CODE_LANGUAGES.find(
-        (item) => item.value === this.currentLanguage
+      const found = (this.codeLanguages || []).find(
+        (item) => item.value === this.currentCodeLanguage
       );
 
       return found ? found.label : "纯文本";
+    },
+
+    hasLinkMark() {
+      return Boolean(
+        this.editor && this.editor.schema && this.editor.schema.marks.link
+      );
     },
   },
 
@@ -687,23 +701,15 @@ export default {
     isActive(name, attrs) {
       if (!this.editor) return false;
 
-      return this.editor.isActive(name, attrs);
-    },
-
-    run(command, ...args) {
-      if (!this.editor) return;
-
-      const chain = this.editor.chain().focus();
-
-      if (typeof chain[command] !== "function") {
-        console.warn("[FocusEditorToolbar] 未知命令：" + command);
-        return;
+      try {
+        return this.editor.isActive(name, attrs);
+      } catch (error) {
+        // schema 里没有这个节点/标记时 isActive 会抛，按"未激活"处理。
+        return false;
       }
-
-      chain[command](...args).run();
     },
 
-    /* ---------- 格式刷：单击一次性，双击锁定 ---------- */
+    /* ---------- 格式刷：210ms 内的第二次点击算双击 ---------- */
 
     onPainterClick() {
       clearTimeout(this.painterTimer);
@@ -718,7 +724,7 @@ export default {
       this.$emit("sample-format", true);
     },
 
-    /* ---------- 浮层定位 ---------- */
+    /* ---------- 浮层 ---------- */
 
     togglePop(name, event) {
       if (this.pop === name) {
@@ -732,16 +738,16 @@ export default {
           : null;
 
       if (rect) {
-        const width = name === "color" || name === "highlight" ? 232 : 168;
-        const height = 260;
+        const wide = ["color", "highlight", "link"].includes(name);
+        const width = wide ? 236 : 172;
+        const height = 268;
 
         const left = Math.max(
           10,
           Math.min(window.innerWidth - width - 10, rect.left)
         );
 
-        const openAbove =
-          rect.bottom + height > window.innerHeight - 10;
+        const openAbove = rect.bottom + height > window.innerHeight - 10;
 
         this.popStyle = {
           position: "fixed",
@@ -768,104 +774,74 @@ export default {
       this.closePop();
     },
 
-    /* ---------- 具体命令 ---------- */
-
-    setBlock(value) {
-      if (!this.editor) return;
-
-      const chain = this.editor.chain().focus();
-
-      if (value === "paragraph") chain.setParagraph().run();
-      else if (value === "blockquote") chain.toggleBlockquote().run();
-      else if (value === "codeBlock") chain.toggleCodeBlock().run();
-      else chain.setHeading({ level: Number(value.slice(1)) }).run();
+    emitAndClose(name, payload) {
+      if (payload === undefined) this.$emit(name);
+      else this.$emit(name, payload);
 
       this.closePop();
     },
 
-    setFontSize(value) {
-      if (!this.editor) return;
+    /* ---------- 下拉项 ---------- */
 
-      const chain = this.editor.chain().focus();
-
-      if (!value) chain.unsetFontSize().run();
-      else chain.setFontSize(value).run();
-
+    chooseBlock(value) {
+      this.$emit("set-block", value);
       this.closePop();
     },
 
-    setLanguage(value) {
+    chooseFontSize(value) {
+      this.$emit("set-font-size", value);
+      this.closePop();
+    },
+
+    chooseLanguage(value) {
+      this.$emit("set-code-language", value);
+      this.closePop();
+    },
+
+    /* ---------- 链接（父组件暂无对应方法，这里直连 editor） ---------- */
+
+    openLinkPop(event) {
       if (!this.editor) return;
+
+      const attrs = this.editor.getAttributes("link") || {};
+      this.linkDraft = attrs.href || "";
+
+      this.togglePop("link", event);
+
+      this.$nextTick(() => {
+        if (this.$refs.linkInput) this.$refs.linkInput.focus();
+      });
+    },
+
+    commitLink() {
+      if (!this.editor) return;
+
+      const href = this.linkDraft;
+
+      if (!href) {
+        this.removeLink();
+        return;
+      }
+
+      const normalized = /^(https?:|mailto:|weektodo:|\/)/i.test(href)
+        ? href
+        : "https://" + href;
 
       this.editor
         .chain()
         .focus()
-        .updateAttributes("codeBlock", { language: value || "plaintext" })
+        .extendMarkRange("link")
+        .setLink({ href: normalized })
         .run();
 
       this.closePop();
     },
 
-    applyTextColor(color) {
-      if (!this.editor || !color) return;
-
-      this.lastTextColor = color;
-      this.editor.chain().focus().setColor(color).run();
-      this.closePop();
-    },
-
-    clearTextColor() {
+    removeLink() {
       if (!this.editor) return;
 
-      this.editor.chain().focus().unsetColor().run();
+      this.editor.chain().focus().extendMarkRange("link").unsetLink().run();
       this.closePop();
-    },
-
-    applyHighlight(color) {
-      if (!this.editor || !color) return;
-
-      this.lastHighlight = color;
-      this.editor.chain().focus().setHighlight({ color }).run();
-      this.closePop();
-    },
-
-    clearHighlight() {
-      if (!this.editor) return;
-
-      this.editor.chain().focus().unsetHighlight().run();
-      this.closePop();
-    },
-
-    indent() {
-      if (!this.editor) return;
-
-      if (this.editor.isActive("taskItem")) {
-        this.editor.chain().focus().sinkListItem("taskItem").run();
-        return;
-      }
-
-      if (this.editor.isActive("listItem")) {
-        this.editor.chain().focus().sinkListItem("listItem").run();
-        return;
-      }
-
-      this.editor.chain().focus().increaseIndent().run();
-    },
-
-    outdent() {
-      if (!this.editor) return;
-
-      if (this.editor.isActive("taskItem")) {
-        this.editor.chain().focus().liftListItem("taskItem").run();
-        return;
-      }
-
-      if (this.editor.isActive("listItem")) {
-        this.editor.chain().focus().liftListItem("listItem").run();
-        return;
-      }
-
-      this.editor.chain().focus().decreaseIndent().run();
     },
   },
 };
@@ -926,26 +902,24 @@ export default {
   background: transparent;
   color: #575e68;
   cursor: pointer;
-  transition:
-    background-color 0.13s ease,
-    color 0.13s ease;
+  transition: background-color 0.13s ease, color 0.13s ease;
+
+  &:hover {
+    background: #f0f2f5;
+    color: #24282e;
+  }
+
+  &.is-on {
+    background: #eef2ff;
+    color: #4263eb;
+  }
+
+  &.is-locked {
+    background: #e0e8ff;
+  }
 }
 
-.fx-btn:hover {
-  background: #f0f2f5;
-  color: #24282e;
-}
-
-.fx-btn.is-on {
-  background: #eef2ff;
-  color: #4263eb;
-}
-
-.fx-btn.is-locked {
-  background: #e5ecff;
-}
-
-.fx-lock {
+.fx-dot {
   position: absolute;
   right: 3px;
   bottom: 3px;
@@ -955,11 +929,10 @@ export default {
   background: #4263eb;
 }
 
-/* 段落样式 / 字号 / 语言：自绘下拉，避免原生 select 的系统外观 */
 .fx-select {
   display: flex;
   height: 28px;
-  min-width: 76px;
+  min-width: 84px;
   align-items: center;
   justify-content: space-between;
   gap: 3px;
@@ -972,15 +945,15 @@ export default {
   font-size: 12px;
   cursor: pointer;
   transition: background-color 0.13s ease;
-}
 
-.fx-select.is-narrow {
-  min-width: 62px;
-}
+  &.is-narrow {
+    min-width: 68px;
+  }
 
-.fx-select:hover,
-.fx-select.is-open {
-  background: #f0f2f5;
+  &:hover,
+  &.is-open {
+    background: #f0f2f5;
+  }
 }
 
 .fx-select-text {
@@ -995,18 +968,17 @@ export default {
   opacity: 0.55;
 }
 
-/* 颜色分体按钮 */
 .fx-split {
   display: flex;
   height: 28px;
   align-items: center;
   border-radius: 6px;
   overflow: hidden;
-}
 
-.fx-split:hover,
-.fx-split.is-open {
-  background: #f0f2f5;
+  &:hover,
+  &.is-open {
+    background: #f0f2f5;
+  }
 }
 
 .fx-split-main {
@@ -1022,10 +994,10 @@ export default {
   background: transparent;
   color: #575e68;
   cursor: pointer;
-}
 
-.fx-split-main.is-on {
-  color: #4263eb;
+  &.is-on {
+    color: #4263eb;
+  }
 }
 
 .fx-bar {
@@ -1079,7 +1051,7 @@ export default {
 </style>
 
 <style lang="scss">
-/* 浮层 Teleport 到 body，样式不能 scoped。 */
+/* 浮层 Teleport 到 body，不能 scoped。 */
 .fx-pop {
   z-index: 22000;
   display: flex;
@@ -1089,8 +1061,7 @@ export default {
   border: 1px solid rgba(31, 35, 41, 0.12);
   border-radius: 10px;
   background: #fff;
-  box-shadow:
-    0 16px 42px rgba(24, 29, 38, 0.16),
+  box-shadow: 0 16px 42px rgba(24, 29, 38, 0.16),
     0 2px 8px rgba(24, 29, 38, 0.07);
 }
 
@@ -1122,27 +1093,25 @@ export default {
   font-size: 12.5px;
   text-align: left;
   cursor: pointer;
-}
 
-.fx-pop-row.is-compact {
-  padding: 5px 9px;
-  font-size: 12px;
-}
+  &.is-compact {
+    padding: 5px 9px;
+    font-size: 12px;
+  }
 
-.fx-pop-row:hover {
-  background: #f0f2f5;
-}
+  &:hover {
+    background: #f0f2f5;
+  }
 
-.fx-pop-row.selected {
-  background: #eef2ff;
-  color: #4263eb;
+  &.selected {
+    background: #eef2ff;
+    color: #4263eb;
+  }
 }
 
 .fx-preview-h1 { font-size: 17px; font-weight: 680; }
 .fx-preview-h2 { font-size: 15px; font-weight: 660; }
 .fx-preview-h3 { font-size: 13.5px; font-weight: 640; }
-.fx-preview-quote { padding-left: 7px; border-left: 2px solid #98a9e8; color: #6d747e; }
-.fx-preview-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
 
 .fx-swatches {
   display: flex;
@@ -1157,10 +1126,10 @@ export default {
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 50%;
   cursor: pointer;
-}
 
-.fx-swatch.selected {
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #4263eb;
+  &.selected {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #4263eb;
+  }
 }
 
 .fx-swatch-reset {
@@ -1183,16 +1152,63 @@ export default {
   border-top: 1px solid #eef0f3;
   color: #868d96;
   font-size: 10.5px;
+
+  input {
+    width: 34px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid #dfe3e8;
+    border-radius: 5px;
+    background: none;
+    cursor: pointer;
+  }
 }
 
-.fx-custom input {
-  width: 34px;
-  height: 22px;
-  padding: 0;
+.fx-link-input {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
   border: 1px solid #dfe3e8;
-  border-radius: 5px;
-  background: none;
+  border-radius: 6px;
+  color: #2f353d;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+
+  &:focus {
+    border-color: #4263eb;
+  }
+}
+
+.fx-pop-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.fx-text-button {
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #626a75;
+  font-family: inherit;
+  font-size: 11.5px;
   cursor: pointer;
+
+  &:hover {
+    background: #f0f2f5;
+  }
+
+  &.is-primary {
+    background: #4263eb;
+    color: #fff;
+
+    &:hover {
+      background: #3853cc;
+    }
+  }
 }
 
 .dark-theme .fx-pop {
@@ -1202,18 +1218,24 @@ export default {
 
 .dark-theme .fx-pop-row {
   color: #d3d8de;
-}
 
-.dark-theme .fx-pop-row:hover {
-  background: #262e38;
-}
+  &:hover {
+    background: #262e38;
+  }
 
-.dark-theme .fx-pop-row.selected {
-  background: #1e2740;
-  color: #8da2fb;
+  &.selected {
+    background: #1e2740;
+    color: #8da2fb;
+  }
 }
 
 .dark-theme .fx-custom {
   border-color: #333a44;
+}
+
+.dark-theme .fx-link-input {
+  border-color: #39414c;
+  background: #161b22;
+  color: #dfe3e8;
 }
 </style>

@@ -1,9 +1,10 @@
 <template>
   <div class="calendar-hub-view d-flex flex-column">
-    <div class="hub-topbar d-flex align-items-center">
-      <i class="bi-calendar-heart hub-title-icon"></i>
-      <h5 class="mb-0 ms-2">{{ $t("calendarHub.title") }}</h5>
-    </div>
+    <!-- FOCUS_UI_SYSTEM_20260909_V4：三个一级模块共用同一个标题栏 -->
+    <module-header
+      icon="bi-calendar-heart"
+      :title="$t('calendarHub.title')"
+    ></module-header>
 
     <div class="hub-body flex-grow-1 d-flex">
       <div class="hub-left">
@@ -104,9 +105,12 @@ import holidayHelper from "../../helpers/holidayHelper";
 import configRepository from "../../repositories/configRepository";
 import countryListData from "../../data/countryList.js";
 
+/* FOCUS_UI_SYSTEM_20260909_V4 */
+import moduleHeader from "../../components/layout/ModuleHeader.vue";
 export default {
   name: "CalendarHubView",
   components: {
+    moduleHeader,
     monthCalendar,
     anniversaryEditModal,
     upcomingEventsTile,

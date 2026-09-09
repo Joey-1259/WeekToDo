@@ -3,288 +3,49 @@
     class="focus-editor"
     :class="{ spacious, 'wrap-code': codeWrap }"
   >
-    <div
+    <!-- FOCUS_UI_SYSTEM_20260909_V4
+         原工具栏用 Unicode 字符当图标（U+238D ⎍ 单稳态触发符、U+29BB ⦻、
+         坤卦 ☷ 等），字形粗细与视觉重心随系统字体漂移；下拉是原生 select，
+         与自绘按钮两种质感；提示走原生 title，macOS 要悬停 1~2 秒才出。
+
+         新工具栏是纯受控组件：状态由这里以 props 注入，动作 emit 回来由
+         本组件既有方法执行（run / setBlock / setFontSize / applyTextColor
+         / increaseIndent ...）。工具栏内部不直接调 editor.chain()，因为
+         本项目的字号、缩进、颜色不是 tiptap 命令而是组件方法。 -->
+    <FocusEditorToolbar
       v-if="editor"
-      class="focus-editor-toolbar"
-      role="toolbar"
-      aria-label="文档格式工具栏"
-    >
-
-      <select
-        class="focus-block-select"
-        :value="currentBlock"
-        title="文字样式"
-        @change="setBlock($event.target.value)"
-      >
-        <option value="paragraph">正文</option>
-        <option value="h1">一级标题</option>
-        <option value="h2">二级标题</option>
-        <option value="h3">三级标题</option>
-      </select>
-
-      <select
-        class="focus-size-select"
-        :value="currentFontSize"
-        title="字体大小"
-        @change="setFontSize($event.target.value)"
-      >
-        <option value="12px">12px</option>
-        <option value="">14px</option>
-        <option value="16px">16px</option>
-        <option value="18px">18px</option>
-        <option value="20px">20px</option>
-        <option value="24px">24px</option>
-        <option value="28px">28px</option>
-        <option value="32px">32px</option>
-        <option value="40px">40px</option>
-      </select>
-
-      <span class="divider"></span>
-
-
-      <button
-
-        class="focus-painter-button"
-
-        :class="{ active: Boolean(formatSample) }"
-
-        :title="formatPainterHint"
-
-        @mousedown.prevent
-
-        @click="sampleFormat(false)"
-
-        @dblclick="sampleFormat(true)"
-
-      >&#9101;</button>
-
-      <button
-
-        class="focus-clear-format-button"
-
-        title="清除格式"
-
-        @mousedown.prevent
-
-        @click="clearFormat"
-
-      >&#10683;</button>
-
-      <button
-
-        class="focus-paste-mode-button"
-
-        :class="{ active: keepPasteStyle }"
-
-        :title="pasteModeHint"
-
-        @mousedown.prevent
-
-        @click="toggleKeepPasteStyle"
-
-      >&#8681;</button>
-
-
-      <span class="divider"></span>
-      <button
-        :class="{ active: editor.isActive('bold') }"
-        title="粗体"
-        @click="run('toggleBold')"
-      ><strong>B</strong></button>
-      <button
-        v-if="spacious"
-        :class="{ active: editor.isActive('italic') }"
-        title="斜体"
-        @click="run('toggleItalic')"
-      ><em>I</em></button>
-      <button
-        v-if="spacious"
-        :class="{ active: editor.isActive('underline') }"
-        title="下划线"
-        @click="run('toggleUnderline')"
-      ><u>U</u></button>
-      <button
-        v-if="spacious"
-        :class="{ active: editor.isActive('strike') }"
-        title="删除线"
-        @click="run('toggleStrike')"
-      ><s>S</s></button>
-      <div class="focus-color-control">
-        <button
-          class="focus-color-trigger"
-          :class="{ active: activeColorMenu === 'toolbarText' }"
-          title="文字颜色"
-          @mousedown.prevent
-          @click.stop="toggleColorMenu('toolbarText', $event)"
-        >
-          <span class="focus-color-letter">A</span>
-          <i
-            class="focus-color-indicator"
-            :style="{ backgroundColor: selectedTextColor }"
-          ></i>
-        </button>
-
-        <div
-          v-if="activeColorMenu === 'toolbarText'"
-          class="focus-color-menu"
-          :style="colorMenuStyle"
-          @mousedown.stop
-          @click.stop
-        >
-          <strong>文字颜色</strong>
-          <div class="focus-color-grid">
-            <button
-              class="focus-color-reset"
-              title="恢复默认文字颜色"
-              @mousedown.prevent
-              @click="clearTextColor"
-            >自动</button>
-            <button
-              v-for="color in textColors"
-              :key="color"
-              class="focus-color-swatch"
-              :class="{ selected: selectedTextColor === color }"
-              :style="{ backgroundColor: color }"
-              :title="color"
-              @mousedown.prevent
-              @click="applyTextColor(color)"
-            ></button>
-          </div>
-
-          <label class="focus-custom-color">
-            <span>自定义颜色</span>
-            <input
-              type="color"
-              :value="selectedTextColor"
-              @input="applyTextColor($event.target.value)"
-            />
-          </label>
-        </div>
-      </div>
-
-      <div class="focus-color-control">
-        <button
-          class="focus-color-trigger"
-          :class="{
-            active:
-              editor.isActive('highlight') ||
-              activeColorMenu === 'toolbarHighlight'
-          }"
-          title="高亮颜色"
-          @mousedown.prevent
-          @click.stop="toggleColorMenu('toolbarHighlight', $event)"
-        >
-          <span class="focus-highlight-letter">A</span>
-          <i
-            class="focus-color-indicator"
-            :style="{ backgroundColor: selectedHighlightColor }"
-          ></i>
-        </button>
-
-        <div
-          v-if="activeColorMenu === 'toolbarHighlight'"
-          class="focus-color-menu"
-          :style="colorMenuStyle"
-          @mousedown.stop
-          @click.stop
-        >
-          <strong>高亮颜色</strong>
-          <div class="focus-color-grid">
-            <button
-              class="focus-color-reset"
-              title="取消高亮"
-              @mousedown.prevent
-              @click="clearHighlight"
-            >无</button>
-            <button
-              v-for="color in highlightColors"
-              :key="color"
-              class="focus-color-swatch"
-              :class="{
-                selected: selectedHighlightColor === color
-              }"
-              :style="{ backgroundColor: color }"
-              :title="color"
-              @mousedown.prevent
-              @click="applyHighlight(color)"
-            ></button>
-          </div>
-
-          <label class="focus-custom-color">
-            <span>自定义颜色</span>
-            <input
-              type="color"
-              :value="selectedHighlightColor"
-              @input="applyHighlight($event.target.value)"
-            />
-          </label>
-        </div>
-      </div>
-
-      <span class="divider"></span>
-
-      <button
-        v-if="spacious"
-        title="减少缩进（Shift + Tab）"
-        @click="decreaseIndent"
-      >⇤</button>
-      <button
-        v-if="spacious"
-        title="增加缩进（Tab）"
-        @click="increaseIndent"
-      >⇥</button>
-      <button title="无序列表" @click="run('toggleBulletList')">☷</button>
-      <button title="有序列表" @click="run('toggleOrderedList')">1.</button>
-      <button title="待办清单" @click="run('toggleTaskList')">☑</button>
-      <button
-        v-if="spacious"
-        title="引用"
-        @click="run('toggleBlockquote')"
-      >❝</button>
-      <button title="关联事项" @click="$emit('request-task')">↗</button>
-      <button title="插入图片" @click="chooseImage">▧</button>
-
-      <template v-if="editor.isActive('codeBlock')">
-        <span class="divider"></span>
-        <select
-          class="focus-code-language"
-          :value="currentCodeLanguage"
-          title="代码语言"
-          @change="setCodeLanguage($event.target.value)"
-        >
-          <option
-            v-for="language in codeLanguages"
-            :key="language.value"
-            :value="language.value"
-          >
-            {{ language.label }}
-          </option>
-        </select>
-        <button
-          type="button"
-          title="复制当前代码块"
-          @click="copyCurrentCode"
-        >
-          复制
-        </button>
-        <button
-          type="button"
-          :class="{ active: codeWrap }"
-          title="自动换行"
-          @click="toggleCodeWrap"
-        >
-          ↵
-        </button>
-      </template>
-
-      <span class="spacer"></span>
-
-      <button
-        v-if="spacious"
-        title="Markdown 源码"
-        @click="openMarkdown"
-      >MD</button>
-    </div>
+      :editor="editor"
+      :spacious="spacious"
+      :format-sample="formatSample"
+      :keep-paste-style="keepPasteStyle"
+      :code-wrap="codeWrap"
+      :current-block="currentBlock"
+      :current-font-size="currentFontSize"
+      :current-code-language="currentCodeLanguage"
+      :code-languages="codeLanguages"
+      :text-colors="textColors"
+      :highlight-colors="highlightColors"
+      :selected-text-color="selectedTextColor"
+      :selected-highlight-color="selectedHighlightColor"
+      @run="run"
+      @set-block="setBlock"
+      @set-font-size="setFontSize"
+      @set-code-language="setCodeLanguage"
+      @sample-format="sampleFormat"
+      @clear-format="clearFormat"
+      @toggle-paste-style="toggleKeepPasteStyle"
+      @toggle-code-wrap="toggleCodeWrap"
+      @copy-code="copyCurrentCode"
+      @insert-image="chooseImage"
+      @request-task="$emit('request-task')"
+      @open-markdown="openMarkdown"
+      @indent="increaseIndent"
+      @outdent="decreaseIndent"
+      @apply-text-color="applyTextColor"
+      @clear-text-color="clearTextColor"
+      @apply-highlight="applyHighlight"
+      @clear-highlight="clearHighlight"
+    />
 
     <BubbleMenu
       v-if="editor"
@@ -292,10 +53,18 @@
       :options="{ placement: 'top', offset: 8 }"
       class="focus-bubble"
     >
-      <button @click="run('toggleBold')"><strong>B</strong></button>
-      <button @click="run('toggleItalic')"><em>I</em></button>
-      <button @click="run('toggleUnderline')"><u>U</u></button>
-      <button @click="run('toggleStrike')"><s>S</s></button>
+      <button :class="{ active: editor.isActive('bold') }" @click="run('toggleBold')">
+        <AppIcon name="bold" />
+      </button>
+      <button :class="{ active: editor.isActive('italic') }" @click="run('toggleItalic')">
+        <AppIcon name="italic" />
+      </button>
+      <button :class="{ active: editor.isActive('underline') }" @click="run('toggleUnderline')">
+        <AppIcon name="underline" />
+      </button>
+      <button :class="{ active: editor.isActive('strike') }" @click="run('toggleStrike')">
+        <AppIcon name="strike" />
+      </button>
 
       <div class="focus-color-control">
         <button
@@ -551,6 +320,9 @@ import focusTaskService from "../../services/focusTaskService";
 /* FOCUS_PAINTER_PATCH_V3 */
 import FormatPainter from "../../editor/extensions/FormatPainter";
 import PasteCleanup from "../../editor/extensions/PasteCleanup";
+/* FOCUS_UI_SYSTEM_20260909_V4 */
+import FocusEditorToolbar from "./FocusEditorToolbar.vue";
+import AppIcon from "../../components/ui/AppIcon.vue";
 /* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
 const lowlight = createLowlight(common);
 
@@ -600,7 +372,9 @@ const HIGHLIGHT_COLORS = [
 
 export default {
   name: "FocusDocumentEditor",
-  components: { EditorContent, BubbleMenu },
+  components: {
+    FocusEditorToolbar,
+    AppIcon, EditorContent, BubbleMenu },
   props: {
     modelValue: {
       type: Object,
@@ -4133,6 +3907,12 @@ export default {
   background: #223052 !important;
   box-shadow: inset 0 0 0 1px #4a5f9e;
   color: #93a8f5 !important;
+}
+
+/* FOCUS_UI_SYSTEM_20260909_V4 */
+.focus-bubble :deep(.app-icon) {
+  width: 15px;
+  height: 15px;
 }
 </style>
 

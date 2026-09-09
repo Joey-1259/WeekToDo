@@ -1,14 +1,10 @@
 <template>
   <main class="focus-workspace">
     <header class="focus-workspace-header">
-      <div class="focus-workspace-heading">
-        <h1>重点事项</h1>
-        <span>
-          {{ documents.length }} 篇文档 ·
-          {{ layout.columns.length }} 栏 ·
-          第 {{ layout.page + 1 }} / {{ pageCount }} 版面
-        </span>
-      </div>
+      <!-- FOCUS_UI_SYSTEM_20260909_V4
+           删掉"N 篇文档 · N 栏 · 第 x/y 版面"：这是开发期的状态字符串，
+           栏数用户在画面上直接数得出来，文档总数与当前视图无关。 -->
+      <ModuleHeader icon="bi-journal-richtext" title="重点事项" />
 
       <div class="focus-workspace-actions">
         <div class="focus-search-anchor">
@@ -101,18 +97,6 @@
             ></i>
           </button>
         </div>
-
-        <button
-          type="button"
-          class="focus-icon-button"
-          title="均分所有分栏宽度"
-          :disabled="layout.columns.length < 2"
-          @click="equalizeColumns"
-        >
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M10 3v14M4 7 1.5 10 4 13M16 7l2.5 3-2.5 3" />
-          </svg>
-        </button>
 
         <button
           type="button"
@@ -229,6 +213,8 @@ import focusFolderService from "../../services/focusFolderService";
 import focusLayoutService from "../../services/focusLayoutService";
 import focusTaskService from "../../services/focusTaskService";
 
+/* FOCUS_UI_SYSTEM_20260909_V4 */
+import ModuleHeader from "../../components/layout/ModuleHeader.vue";
 function extractText(value) {
   if (!value) return "";
   if (typeof value === "string") return value;
@@ -341,6 +327,7 @@ export default {
   name: "FocusDocumentsView",
 
   components: {
+    ModuleHeader,
     FocusColumnBoard,
     FocusDocumentDialog,
     FocusDirectoryManager,
@@ -888,7 +875,7 @@ export default {
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  padding: 16px 18px 18px;
+  padding: 16px 24px 18px;
   background: #f5f7f9;
 }
 
@@ -1347,5 +1334,16 @@ export default {
   .focus-search-results {
     width: 100%;
   }
+}
+
+/* FOCUS_UI_SYSTEM_20260909_V4
+   头部外壳保留，只把内部量值对齐到 ModuleHeader 的 56px 基线。 */
+.focus-workspace-header {
+  align-items: center;
+}
+
+.focus-workspace-header :deep(.module-header) {
+  min-height: 56px;
+  margin-bottom: 0;
 }
 </style>

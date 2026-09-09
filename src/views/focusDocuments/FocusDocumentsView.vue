@@ -90,6 +90,7 @@
               @delete-document="fdDeleteDocument"
               @move-document="fdMoveDocument"
               @move-folder="fdMoveFolder"
+              @document-action="fdDocumentAction"
             />
           </Teleport>
         </div>
@@ -152,71 +153,26 @@
       @create-task="createLinkedTask"
     />
 
-    <div
-      v-if="moveDialogDocument"
-      class="focus-move-backdrop"
-      role="presentation"
-      @mousedown.self="closeMoveDialog"
-    >
-      <section
-        class="focus-move-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="focus-move-dialog-title"
-        @keydown.esc.stop.prevent="closeMoveDialog"
-      >
-        <header>
-          <div>
-            <strong id="focus-move-dialog-title">移动到目录</strong>
-            <small>
-              {{ moveDialogDocument.title || "未命名文档" }}
-            </small>
-          </div>
-
-          <button
-            type="button"
-            aria-label="关闭"
-            title="关闭"
-            :disabled="moveSaving"
-            @click="closeMoveDialog"
-          >
-            &times;
-          </button>
-        </header>
-
-        <div class="focus-move-dialog-body">
-          <FocusFolderPicker
-            ref="moveFolderPicker"
-            v-model="moveFolderId"
-            :folders="moveFolders"
-            :current-folder-id="moveDialogDocument.folderId"
-          />
-
-          <p class="focus-move-dialog-hint">
-            文档内容和关联事项不会改变，仅调整目录归属。
-          </p>
-        </div>
-
-        <footer>
-          <button
-            type="button"
-            :disabled="moveSaving"
-            @click="closeMoveDialog"
-          >
-            取消
-          </button>
-
-          <button
-            type="button"
-            class="primary"
-            :disabled="moveSaving || !moveDialogDirty"
-            @click="confirmMoveDocument"
-          >
-            {{ moveSaving ? "移动中…" : "确认移动" }}
-          </button>
-        </footer>
-      </section>
-    </div>
+    <!-- FOCUS_UI_SYSTEM_20260912_V8
+      原本这里是一个只能选目录的独立弹窗（FocusFolderPicker），
+      与顶部那个完整目录树是两套实现：搜索、折叠、键盘各写一遍。
+      同一个心智对象有两个化身，用户每次都要重新学，我们每次改
+      交互都要改两处。现在统一为同一棵树的 pick 模式 ——
+      差异只在"能做什么"，不在"长什么样、怎么操作"。 -->
+    <Teleport to="body">
+      <FocusDirectoryBrowser
+        v-if="moveDialogDocument"
+        mode="pick"
+        :folders="folders"
+        :documents="documents"
+        :pick-document="moveDialogDocument"
+        @close="fdClosePicker"
+        @pick="fdConfirmPick"
+        @create-folder="fdCreateFolder"
+        @rename-folder="fdRenameFolder"
+        @delete-folder="fdDeleteFolder"
+      />
+    </Teleport>
   </main>
 </template>
 
@@ -713,17 +669,9 @@ export default {
       }
     },
 
+    /* FOCUS_UI_SYSTEM_20260912_V8：统一走 bridge 的 fdOpenPicker。 */
     openMoveDialog(document) {
-      this.moveFolders = focusFolderService.listFolders();
-      this.moveDialogDocument = document;
-      this.moveFolderId = document.folderId || "__root__";
-      this.moveSaving = false;
-
-      this.$nextTick(() => {
-        if (this.$refs.moveFolderPicker) {
-          this.$refs.moveFolderPicker.focus();
-        }
-      });
+      this.fdOpenPicker(document);
     },
 
     closeMoveDialog() {

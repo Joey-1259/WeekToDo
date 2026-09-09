@@ -15,8 +15,8 @@
         </span>
 
         <div class="dir-header-text">
-          <strong id="dir-title">文件目录</strong>
-          <small>{{ folderCount }} 个目录 · {{ documents.length }} 篇文档</small>
+          <strong id="dir-title">{{ isPick ? "移动到目录" : "文件目录" }}</strong>
+          <small>{{ subtitle }}</small>
         </div>
 
         <label class="dir-search">
@@ -25,7 +25,7 @@
             ref="search"
             v-model.trim="query"
             type="text"
-            placeholder="搜索目录与文档"
+            :placeholder="isPick ? '搜索目录' : '搜索目录与文档'"
             @keydown.down.prevent="focusTree"
             @keydown.esc.prevent="clearSearch"
           />
@@ -59,9 +59,6 @@
         </button>
       </header>
 
-      <!-- 单一树：目录与文档同处一棵树，层级关系直接可见。
-           这是替换旧版左右双栏的核心原因——双栏永远看不到
-           "这个目录里装着什么"，而目录的意义正是这个关系。 -->
       <div
         ref="tree"
         class="dir-tree"
@@ -72,6 +69,20 @@
         @dragover.prevent="onRootDragOver"
         @drop.prevent="onRootDrop"
       >
+        <!-- 根目录在选择模式下是一个真实可选项。
+             "移出所有目录"是高频意图，不该只能靠拖到空白处完成。 -->
+        <div
+          v-if="isPick"
+          class="dir-row is-folder is-root-row"
+          :class="{ 'is-active': activeKey === '__root__' }"
+          @click="activeKey = '__root__'"
+          @dblclick="confirmPick"
+        >
+          <span class="dir-twisty-spacer"></span>
+          <span class="dir-row-icon"><AppIcon name="folder" /></span>
+          <span class="dir-row-name">未归档（不放入任何目录）</span>
+        </div>
+
         <div
           v-for="row in visibleRows"
           :key="row.key"
@@ -81,6 +92,7 @@
             'is-doc': row.type === 'doc',
             'is-active': activeKey === row.key,
             'is-open-doc': row.type === 'doc' && openIds.includes(row.id),
+            'is-self': isPick && row.type === 'doc',
             'drop-into': dropTarget.key === row.key && dropTarget.zone === 'into',
             'drop-before': dropTarget.key === row.key && dropTarget.zone === 'before',
             'drop-after': dropTarget.key === row.key && dropTarget.zone === 'after',
@@ -92,13 +104,13 @@
           :aria-expanded="
             row.type === 'folder' ? String(!collapsed.has(row.id)) : undefined
           "
-          :draggable="editingKey !== row.key"
+          :draggable="canDrag && editingKey !== row.key"
           @click="activeKey = row.key"
           @dblclick="onRowActivate(row)"
           @dragstart="onDragStart(row, $event)"
           @dragend="resetDrop"
           @dragover.prevent.stop="onRowDragOver(row, $event)"
-          @dragleave="onRowDragLeave(row)"
+          @dragleave.stop="onRowDragLeave(row)"
           @drop.prevent.stop="onRowDrop(row)"
         >
           <button
@@ -140,10 +152,14 @@
             {{ row.childCount || "" }}
           </span>
 
-          <span v-if="row.type === 'doc' && openIds.includes(row.id)"
-            class="dir-row-badge">已并列</span>
+          <span
+            v-if="!isPick && row.type === 'doc' && openIds.includes(row.id)"
+            class="dir-row-badge"
+          >
+            已并列
+          </span>
 
-          <span class="dir-row-actions">
+          <span v-if="!isPick" class="dir-row-actions">
             <button
               v-if="row.type === 'folder'"
               type="button"
@@ -154,27 +170,31 @@
               <AppIcon name="plus" />
             </button>
 
+            <!--
+              五项操作用 ··· 收纳而不是平铺图标：
+              超过 2~3 个之后，辨认一排陌生图标的成本高于多点一次。
+              Notion / 语雀在同一位置的选择也是 ···。
+            -->
             <button
               type="button"
               class="dir-row-btn"
-              v-tip="{ label: '重命名', keys: 'F2' }"
-              @click.stop="beginRename(row)"
+              v-tip="{ label: '更多操作' }"
+              @click.stop="openRowMenu(row, $event)"
             >
-              <AppIcon name="eraser" />
-            </button>
-
-            <button
-              type="button"
-              class="dir-row-btn is-danger"
-              v-tip="{ label: '删除', keys: 'Delete' }"
-              @click.stop="requestDelete(row)"
-            >
-              <AppIcon name="close" />
+              <svg viewBox="0 0 20 20" class="dir-dots" aria-hidden="true">
+                <circle cx="4.5" cy="10" r="1.4" />
+                <circle cx="10" cy="10" r="1.4" />
+                <circle cx="15.5" cy="10" r="1.4" />
+              </svg>
             </button>
           </span>
         </div>
 
-        <div v-if="creating" class="dir-row is-editing" :style="{ '--depth': createDepth }">
+        <div
+          v-if="creating"
+          class="dir-row is-editing"
+          :style="{ '--depth': createDepth }"
+        >
           <span class="dir-twisty-spacer"></span>
           <span class="dir-row-icon"><AppIcon name="folder" /></span>
           <input
@@ -201,44 +221,91 @@
 
         <span class="dir-footer-spacer"></span>
 
-        <span class="dir-tips">
+        <span v-if="!isPick" class="dir-tips">
           <kbd>↑↓</kbd> 移动 · <kbd>→</kbd> 展开 · <kbd>F2</kbd> 重命名 ·
-          <kbd>Enter</kbd> 打开
+          <kbd>拖拽</kbd> 排序
         </span>
+
+        <button
+          v-if="isPick"
+          type="button"
+          class="dir-ghost"
+          @click="$emit('close')"
+        >
+          取消
+        </button>
 
         <button
           type="button"
           class="dir-primary"
-          :disabled="!activeDoc"
-          @click="openActiveDoc"
+          :disabled="isPick ? !pickChanged : !activeDoc"
+          @click="isPick ? confirmPick() : openActiveDoc()"
         >
-          在新分栏打开
+          {{ isPick ? pickLabel : "在新分栏打开" }}
         </button>
       </footer>
     </section>
+
+    <Teleport to="body">
+      <div
+        v-if="rowMenu.row"
+        class="dir-menu"
+        :style="rowMenu.style"
+        role="menu"
+        @mousedown.stop
+        @click.stop
+      >
+        <button type="button" role="menuitem" @click="menuRename">
+          重命名<kbd>F2</kbd>
+        </button>
+
+        <template v-if="rowMenu.row.type === 'doc'">
+          <button type="button" role="menuitem" @click="menuAction('move')">
+            移动到目录…
+          </button>
+          <button type="button" role="menuitem" @click="menuAction('duplicate')">
+            创建副本
+          </button>
+          <button type="button" role="menuitem" @click="menuAction('export')">
+            导出 Markdown
+          </button>
+        </template>
+
+        <template v-else>
+          <button type="button" role="menuitem" @click="menuNewChild">
+            新建子目录
+          </button>
+        </template>
+
+        <div class="dir-menu-divider" role="separator"></div>
+
+        <button type="button" role="menuitem" class="danger" @click="menuDelete">
+          删除{{ rowMenu.row.type === "folder" ? "目录" : "文档" }}
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script>
-/* FOCUS_UI_SYSTEM_20260910_V5 */
+/* FOCUS_UI_SYSTEM_20260912_V8 */
 import AppIcon from "../../components/ui/AppIcon.vue";
 import { tip } from "../../directives/tooltip";
 
 /**
- * 文件目录浏览器。
+ * 文件目录浏览器。一个组件，两种模式。
  *
- * 相对旧版 FocusDirectoryManager 的三个结构性改变：
+ * 为什么合并：此前"顶部目录按钮"和"卡片左下角目录按钮"是两个独立实现，
+ * 搜索、折叠、键盘、拖拽各写一遍。同一个心智对象有两个化身，用户每次
+ * 都要重新学。现在 mode="manage" 与 mode="pick" 共用同一棵树，
+ * 差异只在"能做什么"，不在"长什么样、怎么操作"。
  *
- * 1) 单一树。旧版左栏目录、右栏"当前目录的文档"，导致层级关系不可见。
- *    Notion / 语雀都是文件夹与文档同处一棵树，文档即文件夹的子节点。
- *
- * 2) 拖拽三段落点取代菜单。旧版靠每行 ··· 菜单里的"向上移动 / 向下移动"
- *    改顺序，一次操作两次点击两级菜单。现在拖到行的上缘 = 排在它前面，
- *    中间 = 放进它里面，下缘 = 排在它后面，一个手势覆盖三个旧菜单项。
- *
- * 3) 重命名不再失焦即提交。旧版 @blur="commit" 会在用户点开别的节点时
- *    把改名坐实，且与 Esc 取消语义冲突（Esc 也会触发 blur）。
- *    现在：Enter 提交，Esc 取消，失焦仅在"内容确有变化且非空"时提交。
+ * 本版修掉的关键缺陷：
+ *   onRowDragLeave 原本调用 resetDrop()，而 resetDrop 会把 this.dragged
+ *   一并置空。dragleave 在跨行移动时必然触发，于是拖拽刚开始就丢失了
+ *   拖拽源，onRowDragOver 首行短路，落点永远算不出来 —— 表现为
+ *   "能拖起来，但放哪儿都没反应"。目录和文档同样中招。
+ *   现在拆成两个动作：dragleave 只清落点，dragend/drop 才清拖拽源。
  */
 
 const EDGE_RATIO = 0.28;
@@ -255,6 +322,12 @@ export default {
     documents: { type: Array, default: () => [] },
     selectedFolderId: { type: String, default: null },
     openIds: { type: Array, default: () => [] },
+
+    /** manage = 完整管理；pick = 只选目录，用于"移动到…" */
+    mode: { type: String, default: "manage" },
+
+    /** pick 模式下正在移动的文档，用于显示名称与判断是否有变化 */
+    pickDocument: { type: Object, default: null },
   },
 
   emits: [
@@ -268,7 +341,8 @@ export default {
     "delete-document",
     "move-document",
     "move-folder",
-    "reorder",
+    "document-action",
+    "pick",
   ],
 
   data() {
@@ -283,12 +357,25 @@ export default {
       createDraft: "",
       dragged: null,
       dropTarget: { key: null, zone: null },
+      rowMenu: { row: null, style: {} },
     };
   },
 
   computed: {
-    folderCount() {
-      return this.folders.length;
+    isPick() {
+      return this.mode === "pick";
+    },
+
+    canDrag() {
+      return !this.isPick;
+    },
+
+    subtitle() {
+      if (this.isPick) {
+        return this.pickDocument?.title || "未命名文档";
+      }
+
+      return `${this.folders.length} 个目录 · ${this.documents.length} 篇文档`;
     },
 
     childFolders() {
@@ -310,6 +397,8 @@ export default {
     childDocs() {
       const map = new Map();
 
+      if (this.isPick) return map;
+
       this.documents.forEach((doc) => {
         const parent = doc.folderId || "__root__";
         if (!map.has(parent)) map.set(parent, []);
@@ -327,7 +416,6 @@ export default {
       return map;
     },
 
-    /** 全量树（不含搜索过滤），文档挂在所属目录下面。 */
     allRows() {
       const rows = [];
 
@@ -363,7 +451,6 @@ export default {
 
       walk("__root__", 0);
 
-      // 未归档文档放在树的末尾，和 Notion 的 Private 区一个意思。
       (this.childDocs.get("__root__") || []).forEach((doc) =>
         rows.push({
           key: "d:" + doc.id,
@@ -378,15 +465,11 @@ export default {
       return rows;
     },
 
-    /** 搜索命中项 + 其祖先链（语雀行为，不把树打平）。 */
     matchedKeys() {
       if (!this.query) return null;
 
       const needle = this.query.toLowerCase();
       const keep = new Set();
-
-      const parentOf = new Map();
-      this.allRows.forEach((row) => parentOf.set(row.key, row.parentId));
 
       this.allRows.forEach((row) => {
         if (!String(row.name || "").toLowerCase().includes(needle)) return;
@@ -405,12 +488,9 @@ export default {
     },
 
     visibleRows() {
-      const hiddenUnder = new Set();
-
       return this.allRows.filter((row) => {
         if (this.matchedKeys && !this.matchedKeys.has(row.key)) return false;
 
-        // 折叠只在非搜索态生效，搜索时强制展开命中路径。
         if (!this.matchedKeys) {
           let cursor = row.parentId;
 
@@ -421,7 +501,6 @@ export default {
           }
         }
 
-        if (hiddenUnder.size) hiddenUnder.clear();
         return true;
       });
     },
@@ -436,6 +515,31 @@ export default {
         : null;
     },
 
+    /** pick 模式：当前选中的目标目录 id（null = 未归档） */
+    pickTargetId() {
+      if (this.activeKey === "__root__") return null;
+      return this.activeRow && this.activeRow.type === "folder"
+        ? this.activeRow.id
+        : undefined;
+    },
+
+    pickChanged() {
+      if (this.pickTargetId === undefined) return false;
+
+      const current = this.pickDocument?.folderId || null;
+      return this.pickTargetId !== current;
+    },
+
+    pickLabel() {
+      if (this.pickTargetId === undefined) return "选择目标目录";
+      if (this.pickTargetId === null) return "移出目录";
+
+      const folder = this.folders.find((f) => f.id === this.pickTargetId);
+      const name = folder?.name || "目录";
+
+      return `移动到「${name.length > 8 ? name.slice(0, 8) + "…" : name}」`;
+    },
+
     createDepth() {
       if (!this.createParentId) return 0;
 
@@ -447,6 +551,7 @@ export default {
     },
 
     breadcrumb() {
+      if (this.activeKey === "__root__") return "未归档";
       if (!this.activeRow) return "";
 
       const parts = [this.activeRow.name || "未命名"];
@@ -469,10 +574,24 @@ export default {
       if (folder.collapsed) this.collapsed.add(folder.id);
     });
 
+    document.addEventListener("mousedown", this.closeRowMenu);
+    window.addEventListener("resize", this.closeRowMenu);
+
     this.$nextTick(() => {
       this.$refs.dialog?.focus();
-      if (this.visibleRows.length) this.activeKey = this.visibleRows[0].key;
+
+      if (this.isPick) {
+        const current = this.pickDocument?.folderId;
+        this.activeKey = current ? "f:" + current : "__root__";
+      } else if (this.visibleRows.length) {
+        this.activeKey = this.visibleRows[0].key;
+      }
     });
+  },
+
+  beforeUnmount() {
+    document.removeEventListener("mousedown", this.closeRowMenu);
+    window.removeEventListener("resize", this.closeRowMenu);
   },
 
   methods: {
@@ -497,6 +616,11 @@ export default {
     },
 
     onRowActivate(row) {
+      if (this.isPick) {
+        if (row.type === "folder") this.confirmPick();
+        return;
+      }
+
       if (row.type === "folder") {
         this.toggleCollapse(row.id);
         this.$emit("select-folder", row.id);
@@ -510,11 +634,80 @@ export default {
       if (this.activeDoc) this.$emit("open-document", this.activeDoc.id);
     },
 
+    confirmPick() {
+      if (!this.pickChanged) return;
+      this.$emit("pick", this.pickTargetId);
+    },
+
+    /* ---------- 行菜单 ---------- */
+
+    openRowMenu(row, event) {
+      this.activeKey = row.key;
+
+      const rect = event.currentTarget.getBoundingClientRect();
+      const width = 178;
+      const height = row.type === "doc" ? 214 : 130;
+
+      const openAbove = rect.bottom + height > window.innerHeight - 12;
+
+      this.rowMenu = {
+        row,
+        style: {
+          position: "fixed",
+          width: width + "px",
+          left:
+            Math.max(
+              12,
+              Math.min(window.innerWidth - width - 12, rect.right - width)
+            ) + "px",
+          top: openAbove ? "auto" : rect.bottom + 6 + "px",
+          bottom: openAbove ? window.innerHeight - rect.top + 6 + "px" : "auto",
+        },
+      };
+    },
+
+    closeRowMenu(event) {
+      if (event?.target?.closest?.(".dir-menu")) return;
+      this.rowMenu = { row: null, style: {} };
+    },
+
+    menuRename() {
+      const row = this.rowMenu.row;
+      this.closeRowMenu();
+      if (row) this.beginRename(row);
+    },
+
+    menuNewChild() {
+      const row = this.rowMenu.row;
+      this.closeRowMenu();
+      if (row) this.beginCreate(row.id);
+    },
+
+    menuDelete() {
+      const row = this.rowMenu.row;
+      this.closeRowMenu();
+      if (row) this.requestDelete(row);
+    },
+
+    /** 复制 / 导出 / 移动全部转发给宿主既有的 handleDocumentAction，
+        不在目录里另起一套实现，避免两套导出逻辑各自演化。 */
+    menuAction(action) {
+      const row = this.rowMenu.row;
+      this.closeRowMenu();
+      if (row) this.$emit("document-action", { action, id: row.id });
+    },
+
     /* ---------- 键盘流 ---------- */
 
     onDialogKeydown(event) {
       if (event.key === "Escape" && !this.editingKey && !this.creating) {
         event.preventDefault();
+
+        if (this.rowMenu.row) {
+          this.closeRowMenu();
+          return;
+        }
+
         this.$emit("close");
         return;
       }
@@ -571,16 +764,18 @@ export default {
 
         case "Enter":
           event.preventDefault();
-          if (row) this.onRowActivate(row);
+          if (this.isPick) this.confirmPick();
+          else if (row) this.onRowActivate(row);
           break;
 
         case "F2":
           event.preventDefault();
-          if (row) this.beginRename(row);
+          if (row && !this.isPick) this.beginRename(row);
           break;
 
         case "Backspace":
         case "Delete":
+          if (this.isPick) return;
           event.preventDefault();
           if (row) this.requestDelete(row);
           break;
@@ -632,7 +827,6 @@ export default {
       this.renameDraft = "";
     },
 
-    /** 失焦只在内容确有变化且非空时提交，其余视为放弃。 */
     onRenameBlur(row) {
       const name = String(this.renameDraft || "").trim();
 
@@ -685,6 +879,8 @@ export default {
     /* ---------- 拖拽：上缘 / 中间 / 下缘 三段落点 ---------- */
 
     onDragStart(row, event) {
+      if (!this.canDrag) return;
+
       this.dragged = row;
 
       event.dataTransfer.effectAllowed = "move";
@@ -704,21 +900,33 @@ export default {
     onRowDragOver(row, event) {
       if (!this.dragged || this.dragged.key === row.key) return;
 
-      // 目录不能拖进自己的子树。
-      if (this.dragged.type === "folder" && this.isDescendant(row, this.dragged.id)) {
+      if (
+        this.dragged.type === "folder" &&
+        this.isDescendant(row, this.dragged.id)
+      ) {
         return;
       }
 
+      event.dataTransfer.dropEffect = "move";
+
       let zone = this.zoneOf(event, event.currentTarget);
 
-      // 文档不能"装进"另一篇文档，退化为前后排序。
       if (zone === "into" && row.type === "doc") zone = "after";
 
       this.dropTarget = { key: row.key, zone };
     },
 
+    /**
+     * 只清落点高亮，绝不清 dragged。
+     *
+     * 这正是上一版拖拽完全失效的原因：这里原本调用 resetDrop()，
+     * 而 dragleave 在跨行移动时必然触发，于是拖拽源在第一次移动
+     * 时就被置空，之后所有 dragover 全部短路。
+     */
     onRowDragLeave(row) {
-      if (this.dropTarget.key === row.key) this.resetDrop();
+      if (this.dropTarget.key === row.key) {
+        this.dropTarget = { key: null, zone: null };
+      }
     },
 
     isDescendant(row, folderId) {
@@ -741,8 +949,6 @@ export default {
 
       if (!dragged || !zone || dragged.key === row.key) return;
 
-      const targetParent = zone === "into" ? row.id : row.parentId;
-
       if (dragged.type === "doc") {
         this.$emit("move-document", {
           id: dragged.id,
@@ -755,21 +961,26 @@ export default {
 
       this.$emit("move-folder", {
         id: dragged.id,
-        parentId: zone === "into" ? row.id : targetParent || null,
+        parentId: zone === "into" ? row.id : row.parentId || null,
         beforeId: zone === "before" ? row.id : null,
         afterId: zone === "after" ? row.id : null,
       });
     },
 
-    onRootDragOver() {
-      if (this.dragged) this.dropTarget = { key: "__root__", zone: "into" };
+    onRootDragOver(event) {
+      if (!this.dragged) return;
+
+      event.dataTransfer.dropEffect = "move";
+      this.dropTarget = { key: "__root__", zone: "into" };
     },
 
     onRootDrop() {
       const dragged = this.dragged;
+      const zone = this.dropTarget.zone;
+
       this.resetDrop();
 
-      if (!dragged) return;
+      if (!dragged || !zone) return;
 
       if (dragged.type === "doc") {
         this.$emit("move-document", { id: dragged.id, folderId: null });
@@ -778,6 +989,7 @@ export default {
       }
     },
 
+    /** 拖拽真正结束时才清拖拽源：dragend 与 drop。 */
     resetDrop() {
       this.dragged = null;
       this.dropTarget = { key: null, zone: null };
@@ -798,10 +1010,13 @@ export default {
   backdrop-filter: blur(2px);
 }
 
+/* 显式给高度。只写 max-height 时 flex 容器会收缩到内容高度，
+   目录少的时候弹窗就是一条窄条 —— 那与它承担的管理职责不匹配。
+   给一个稳定高度，它才读起来像"工作面板"而不是"提示框"。 */
 .dir-dialog {
   display: flex;
-  width: min(720px, 100%);
-  max-height: min(680px, 100%);
+  width: min(760px, 100%);
+  height: min(680px, 100%);
   flex-direction: column;
   border-radius: 14px;
   background: #fff;
@@ -812,6 +1027,7 @@ export default {
 
 .dir-header {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
@@ -833,6 +1049,7 @@ export default {
 .dir-header-text {
   display: flex;
   min-width: 0;
+  max-width: 190px;
   flex-direction: column;
 
   strong {
@@ -842,8 +1059,11 @@ export default {
   }
 
   small {
+    overflow: hidden;
     color: #9aa0a9;
     font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -897,6 +1117,7 @@ export default {
 }
 
 .dir-tree {
+  min-height: 0;
   flex: 1 1 auto;
   padding: 6px;
   overflow-y: auto;
@@ -930,7 +1151,13 @@ export default {
     font-weight: 560;
   }
 
-  /* 落点反馈：中间 = 整行高亮框，上下缘 = 2px 指示线 */
+  &.is-root-row {
+    margin-bottom: 2px;
+    border-bottom: 1px dashed #eceef1;
+    border-radius: 7px 7px 0 0;
+    color: #6d747e;
+  }
+
   &.drop-into {
     background: #e4ecff;
     box-shadow: inset 0 0 0 1.5px #4263eb;
@@ -1048,14 +1275,18 @@ export default {
     color: #24282e;
   }
 
-  &.is-danger:hover {
-    background: #ffe8e6;
-    color: #d14343;
-  }
-
   :deep(.app-icon) {
     width: 13px;
     height: 13px;
+  }
+}
+
+.dir-dots {
+  width: 14px;
+  height: 14px;
+
+  circle {
+    fill: currentColor;
   }
 }
 
@@ -1081,6 +1312,7 @@ export default {
 
 .dir-footer {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
@@ -1115,6 +1347,19 @@ export default {
   }
 }
 
+.dir-ghost {
+  padding: 6px 13px;
+  border: 1px solid #dfe2e7;
+  border-radius: 7px;
+  background: #fff;
+  color: #505761;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover { background: #f2f4f7; }
+}
+
 .dir-primary {
   padding: 6px 13px;
   border: 0;
@@ -1147,7 +1392,88 @@ export default {
   .dir-row { color: #c3c9d1; }
   .dir-row:hover { background: #242b34; }
   .dir-row.is-active { background: #1e2740; color: #a8bcfb; }
+  .dir-row.is-root-row { border-color: #2a323c; }
   .dir-rename { background: #161b22; color: #dfe3e8; }
+  .dir-ghost { border-color: #3a424d; background: #20262e; color: #d8dde3; }
   .dir-primary:disabled { background: #333a44; color: #6d747e; }
+}
+</style>
+
+<style lang="scss">
+/* 行菜单走 Teleport，所以不能 scoped。 */
+.dir-menu {
+  z-index: 21050;
+  padding: 5px;
+  border: 1px solid rgba(31, 35, 41, 0.12);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow:
+    0 16px 42px rgba(24, 29, 38, 0.16),
+    0 2px 8px rgba(24, 29, 38, 0.07);
+}
+
+.dir-menu button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #464c55;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dir-menu button:hover {
+  background: #eef1f5;
+}
+
+.dir-menu button kbd {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #f0f2f5;
+  color: #969ca5;
+  font-family: inherit;
+  font-size: 10px;
+}
+
+.dir-menu button.danger {
+  color: #d64545;
+}
+
+.dir-menu button.danger:hover {
+  background: #fdecec;
+}
+
+.dir-menu-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: #eef0f3;
+}
+
+.dark-theme .dir-menu {
+  border-color: #39414c;
+  background: #1d232b;
+}
+
+.dark-theme .dir-menu button {
+  color: #d3d8de;
+}
+
+.dark-theme .dir-menu button:hover {
+  background: #28303a;
+}
+
+.dark-theme .dir-menu button kbd {
+  background: #262e38;
+  color: #868d96;
+}
+
+.dark-theme .dir-menu-divider {
+  background: #333a44;
 }
 </style>

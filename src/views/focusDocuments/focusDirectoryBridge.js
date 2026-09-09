@@ -1,24 +1,15 @@
-/* FOCUS_UI_SYSTEM_20260911_V6 */
+/* FOCUS_UI_SYSTEM_20260912_V8 */
 
 /**
  * 目录浏览器桥接层。
  *
- * 为什么做成 mixin 而不是让补丁脚本去改 FocusDocumentsView 的
- * import / components / methods：那三处都是"成员顺序敏感"的位置，
- * 用正则去插入极易失配（上一轮就是这么崩的）。mixin 的 components
- * 会被 Vue 合并进宿主组件，所以脚本只需要替换模板里那一个标签。
+ * 本版新增：
+ *   document-action → 转发给宿主既有的 handleDocumentAction。
+ *     复制 / 导出 / 移动在 FocusDocumentsView 里已经有完整实现，
+ *     目录里不再另写一套 —— 两套导出逻辑各自演化是必然的长期债务。
  *
- * 契约（新组件 emits → 这里的实现）：
- *   close            → closeDirectory（宿主已有）
- *   open-document    → openDirectoryDocument（宿主已有）
- *   select-folder    → 记录当前目录
- *   create-folder    → focusFolderService.createFolder
- *   rename-folder    → focusFolderService.renameFolder
- *   delete-folder    → releaseFolder + deleteFolder（先释放文档，避免幽灵数据）
- *   rename-document  → focusDocumentService.updateDocument
- *   delete-document  → focusDocumentService.deleteDocument
- *   move-document    → moveDocument + reorderDocuments（真正落地排序）
- *   move-folder      → moveFolder + reorderFolders（真正落地排序）
+ *   pick 模式 → fdOpenPicker / fdConfirmPick，
+ *     取代原来那个只能选目录的独立 move 弹窗。
  */
 
 import FocusDirectoryBrowser from "./FocusDirectoryBrowser.vue";
@@ -38,10 +29,6 @@ function byOrder(a, b) {
   return (a.order ?? 0) - (b.order ?? 0);
 }
 
-/**
- * 把"拖到 anchor 的前面 / 后面"翻译成完整的兄弟 id 序列。
- * 服务层的 reorder 接口要的是全序列，不是相对位置。
- */
 function spliceOrder(siblings, movedId, beforeId, afterId) {
   const rest = siblings.filter((item) => item.id !== movedId);
   const anchorId = beforeId || afterId;
@@ -65,19 +52,12 @@ export default {
   components: { FocusDirectoryBrowser },
 
   methods: {
-    /** 宿主的 reload 名字可能不同，统一收口一次。 */
     async fdRefresh() {
       if (typeof this.reload === "function") {
         await this.reload();
         return;
       }
 
-      if (typeof this.loadAll === "function") {
-        await this.loadAll();
-        return;
-      }
-
-      // 兜底：至少把两份列表拉新，界面不会停在旧数据上。
       this.folders = focusFolderService.listFolders();
       this.documents = await focusDocumentService.listDocuments();
     },
@@ -107,8 +87,6 @@ export default {
 
       if (!ok) return;
 
-      // 顺序很重要：先释放文档，再删目录。反过来会留下
-      // folderId 指向已不存在目录的幽灵文档。
       await focusDocumentService.releaseFolder(id);
       focusFolderService.deleteFolder(id);
 
@@ -160,7 +138,6 @@ export default {
       try {
         focusFolderService.moveFolder(id, target);
       } catch (error) {
-        // 服务层已经拦了"移到自己子树"，这里只做提示。
         window.alert(error.message || "无法移动到该位置");
         return;
       }
@@ -177,6 +154,54 @@ export default {
       }
 
       await this.fdRefresh();
+    },
+
+    /** 目录里的复制 / 导出 / 移动，全部复用宿主已有实现。 */
+    async fdDocumentAction({ action, id }) {
+      const doc = (this.documents || []).find((item) => item.id === id);
+      if (!doc) return;
+
+      if (action === "move") {
+        this.fdOpenPicker(doc);
+        return;
+      }
+
+      if (typeof this.handleDocumentAction === "function") {
+        await this.handleDocumentAction({ action, document: doc });
+        await this.fdRefresh();
+      }
+    },
+
+    /* ---------- pick 模式 ---------- */
+
+    fdOpenPicker(document) {
+      this.moveDialogDocument = document;
+    },
+
+    fdClosePicker() {
+      this.moveDialogDocument = null;
+    },
+
+    async fdConfirmPick(folderId) {
+      const doc = this.moveDialogDocument;
+      if (!doc) return;
+
+      try {
+        const saved = await focusDocumentService.moveDocument(
+          doc.id,
+          folderId || null
+        );
+
+        if (typeof this.replaceDocument === "function") {
+          this.replaceDocument(saved);
+        }
+      } catch (error) {
+        console.error(error);
+        window.alert("移动文档失败，请重试。");
+      } finally {
+        this.moveDialogDocument = null;
+        await this.fdRefresh();
+      }
     },
   },
 };

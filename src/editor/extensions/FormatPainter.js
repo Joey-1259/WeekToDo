@@ -1,14 +1,23 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
-/* FOCUS_FORMAT_PAINTER_20260909_V1 */
+/* FOCUS_UI_SYSTEM_20260909_V4 */
+
+/**
+ * 关键修复（原实现会必现 RangeError: Applying a mismatched transaction）：
+ *
+ * 旧版在 applySampledFormat 命令体内部直接调用了 editor.view.dispatch(tr)。
+ * 但 tiptap 的 CommandManager 在调用命令之前就已经从当时的 state 建好了自己的
+ * transaction，命令返回 true 之后它会再 dispatch 一次。第一次手动 dispatch 改了
+ * 文档，第二次那个 tr 的 tr.before 就和最新的 state.doc 对不上，
+ * ProseMirror 的 EditorState.applyInner 直接抛 RangeError。
+ *
+ * 现在所有写操作都只往 tiptap 传进来的 tr 上叠加，由 CommandManager 统一派发，
+ * 全程只有一个事务。
+ */
 
 export const formatPainterKey = new PluginKey("focusFormatPainter");
 
-/**
- * 可被格式刷复制的行内样式。
- * textStyle 承载颜色与字号（@tiptap/extension-text-style）。
- */
 export const PAINTABLE_MARKS = [
   "bold",
   "italic",
@@ -33,9 +42,7 @@ function collectMarks(state) {
 
   if (empty) {
     const marks = state.storedMarks || $from.marks();
-    return marks.filter((mark) =>
-      PAINTABLE_MARKS.includes(mark.type.name)
-    );
+    return marks.filter((mark) => PAINTABLE_MARKS.includes(mark.type.name));
   }
 
   let found = null;
@@ -55,10 +62,7 @@ function collectBlock(state) {
 
   if (!node || !node.isTextblock) return null;
 
-  return {
-    type: node.type.name,
-    attrs: { ...node.attrs },
-  };
+  return { type: node.type.name, attrs: { ...node.attrs } };
 }
 
 function describeSample(sample) {
@@ -73,13 +77,13 @@ function describeSample(sample) {
     }
 
     if (mark.type === "textStyle") {
-      if (mark.attrs?.color) labels.push("文字颜色");
-      if (mark.attrs?.fontSize) labels.push("字号");
+      if (mark.attrs && mark.attrs.color) labels.push("文字颜色");
+      if (mark.attrs && mark.attrs.fontSize) labels.push("字号");
     }
   });
 
-  if (sample.block?.type === "heading") {
-    labels.push(`${sample.block.attrs?.level || 1} 级标题`);
+  if (sample.block && sample.block.type === "heading") {
+    labels.push(((sample.block.attrs || {}).level || 1) + " 级标题");
   }
 
   return labels.length ? labels.join(" · ") : "默认样式";
@@ -99,56 +103,6 @@ function serializeSample(sample) {
   };
 }
 
-function applySample(editor, sample, copyBlockStyle) {
-  if (!editor || editor.isDestroyed || !sample) return false;
-
-  const { state } = editor.view;
-  const { from, to, empty } = state.selection;
-
-  if (empty) return false;
-
-  const tr = state.tr;
-
-  PAINTABLE_MARKS.forEach((name) => {
-    const type = state.schema.marks[name];
-    if (type) tr.removeMark(from, to, type);
-  });
-
-  sample.marks.forEach((mark) => {
-    const type = state.schema.marks[mark.type];
-    if (!type) return;
-
-    tr.addMark(from, to, type.create(mark.attrs || {}));
-  });
-
-  if (copyBlockStyle && sample.block) {
-    const type = state.schema.nodes[sample.block.type];
-
-    if (
-      type &&
-      type.isTextblock &&
-      type.name !== "codeBlock" &&
-      !state.selection.$from.parent.type.spec.code
-    ) {
-      try {
-        tr.setBlockType(
-          from,
-          to,
-          type,
-          sample.block.attrs || {}
-        );
-      } catch (error) {
-        // 跨越多种块类型时静默降级为仅刷行内样式。
-      }
-    }
-  }
-
-  tr.setMeta(formatPainterKey, { applied: true });
-  editor.view.dispatch(tr);
-
-  return true;
-}
-
 export const FormatPainter = Extension.create({
   name: "formatPainter",
 
@@ -156,15 +110,13 @@ export const FormatPainter = Extension.create({
     return {
       /** (state|null) => void，供工具栏同步高亮态。 */
       onChange: null,
-      /** 是否连同段落/标题级别一起刷。 */
+      /** 是否连同段落 / 标题级别一起刷。 */
       copyBlockStyle: true,
     };
   },
 
   addStorage() {
-    return {
-      sample: null,
-    };
+    return { sample: null };
   },
 
   onDestroy() {
@@ -173,15 +125,18 @@ export const FormatPainter = Extension.create({
 
   addCommands() {
     const notify = () => {
-      this.options.onChange?.(
-        serializeSample(this.storage.sample)
-      );
+      if (typeof this.options.onChange === "function") {
+        this.options.onChange(serializeSample(this.storage.sample));
+      }
     };
 
     return {
       sampleFormat:
         (options = {}) =>
-        ({ state }) => {
+        ({ state, dispatch }) => {
+          // dispatch 为空说明是 editor.can() 的干跑，不能改 storage。
+          if (!dispatch) return true;
+
           this.storage.sample = {
             marks: collectMarks(state).map((mark) => ({
               type: mark.type.name,
@@ -197,8 +152,9 @@ export const FormatPainter = Extension.create({
 
       stopFormatPainter:
         () =>
-        () => {
+        ({ dispatch }) => {
           if (!this.storage.sample) return false;
+          if (!dispatch) return true;
 
           this.storage.sample = null;
           notify();
@@ -207,31 +163,63 @@ export const FormatPainter = Extension.create({
 
       applySampledFormat:
         () =>
-        ({ editor }) => {
+        ({ tr, state, dispatch }) => {
           const sample = this.storage.sample;
+
           if (!sample) return false;
 
-          const applied = applySample(
-            editor,
-            sample,
-            this.options.copyBlockStyle
-          );
+          const { from, to, empty } = state.selection;
 
-          if (applied && !sample.sticky) {
+          if (empty) return false;
+          if (!dispatch) return true;
+
+          PAINTABLE_MARKS.forEach((name) => {
+            const type = state.schema.marks[name];
+            if (type) tr.removeMark(from, to, type);
+          });
+
+          sample.marks.forEach((mark) => {
+            const type = state.schema.marks[mark.type];
+            if (!type) return;
+
+            tr.addMark(from, to, type.create(mark.attrs || {}));
+          });
+
+          if (this.options.copyBlockStyle && sample.block) {
+            const type = state.schema.nodes[sample.block.type];
+
+            const canConvert =
+              type &&
+              type.isTextblock &&
+              type.name !== "codeBlock" &&
+              !state.selection.$from.parent.type.spec.code;
+
+            if (canConvert) {
+              try {
+                tr.setBlockType(from, to, type, sample.block.attrs || {});
+              } catch (error) {
+                // 选区跨越多种块类型时，静默降级为只刷行内样式。
+              }
+            }
+          }
+
+          tr.setMeta(formatPainterKey, { applied: true });
+
+          if (!sample.sticky) {
             this.storage.sample = null;
             notify();
           }
 
-          return applied;
+          return true;
         },
 
       clearInlineFormat:
         () =>
-        ({ state, dispatch }) => {
+        ({ tr, state, dispatch }) => {
           const { from, to, empty } = state.selection;
-          if (empty) return false;
 
-          const tr = state.tr;
+          if (empty) return false;
+          if (!dispatch) return true;
 
           PAINTABLE_MARKS.forEach((name) => {
             const type = state.schema.marks[name];
@@ -251,7 +239,6 @@ export const FormatPainter = Extension.create({
             }
           }
 
-          dispatch?.(tr);
           return true;
         },
     };
@@ -260,10 +247,8 @@ export const FormatPainter = Extension.create({
   addKeyboardShortcuts() {
     return {
       "Mod-Alt-c": () => this.editor.commands.sampleFormat(),
-      "Mod-Alt-v": () =>
-        this.editor.commands.applySampledFormat(),
-      "Mod-\\": () =>
-        this.editor.commands.clearInlineFormat(),
+      "Mod-Alt-v": () => this.editor.commands.applySampledFormat(),
+      "Mod-\\": () => this.editor.commands.clearInlineFormat(),
       Escape: () => this.editor.commands.stopFormatPainter(),
     };
   },
@@ -274,13 +259,25 @@ export const FormatPainter = Extension.create({
     const scheduleApply = () => {
       if (!extension.storage.sample) return;
 
+      // 等浏览器把这次选区确定下来再套用，命令内部会重新取最新 state。
       setTimeout(() => {
         const editor = extension.editor;
 
         if (!editor || editor.isDestroyed) return;
+        if (!extension.storage.sample) return;
         if (editor.state.selection.empty) return;
 
-        editor.commands.applySampledFormat();
+        try {
+          editor.commands.applySampledFormat();
+        } catch (error) {
+          // 任何异常都不应该让整个编辑器崩掉，退出格式刷即可。
+          console.error("[FormatPainter] 套用样式失败：", error);
+          extension.storage.sample = null;
+
+          if (typeof extension.options.onChange === "function") {
+            extension.options.onChange(null);
+          }
+        }
       }, 0);
     };
 
@@ -296,10 +293,7 @@ export const FormatPainter = Extension.create({
             },
 
             keyup: (_view, event) => {
-              if (event.shiftKey || event.key === "Shift") {
-                scheduleApply();
-              }
-
+              if (event.shiftKey || event.key === "Shift") scheduleApply();
               return false;
             },
           },

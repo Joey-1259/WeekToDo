@@ -1,11 +1,11 @@
 <template>
-  <div v-if="pageCount > 1" class="focus-pager" aria-hidden="false">
+  <div v-if="pageCount > 1" class="focus-pager">
     <button
       type="button"
       class="focus-pager-arrow is-prev"
       :disabled="page <= 0"
-      :aria-label="`上一版面（共 ${pageCount} 个）`"
-      title="上一版面"
+      :aria-label="'上一版面（第 ' + page + ' / ' + pageCount + ' 个）'"
+      :title="'上一版面 · ' + (page + 1) + '/' + pageCount"
       @click="$emit('step', -1)"
       @dragover.prevent="onArrowDragOver(-1)"
       @dragleave="cancelHover"
@@ -20,8 +20,8 @@
       type="button"
       class="focus-pager-arrow is-next"
       :disabled="page >= pageCount - 1"
-      :aria-label="`下一版面（共 ${pageCount} 个）`"
-      title="下一版面"
+      :aria-label="'下一版面（第 ' + (page + 2) + ' / ' + pageCount + ' 个）'"
+      :title="'下一版面 · ' + (page + 1) + '/' + pageCount"
       @click="$emit('step', 1)"
       @dragover.prevent="onArrowDragOver(1)"
       @dragleave="cancelHover"
@@ -31,35 +31,19 @@
         <path d="M8 4l5.5 6L8 16" />
       </svg>
     </button>
-
-    <div
-      class="focus-pager-rail"
-      :class="{ 'is-flash': flashing }"
-      role="tablist"
-      aria-label="版面切换"
-    >
-      <button
-        v-for="index in pageCount"
-        :key="index"
-        type="button"
-        class="focus-pager-dot"
-        :class="{ active: index - 1 === page }"
-        role="tab"
-        :aria-selected="String(index - 1 === page)"
-        :aria-label="`第 ${index} 版面`"
-        :title="`第 ${index} 版面`"
-        @click="$emit('go', index - 1)"
-      >
-        <i aria-hidden="true"></i>
-      </button>
-
-      <em>{{ page + 1 }} / {{ pageCount }}</em>
-    </div>
   </div>
 </template>
 
 <script>
-/* FOCUS_COLUMN_PAGES_20260909_V3 */
+/* FOCUS_UI_SYSTEM_20260909_V4 */
+
+/**
+ * 版面翻页。
+ *
+ * 这一版移除了底部的圆点指示条：页码信息在只有 2~4 个版面时属于冗余表达，
+ * 而它压在卡片正文下沿会持续占用垂直空间。当前位置改为通过箭头的
+ * aria-label / title 暴露，屏幕阅读器与悬停都能拿到，视觉上则完全让位给内容。
+ */
 
 const DRAG_FLIP_DELAY = 620;
 
@@ -74,39 +58,15 @@ export default {
   emits: ["step", "go"],
 
   data() {
-    return {
-      hoverTimer: null,
-      flashing: false,
-      flashTimer: null,
-    };
-  },
-
-  watch: {
-    page() {
-      this.flash();
-    },
-
-    pageCount() {
-      this.flash();
-    },
+    return { hoverTimer: null };
   },
 
   beforeUnmount() {
     clearTimeout(this.hoverTimer);
-    clearTimeout(this.flashTimer);
   },
 
   methods: {
-    flash() {
-      clearTimeout(this.flashTimer);
-      this.flashing = true;
-
-      this.flashTimer = setTimeout(() => {
-        this.flashing = false;
-      }, 520);
-    },
-
-    /** 拖拽卡片悬停在箭头上时自动翻页，用于跨版面重排。 */
+    /** 拖着卡片悬停在箭头上会自动翻页，用于跨版面重排。 */
     onArrowDragOver(direction) {
       if (this.hoverTimer) return;
 
@@ -152,7 +112,7 @@ export default {
     0 1px 2px rgba(24, 29, 38, 0.06);
   color: #6d747e;
   cursor: pointer;
-  opacity: 0.55;
+  opacity: 0.5;
   pointer-events: auto;
   backdrop-filter: blur(6px);
   transition:
@@ -162,17 +122,10 @@ export default {
     transform 0.16s ease;
 }
 
-.focus-pager-arrow.is-prev {
-  left: -15px;
-}
+.focus-pager-arrow.is-prev { left: -15px; }
+.focus-pager-arrow.is-next { right: -15px; }
 
-.focus-pager-arrow.is-next {
-  right: -15px;
-}
-
-.focus-pager:hover .focus-pager-arrow {
-  opacity: 0.9;
-}
+.focus-pager:hover .focus-pager-arrow { opacity: 0.9; }
 
 .focus-pager-arrow:hover:not(:disabled) {
   border-color: #b7c5f2;
@@ -183,7 +136,7 @@ export default {
 
 .focus-pager-arrow:disabled {
   cursor: default;
-  opacity: 0.2;
+  opacity: 0.18;
 }
 
 .focus-pager-arrow svg {
@@ -196,69 +149,6 @@ export default {
   stroke-linejoin: round;
 }
 
-.focus-pager-rail {
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 11px 4px 8px;
-  border: 1px solid #e4e7ec;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 8px rgba(24, 29, 38, 0.07);
-  pointer-events: auto;
-  transform: translateX(-50%);
-  backdrop-filter: blur(6px);
-  transition: border-color 0.24s ease, box-shadow 0.24s ease;
-}
-
-.focus-pager-rail.is-flash {
-  border-color: #a8b8f0;
-  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.11);
-}
-
-.focus-pager-dot {
-  display: grid;
-  width: 16px;
-  height: 16px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.focus-pager-dot i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ccd1d8;
-  transition:
-    width 0.18s ease,
-    background-color 0.18s ease,
-    border-radius 0.18s ease;
-}
-
-.focus-pager-dot:hover i {
-  background: #9aa2ad;
-}
-
-.focus-pager-dot.active i {
-  width: 15px;
-  border-radius: 3px;
-  background: #4263eb;
-}
-
-.focus-pager-rail em {
-  margin-left: 3px;
-  color: #969ca5;
-  font-size: 10px;
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-}
-
 .dark-theme .focus-pager-arrow {
   border-color: #39414c;
   background: rgba(29, 35, 43, 0.94);
@@ -268,18 +158,5 @@ export default {
 .dark-theme .focus-pager-arrow:hover:not(:disabled) {
   border-color: #6f8bea;
   color: #93a8f5;
-}
-
-.dark-theme .focus-pager-rail {
-  border-color: #39414c;
-  background: rgba(29, 35, 43, 0.92);
-}
-
-.dark-theme .focus-pager-dot i {
-  background: #454e59;
-}
-
-.dark-theme .focus-pager-dot.active i {
-  background: #7d95f0;
 }
 </style>

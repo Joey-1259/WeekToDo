@@ -44,6 +44,9 @@ import "./assets/style/globalVars.scss";
 import "./assets/style/main.scss";
 import "./assets/style/uiComponents.scss";
 
+/* FOCUS_UI_SYSTEM_20260909_V4 */
+import { tip as vTipDirective } from "./directives/tooltip";
+
 Sentry.init({
   dsn: process.env.VUE_APP_SENTRY_DNS,
   ignoreErrors: [
@@ -78,7 +81,68 @@ Sentry.init({
 // 就在页面上直接渲染出错误信息，而不是让用户看到一片空白、无从排查。
 // 这段代码不依赖 Vue 本身，纯 DOM 操作，即使 Vue 都没能跑起来也能生效。
 // ------------------------------------------------------------------
+// FOCUS_UI_SYSTEM_20260909_V4
+// 应用挂载成功之后再出现的异常，不应该再用全屏遮罩把整个界面盖掉。
+// 之前无论什么时候出错都渲染 position:fixed;inset:0 的红字页面，
+// 结果编辑器里一个局部异常看起来就像"整个程序闪退"，数据其实都还在。
+// 现在：挂载前 -> 全屏兜底；挂载后 -> 右下角可关闭的错误卡片，界面继续可用。
+let weekToDoAppMounted = false;
+
+function renderRuntimeErrorToast(title, detail) {
+  try {
+    let host = document.getElementById("runtimeErrorHost");
+
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "runtimeErrorHost";
+      host.style.cssText =
+        "position:fixed;right:16px;bottom:16px;z-index:99999;display:flex;" +
+        "flex-direction:column;gap:8px;max-width:420px;";
+      document.body.appendChild(host);
+    }
+
+    if (host.childElementCount >= 3) return;
+
+    const card = document.createElement("div");
+    card.style.cssText =
+      "border-radius:10px;background:#242a33;color:#eef1f5;padding:12px 14px;" +
+      "box-shadow:0 12px 34px rgba(12,16,22,.34);font-size:12px;line-height:1.55;";
+
+    const head = document.createElement("div");
+    head.style.cssText =
+      "display:flex;align-items:center;justify-content:space-between;gap:12px;" +
+      "margin-bottom:6px;font-weight:600;color:#ff9c99;";
+    head.textContent = title;
+
+    const close = document.createElement("button");
+    close.textContent = "\u00d7";
+    close.style.cssText =
+      "border:0;background:transparent;color:#9aa2ad;font-size:17px;cursor:pointer;line-height:1;";
+    close.onclick = () => card.remove();
+    head.appendChild(close);
+
+    const body = document.createElement("pre");
+    body.style.cssText =
+      "margin:0;max-height:180px;overflow:auto;white-space:pre-wrap;" +
+      "word-break:break-all;font-size:11px;color:#c6ccd4;";
+    body.textContent = detail;
+
+    card.appendChild(head);
+    card.appendChild(body);
+    host.appendChild(card);
+
+    setTimeout(() => card.remove(), 20000);
+  } catch (e) {
+    console.error("renderRuntimeErrorToast failed:", e);
+  }
+}
+
 function renderFatalErrorOverlay(title, detail) {
+  if (weekToDoAppMounted) {
+    renderRuntimeErrorToast(title, detail);
+    return;
+  }
+
   try {
     let existing = document.getElementById("fatalErrorOverlay");
     if (existing) return; // 避免重复叠加多个错误框
@@ -178,7 +242,9 @@ try {
 
   app.use(store);
   app.use(i18n);
+  app.directive("tip", vTipDirective);
   app.mount("#app");
+  weekToDoAppMounted = true;
 } catch (e) {
   // 兜底：即使 createApp/mount 阶段同步抛错（例如某个组件 script 顶层代码出错），
   // 也能在页面上看到具体报错，而不是纯白屏。

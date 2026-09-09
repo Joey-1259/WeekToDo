@@ -16,8 +16,10 @@
       alt="WeekTodo Logo"
     />
 
+    <!-- FOCUS_UI_SYSTEM_20260909_V4：与 ModuleHeader 的图标保持同一个名字，
+         否则同一个模块在侧边栏和标题栏会出现两套符号。 -->
     <i
-      class="bi-house"
+      class="bi-calendar-week"
       :class="{ 'active-icon': activeModule === 'week' }"
       @click="setTodayDate"
       :title="$t('ui.today')"

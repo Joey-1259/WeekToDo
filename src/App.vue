@@ -18,10 +18,11 @@
         <splash-screen ref="splash"></splash-screen>
 
         <div class="home-week-view d-flex flex-column h-100">
-          <div class="home-header d-flex align-items-center">
-            <i class="bi-calendar-week home-header-icon"></i>
-            <h5 class="home-header-title mb-0 ms-2">{{ $t("ui.weeklyEventsTitle") }}</h5>
-          </div>
+          <module-header
+            class="home-module-header"
+            icon="bi-calendar-week"
+            :title="$t('ui.weeklyEventsTitle')"
+          ></module-header>
 
           <i
             class="bi-chevron-left week-side-arrow week-side-arrow-left"
@@ -244,6 +245,8 @@ import archiveRepository from "./repositories/archiveRepository";
 import archiveHistoryModal from "./views/ArchiveHistoryModal.vue";
 import focusDocumentsView from "./views/focusDocuments/FocusDocumentsView.vue";
 import todoTaskRepository from "./repositories/todoTaskRepository";
+/* FOCUS_UI_SYSTEM_20260909_V4 */
+import moduleHeader from "./components/layout/ModuleHeader.vue";
 
 export default {
   name: "App",
@@ -264,6 +267,7 @@ export default {
     calendarHubView,
     archiveHistoryModal,
     focusDocumentsView,
+    moduleHeader,
   },
   data() {
     return {
@@ -371,7 +375,8 @@ export default {
     if (this.$store.getters.config.importing) {
       this.$store.commit("updateConfig", { val: false, key: "importing" });
       configRepository.update(this.$store.getters.config);
-      if (isElectron()) {
+      /* FOCUS_UI_SYSTEM_20260909_V4：isElectron 定义在 methods 上，裸调用会抛 ReferenceError */
+      if (this.isElectron()) {
         this.syncElectronConfig();
       }
     }
@@ -695,7 +700,8 @@ export default {
 
       setTimeout(
         function () {
-          if (isElectron() && !this.desktopApi.isWindowVisible()) {
+          /* FOCUS_UI_SYSTEM_20260909_V4：这个定时器在跨天时触发，裸调用会让整个 App 崩掉 */
+          if (this.isElectron() && this.desktopApi && !this.desktopApi.isWindowVisible()) {
             window.location.reload();
           }
           this.refreshTodayNotifications();
@@ -943,10 +949,11 @@ body {
   overflow: hidden;
 }
 
-.home-header {
-  flex: 0 0 auto;
-  padding: 16px 0;
-  margin-bottom: 14px;
+/* FOCUS_UI_SYSTEM_20260909_V4
+   .home-week-view 左右各有 46px 内边距给翻页箭头留位，
+   这里用负外边距把标题拉回和日历中心 / 重点事项一致的 24px 起始线。 */
+.home-module-header {
+  margin-left: -22px;
 }
 
 .home-header-icon {

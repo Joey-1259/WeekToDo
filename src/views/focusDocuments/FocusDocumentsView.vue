@@ -95,6 +95,15 @@
           </Teleport>
         </div>
 
+        <!-- UI_SYSTEM_20260911_V9
+          翻页控件落位在"每版几栏"左侧：先回答"我在第几版"，
+          再回答"每版几栏"，两者同属版面尺度，视觉上连成一组。 -->
+        <FocusBoardPager
+          :page="layout.page || 0"
+          :page-count="pageCount"
+          @step="stepPage"
+        />
+
         <div
           class="focus-pagesize"
           role="group"
@@ -179,6 +188,7 @@
 <script>
 /* FOCUS_COLUMN_PAGES_20260909_V3 */
 import FocusColumnBoard from "./FocusColumnBoard.vue";
+import FocusBoardPager from "./FocusBoardPager.vue";
 import FocusDocumentDialog from "./FocusDocumentDialog.vue";
 import FocusFolderPicker from "./FocusFolderPicker.vue";
 import focusDocumentService from "../../services/focusDocumentService";
@@ -311,6 +321,7 @@ export default {
   components: {
     ModuleHeader,
     FocusColumnBoard,
+    FocusBoardPager,
     FocusDocumentDialog,
     FocusFolderPicker,
   },
@@ -471,6 +482,14 @@ export default {
     setPageSize(size) {
       this.applyLayout(
         focusLayoutService.setPageSize(this.layout, size)
+      );
+    },
+
+    /* 版面状态归 View 持有（layout / applyLayout 都在这一层），
+       所以头部的翻页控件直接在这里翻，不必绕回看板再冒泡上来。 */
+    stepPage(delta) {
+      this.applyLayout(
+        focusLayoutService.stepPage(this.layout, delta)
       );
     },
 
@@ -829,6 +848,13 @@ export default {
         window.alert("关联事项不存在或已经被删除。");
         return;
       }
+
+      /* UI_SYSTEM_20260911_V9
+         沉浸式文档弹窗是 z-index 19000，而 Bootstrap 的 #toDoModal
+         是 1055。不先收起文档层，任务弹窗会被压在文档遮罩之下，
+         用户看到的是"点了关联事项没反应"。
+         隔壁 jumpTask() 已经这么做了，这里是漏的一处。 */
+      this.dialogDocument = null;
 
       this.$emit("open-task-detail", {
         taskId: task.taskId,

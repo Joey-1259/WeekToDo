@@ -180,13 +180,15 @@
             </section>
 
             <section class="task-detail-section">
-              <div class="section-label task-detail-label">
-                <i class="bi-text-left"></i>
-                <span>{{ $t("todoDetails.notes") }}</span>
-              </div>
-
+              <!-- UI_SYSTEM_20260911_V9
+                标签与工具条已内聚进 descriptionTextArea 自身：
+                一个字段的标题、动作、输入框属于同一个视觉对象，
+                拆在两个组件里维护，任何一次调整都要改两处。 -->
               <description-text-area
                 :todoDesc="todo.desc"
+                :label="$t('todoDetails.notes')"
+                :task-title="todo.text"
+                :context-label="notesContextLabel"
                 @updated-description="changeDescription"
               ></description-text-area>
             </section>
@@ -880,6 +882,22 @@ export default {
     moveSubtaskToBotttom: function () { return this.$store.getters.config.moveCompletedSubTaskToBottom; },
     weekStartOnMonday: function () { return this.$store.getters.config.weekStartOnMonday ? 1 : 0; },
     allTags: function () { return defaultTaskTags.getDefaultTags(this); },
+
+    /* UI_SYSTEM_20260911_V9：沉浸式编辑层的面包屑上下文。
+       全屏写作时必须还能看见"我在哪一天／哪个清单的哪个事项里"，
+       否则脱离看板就失去方位感。 */
+    notesContextLabel: function () {
+      if (this.showingCalendar) {
+        if (!this.startDateStr) return "每周事项";
+
+        return this.endDateStr &&
+          this.endDateStr !== this.startDateStr
+          ? this.startDateStr + " — " + this.endDateStr
+          : this.startDateStr;
+      }
+
+      return this.pickedCListName || "自定义清单";
+    },
   },
 };
 </script>
@@ -1447,4 +1465,37 @@ export default {
   text-decoration: none;
 }
 
+</style>
+
+<style lang="scss">
+/* UI_SYSTEM_20260911_V9 · 任务弹窗滚动与字段量值
+ *
+ * .modal-body 与任务细节输入域是两层嵌套滚动容器。给外层也加上
+ * overscroll-behavior:contain，滚动链就在各自边界处终止，不会
+ * 出现"在小框里滚到底、整个弹窗接着往下窜"的位移。
+ */
+#toDoModal .modal-body {
+  overscroll-behavior: contain;
+}
+
+/* 高度上限是一条随容器变化的规则，只声明在这里一处；
+   descriptionTextArea 的 JS 通过 getComputedStyle 读回来用。 */
+#toDoModal .notes-field {
+  --notes-max-height: 240px;
+}
+
+#toDoModal.fullscreen .notes-field {
+  --notes-max-height: 420px;
+}
+
+/* 短窗口下让细节域退回紧凑，优先保证子任务区仍在首屏可见。 */
+@media (max-height: 760px) {
+  #toDoModal .notes-field {
+    --notes-max-height: 176px;
+  }
+}
+
+#toDoModal .task-detail-section {
+  margin-top: 18px;
+}
 </style>

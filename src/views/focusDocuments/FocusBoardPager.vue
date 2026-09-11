@@ -1,31 +1,34 @@
 <template>
-  <div v-if="pageCount > 1" class="focus-pager">
+  <div
+    v-if="pageCount > 1"
+    class="focus-pager"
+    role="group"
+    aria-label="版面翻页"
+  >
     <button
       type="button"
-      class="focus-pager-arrow is-prev"
+      class="focus-pager-step"
       :disabled="page <= 0"
-      :aria-label="'上一版面（第 ' + page + ' / ' + pageCount + ' 个）'"
-      :title="'上一版面 · ' + (page + 1) + '/' + pageCount"
+      title="上一版面（⌘⌥←）"
+      aria-label="上一版面"
       @click="$emit('step', -1)"
-      @dragover.prevent="onArrowDragOver(-1)"
-      @dragleave="cancelHover"
-      @drop="cancelHover"
     >
       <svg viewBox="0 0 20 20" aria-hidden="true">
         <path d="M12 4 6.5 10 12 16" />
       </svg>
     </button>
 
+    <span class="focus-pager-count" aria-live="polite">
+      <b>{{ page + 1 }}</b><i>/</i><em>{{ pageCount }}</em>
+    </span>
+
     <button
       type="button"
-      class="focus-pager-arrow is-next"
+      class="focus-pager-step"
       :disabled="page >= pageCount - 1"
-      :aria-label="'下一版面（第 ' + (page + 2) + ' / ' + pageCount + ' 个）'"
-      :title="'下一版面 · ' + (page + 1) + '/' + pageCount"
+      title="下一版面（⌘⌥→）"
+      aria-label="下一版面"
       @click="$emit('step', 1)"
-      @dragover.prevent="onArrowDragOver(1)"
-      @dragleave="cancelHover"
-      @drop="cancelHover"
     >
       <svg viewBox="0 0 20 20" aria-hidden="true">
         <path d="M8 4l5.5 6L8 16" />
@@ -35,18 +38,23 @@
 </template>
 
 <script>
-/* FOCUS_UI_SYSTEM_20260909_V4 */
-
-/**
- * 版面翻页。
+/* UI_SYSTEM_20260911_V9 · 版面翻页
  *
- * 这一版移除了底部的圆点指示条：页码信息在只有 2~4 个版面时属于冗余表达，
- * 而它压在卡片正文下沿会持续占用垂直空间。当前位置改为通过箭头的
- * aria-label / title 暴露，屏幕阅读器与悬停都能拿到，视觉上则完全让位给内容。
+ * 旧实现把箭头以 position:absolute + top:calc(62% - 17px) +
+ * left/right:-15px 悬浮在看板之上：
+ *   · 百分比 top 按高度解析、left 为负值溢出容器 —— 两个维度都
+ *     随窗口漂移，这正是"改变窗口大小时位置很奇怪"的来源；
+ *   · 它压在卡片正文上方，与 rail 上的 + 争抢同一条窄带，上一版
+ *     只能靠"箭头下移 62% / + 号上移 38%"互相让位，是症状级修补。
+ *
+ * 层级原则：局部操作（插入分栏）留在画布里，贴着它作用的对象；
+ * 全局导航（翻版面）属于 chrome。这里因此改为与 .focus-pagesize
+ * 同高、同圆角、同边框的分段控件，安放在顶部功能区 —— 一个固定
+ * 高度的 flex 行，窗口如何变化它都不会移动一个像素。
+ *
+ * 拖拽翻页的职责移交给 FocusColumnBoard 的边缘热区：那里能做到
+ * 整列高的命中区域，且只在拖拽进行时出现。
  */
-
-const DRAG_FLIP_DELAY = 620;
-
 export default {
   name: "FocusBoardPager",
 
@@ -56,98 +64,57 @@ export default {
   },
 
   emits: ["step", "go"],
-
-  data() {
-    return { hoverTimer: null };
-  },
-
-  beforeUnmount() {
-    clearTimeout(this.hoverTimer);
-  },
-
-  methods: {
-    /** 拖着卡片悬停在箭头上会自动翻页，用于跨版面重排。 */
-    onArrowDragOver(direction) {
-      if (this.hoverTimer) return;
-
-      this.hoverTimer = setTimeout(() => {
-        this.hoverTimer = null;
-
-        const target = this.page + direction;
-        if (target < 0 || target > this.pageCount - 1) return;
-
-        this.$emit("step", direction);
-      }, DRAG_FLIP_DELAY);
-    },
-
-    cancelHover() {
-      clearTimeout(this.hoverTimer);
-      this.hoverTimer = null;
-    },
-  },
 };
 </script>
 
 <style scoped lang="scss">
 .focus-pager {
-  position: absolute;
-  z-index: 6;
-  inset: 0;
-  pointer-events: none;
+  display: flex;
+  height: var(--focus-control-height, 36px);
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  border: 1px solid #dfe3e8;
+  border-radius: 9px;
+  background: #fff;
 }
 
-/* FOCUS_UI_SYSTEM_20260912_V7
-   翻页箭头与 rail 上的 + 号原本都钉在垂直中线，必然重叠。
-   两者的语义层级不同：+ 号属于"这一栏"（局部、频次高），
-   箭头属于"整个版面"（全局、频次低）。所以把全局的箭头
-   下移到 62%，局部的 + 号留在中线 —— 既错开，也让层级
-   在空间上可读，而不是随便挪开了事。 */
-.focus-pager-arrow {
-  position: absolute;
-  top: calc(62% - 17px);
+.focus-pager-step {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 28px;
   place-items: center;
   padding: 0;
-  border: 1px solid #e0e4e9;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow:
-    0 3px 12px rgba(24, 29, 38, 0.1),
-    0 1px 2px rgba(24, 29, 38, 0.06);
-  color: #6d747e;
+  border: 0;
+  border-radius: 6px;
+  outline: none;
+  background: transparent;
+  color: #6f7782;
   cursor: pointer;
-  opacity: 0.5;
-  pointer-events: auto;
-  backdrop-filter: blur(6px);
   transition:
-    opacity 0.16s ease,
-    color 0.16s ease,
-    border-color 0.16s ease,
-    transform 0.16s ease;
+    background-color 0.14s ease,
+    color 0.14s ease;
 }
 
-.focus-pager-arrow.is-prev { left: -15px; }
-.focus-pager-arrow.is-next { right: -15px; }
-
-.focus-pager:hover .focus-pager-arrow { opacity: 0.9; }
-
-.focus-pager-arrow:hover:not(:disabled) {
-  border-color: #b7c5f2;
+.focus-pager-step:hover:not(:disabled) {
+  background: #eef2ff;
   color: #4263eb;
-  opacity: 1;
-  transform: scale(1.08);
 }
 
-.focus-pager-arrow:disabled {
+.focus-pager-step:focus-visible {
+  box-shadow: 0 0 0 2px rgba(66, 99, 235, 0.28);
+}
+
+.focus-pager-step:disabled {
+  color: #c9ced5;
   cursor: default;
-  opacity: 0.18;
 }
 
-.focus-pager-arrow svg {
-  width: 15px;
-  height: 15px;
+.focus-pager-step svg {
+  width: 14px;
+  height: 14px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
@@ -155,14 +122,58 @@ export default {
   stroke-linejoin: round;
 }
 
-.dark-theme .focus-pager-arrow {
-  border-color: #39414c;
-  background: rgba(29, 35, 43, 0.94);
+/* 等宽数字：从 1/3 翻到 2/3 时控件宽度不跳。 */
+.focus-pager-count {
+  display: inline-flex;
+  min-width: 34px;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1px;
+  color: #8b929b;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.focus-pager-count b {
+  color: #3f454e;
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.focus-pager-count i {
+  font-style: normal;
+  opacity: 0.5;
+}
+
+.focus-pager-count em {
+  font-style: normal;
+}
+
+.dark-theme .focus-pager {
+  border-color: #343b45;
+  background: #161b22;
+}
+
+.dark-theme .focus-pager-step {
   color: #a3abb6;
 }
 
-.dark-theme .focus-pager-arrow:hover:not(:disabled) {
-  border-color: #6f8bea;
+.dark-theme .focus-pager-step:hover:not(:disabled) {
+  background: #223052;
   color: #93a8f5;
+}
+
+.dark-theme .focus-pager-step:disabled {
+  color: #4a525c;
+}
+
+.dark-theme .focus-pager-count {
+  color: #8d95a0;
+}
+
+.dark-theme .focus-pager-count b {
+  color: #d7dce2;
 }
 </style>

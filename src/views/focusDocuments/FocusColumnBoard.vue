@@ -1,7 +1,14 @@
 <template>
   <section
     class="focus-board-shell"
-    :class="{ 'has-pager': pageCount > 1 }"
+    :class="{
+      'has-pager': pageCount > 1,
+      'is-drag-active': dragActive,
+    }"
+    @dragover.prevent="onShellDragOver"
+    @dragleave="onShellDragLeave"
+    @drop="endShellDrag"
+    @wheel.passive="onWheel"
   >
     <div
       v-if="pageEntries.length"
@@ -75,6 +82,35 @@
         </div>
       </template>
 
+      <!-- UI_SYSTEM_20260911_V9
+        分页排版守恒：4 栏 / 每版 3 栏时，第 2 版原先是一张被拉满
+        全宽的孤卡，翻页瞬间栏宽突变。补上虚线占位槽后，每一版的
+        栏宽恒定；顺带把"再加一栏"变成一个正向入口。
+        仅在存在多个版面时生效 —— 单版面继续铺满，不造无谓留白。 -->
+      <template
+        v-for="ghost in ghostSlots"
+        :key="'ghost-' + ghost"
+      >
+        <div class="focus-rail is-ghost" aria-hidden="true"></div>
+
+        <div class="focus-column is-ghost">
+          <button
+            type="button"
+            class="focus-ghost-slot"
+            :disabled="!canAddColumn"
+            :title="
+              canAddColumn
+                ? '在此处添加分栏'
+                : '已达到分栏上限（' + maxColumns + ' 栏）'
+            "
+            @click.stop="openInserter(tailIndex, $event)"
+          >
+            <span aria-hidden="true">＋</span>
+            <small>添加分栏</small>
+          </button>
+        </div>
+      </template>
+
       <div
         class="focus-rail is-tail"
         :class="{ 'is-drop-target': dropIndex === tailIndex }"
@@ -83,6 +119,7 @@
         @drop.prevent="onRailDrop(tailIndex, $event)"
       >
         <button
+          v-if="!ghostSlots"
           type="button"
           class="focus-rail-add"
           :title="
@@ -125,12 +162,42 @@
       </div>
     </div>
 
-    <FocusBoardPager
-      :page="page"
-      :page-count="pageCount"
-      @step="stepPage"
-      @go="goToPage"
-    />
+    <!-- UI_SYSTEM_20260911_V9
+      翻页箭头已移入顶部功能区（见 FocusDocumentsView）。这里只保留
+      拖拽场景专属的边缘热区：需要跨版面重排时才浮现，命中区域是
+      整列高而非一个 34px 圆点，悬停 620ms 自动翻页。
+      需要时才出现、出现时极易命中、平时零占位。 -->
+    <template v-if="pageCount > 1 && dragActive">
+      <div
+        class="focus-board-edge is-prev"
+        :class="{
+          'is-armed': edgeArmed === -1,
+          'is-blocked': page <= 0,
+        }"
+        @dragover.prevent="armEdge(-1)"
+        @dragleave="disarmEdge"
+        @drop.prevent="disarmEdge"
+      >
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M12 4 6.5 10 12 16" />
+        </svg>
+      </div>
+
+      <div
+        class="focus-board-edge is-next"
+        :class="{
+          'is-armed': edgeArmed === 1,
+          'is-blocked': page >= pageCount - 1,
+        }"
+        @dragover.prevent="armEdge(1)"
+        @dragleave="disarmEdge"
+        @drop.prevent="disarmEdge"
+      >
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M8 4l5.5 6L8 16" />
+        </svg>
+      </div>
+    </template>
 
     <FocusColumnInserter
       v-if="inserter"
@@ -151,7 +218,6 @@
 /* FOCUS_COLUMN_PAGES_20260909_V3 */
 import FocusColumnCard from "./FocusColumnCard.vue";
 import FocusColumnInserter from "./FocusColumnInserter.vue";
-import FocusBoardPager from "./FocusBoardPager.vue";
 import focusLayoutService from "../../services/focusLayoutService";
 
 const COLUMN_DRAG_TYPE = "application/x-weektodo-column";
@@ -163,7 +229,6 @@ export default {
   components: {
     FocusColumnCard,
     FocusColumnInserter,
-    FocusBoardPager,
   },
 
   props: {
@@ -198,6 +263,12 @@ export default {
       inserter: null,
       slideClass: "",
       slideTimer: null,
+      dragActive: false,
+      dragEndTimer: null,
+      edgeArmed: null,
+      edgeTimer: null,
+      wheelAccum: 0,
+      wheelLock: false,
     };
   },
 
@@ -222,6 +293,25 @@ export default {
       const start = focusLayoutService.pageStart(this.layout);
 
       return start + this.pageEntries.length;
+    },
+
+    /* 本版面还差几栏才填满。只有存在其它版面时才补占位，
+       单版面铺满是正确的 —— 否则就是为了整齐而浪费画布。 */
+    ghostSlots() {
+      if (this.pageCount <= 1) return 0;
+
+      return Math.max(0, this.pageSize - this.pageEntries.length);
+    },
+
+    /* 调宽换算的分母必须包含占位槽，否则补槽的版面上
+       拖动 1px 会得到偏大的 flex 增量。 */
+    pageFlexTotal() {
+      const real = this.pageEntries.reduce(
+        (total, entry) => total + entry.column.flex,
+        0
+      );
+
+      return real + this.ghostSlots;
     },
 
     canAddColumn() {
@@ -273,6 +363,8 @@ export default {
     window.removeEventListener("pointerup", this.stopResize);
 
     clearTimeout(this.slideTimer);
+    clearTimeout(this.edgeTimer);
+    clearTimeout(this.dragEndTimer);
     document.body.classList.remove("focus-resizing");
   },
 
@@ -389,6 +481,88 @@ export default {
     onCardDragEnd() {
       this.draggingColumnId = null;
       this.dropIndex = null;
+      this.endShellDrag();
+    },
+
+    /* ---------- 拖拽态（驱动边缘热区的显隐） ---------- */
+
+    onShellDragOver() {
+      clearTimeout(this.dragEndTimer);
+      this.dragActive = true;
+    },
+
+    /* dragleave 在子元素之间移动时也会触发，所以用一个短延时
+       去抖：真正离开才收起热区，穿越 rail 时不会闪。 */
+    onShellDragLeave() {
+      clearTimeout(this.dragEndTimer);
+      this.dragEndTimer = setTimeout(this.endShellDrag, 140);
+    },
+
+    endShellDrag() {
+      clearTimeout(this.dragEndTimer);
+      this.dragActive = false;
+      this.disarmEdge();
+    },
+
+    armEdge(direction) {
+      const target = this.page + direction;
+
+      if (target < 0 || target > this.pageCount - 1) {
+        this.edgeArmed = direction;
+        return;
+      }
+
+      if (this.edgeArmed === direction && this.edgeTimer) return;
+
+      clearTimeout(this.edgeTimer);
+      this.edgeArmed = direction;
+
+      this.edgeTimer = setTimeout(() => {
+        this.edgeTimer = null;
+        this.edgeArmed = null;
+        this.stepPage(direction);
+      }, 620);
+    },
+
+    disarmEdge() {
+      clearTimeout(this.edgeTimer);
+      this.edgeTimer = null;
+      this.edgeArmed = null;
+    },
+
+    /* ---------- 触控板横向滑动翻页 ---------- */
+
+    /* 看板本身不横向滚动，deltaX 是一份白送的输入。阈值取 120px
+       且要求横向分量显著大于纵向，再加 520ms 锁 —— 宁可少翻一次，
+       也不要在纵向滚动正文时被横向抖动意外翻页。 */
+    onWheel(event) {
+      if (this.pageCount <= 1 || this.wheelLock) return;
+
+      const dx = event.deltaX || 0;
+      const dy = event.deltaY || 0;
+
+      if (Math.abs(dx) < Math.abs(dy) * 1.5) {
+        this.wheelAccum = 0;
+        return;
+      }
+
+      this.wheelAccum += dx;
+
+      if (Math.abs(this.wheelAccum) < 120) return;
+
+      const direction = this.wheelAccum > 0 ? 1 : -1;
+
+      this.wheelAccum = 0;
+
+      const target = this.page + direction;
+      if (target < 0 || target > this.pageCount - 1) return;
+
+      this.wheelLock = true;
+      setTimeout(() => {
+        this.wheelLock = false;
+      }, 520);
+
+      this.stepPage(direction);
     },
 
     onRailDragLeave(index) {
@@ -445,10 +619,7 @@ export default {
         event.currentTarget.setPointerCapture(event.pointerId);
       }
 
-      const pageFlex = this.pageEntries.reduce(
-        (total, entry) => total + entry.column.flex,
-        0
-      );
+      const pageFlex = this.pageFlexTotal;
 
       this.resizeRail = index;
       this.resizeState = {
@@ -511,6 +682,13 @@ export default {
 
 <style scoped lang="scss">
 .focus-board-shell {
+  /* UI_SYSTEM_20260911_V9 · 唯一的纵向锚点
+     卡片头部 min-height 46px，rail 上的 + 号 22px，
+     于是 (46 - 22) / 2 = 12px 恰好落在标题栏的垂直中心。
+     左/中/右三种 rail 共用这同一个声明 —— 对齐由一个变量保证，
+     而不是靠三处各自算出同一个数。 */
+  --focus-affordance-top: 12px;
+
   position: relative;
   display: flex;
   min-width: 0;
@@ -519,8 +697,9 @@ export default {
   flex-direction: column;
 }
 
+/* 翻页已移入顶部功能区，这 30px 的预留可以归还给内容。 */
 .focus-board-shell.has-pager {
-  padding-bottom: 30px;
+  padding-bottom: 0;
 }
 
 .focus-board {
@@ -651,8 +830,12 @@ export default {
   display: flex;
   width: 16px;
   flex: 0 0 16px;
-  align-items: center;
+  /* 从"垂直居中"改为"对齐头部基线"：+ 号作用于分栏这个整体，
+     贴着标题栏读起来就是"在这里插一栏"；居中则会浮在正文中央，
+     既遮内容，也随窗口高度漂移。 */
+  align-items: flex-start;
   justify-content: center;
+  padding-top: var(--focus-affordance-top, 12px);
   touch-action: none;
 }
 
@@ -797,12 +980,199 @@ body.focus-resizing * {
   background: #fcfcfd;
 }
 
-/* FOCUS_UI_SYSTEM_20260912_V7
-   仅 tail rail 上的 + 号上移到 38%：它和翻页箭头共处最右侧
-   这一条窄带，是唯一会打架的一个。列间的 + 号没有这个问题，
-   保持中线不动 —— 同类控件不该因为个别位置的冲突而整体位移。 */
+/* UI_SYSTEM_20260911_V9 · 修掉 padding-top:38% 的解析 bug
+ *
+ * 上一版写的是 `.focus-rail.is-tail { padding-top: 38% }`，意图是
+ * "rail 高度的 38%"。但 padding 的百分比永远按包含块的 inline
+ * size（宽度）解析 —— rail 是 flex item，包含块是 .focus-board，
+ * 所以实际值 ≈ 看板宽度的 38%（940px 宽时约 357px）。
+ * 后果有两个，正好就是用户报的两条：
+ *   1. 右侧 + 号比左侧低几百像素 —— "两个加号没有水平对齐"；
+ *   2. 该偏移随窗口宽度线性变化 —— "改变窗口大小时位置很奇怪"。
+ *
+ * 根治办法不是换一个百分比，而是让三种 rail 共享同一个绝对
+ * 令牌。冲突的另一半（悬浮翻页箭头）已经被移出画布，这条窄带
+ * 不再需要任何人让位。
+ */
 .focus-rail.is-tail {
   align-items: flex-start;
-  padding-top: 38%;
+  padding-top: var(--focus-affordance-top, 12px);
+}
+</style>
+
+<style scoped lang="scss">
+/* UI_SYSTEM_20260911_V9 · 占位槽与拖拽边缘热区 */
+
+.focus-rail.is-ghost {
+  cursor: default;
+  pointer-events: none;
+}
+
+.focus-column.is-ghost {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0%;
+}
+
+.focus-ghost-slot {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px dashed #dde1e7;
+  border-radius: 12px;
+  background: transparent;
+  color: #b4bac2;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.focus-ghost-slot:hover:not(:disabled) {
+  border-color: #a9bbf2;
+  background: rgba(66, 99, 235, 0.03);
+  color: #4263eb;
+}
+
+.focus-ghost-slot:focus-visible {
+  outline: none;
+  border-color: #4263eb;
+  box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.1);
+}
+
+.focus-ghost-slot:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.focus-ghost-slot span {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.focus-ghost-slot small {
+  font-size: 10.5px;
+}
+
+/* ---- 拖拽边缘热区 ----
+   只在拖拽进行时挂载，所以平时既不占空间也不拦指针。
+   命中区域是整列高 × 46px，比原先 34px 的圆点好命中一个量级。 */
+.focus-board-edge {
+  position: absolute;
+  z-index: 8;
+  top: 0;
+  bottom: 0;
+  display: grid;
+  width: 46px;
+  place-items: center;
+  color: #7c8694;
+  animation: focus-edge-in 0.14s ease-out;
+}
+
+.focus-board-edge.is-prev {
+  left: 0;
+  background: linear-gradient(
+    to right,
+    rgba(66, 99, 235, 0.1),
+    rgba(66, 99, 235, 0)
+  );
+}
+
+.focus-board-edge.is-next {
+  right: 0;
+  background: linear-gradient(
+    to left,
+    rgba(66, 99, 235, 0.1),
+    rgba(66, 99, 235, 0)
+  );
+}
+
+.focus-board-edge.is-armed {
+  color: #4263eb;
+}
+
+.focus-board-edge.is-armed.is-prev {
+  background: linear-gradient(
+    to right,
+    rgba(66, 99, 235, 0.2),
+    rgba(66, 99, 235, 0)
+  );
+}
+
+.focus-board-edge.is-armed.is-next {
+  background: linear-gradient(
+    to left,
+    rgba(66, 99, 235, 0.2),
+    rgba(66, 99, 235, 0)
+  );
+}
+
+/* 已到首/末版：热区仍在（否则手感像"按钮消失了"），但明确示意无路可走。 */
+.focus-board-edge.is-blocked {
+  color: #c6ccd4;
+  background: linear-gradient(
+    to right,
+    rgba(120, 128, 140, 0.07),
+    rgba(120, 128, 140, 0)
+  );
+}
+
+.focus-board-edge.is-blocked.is-next {
+  background: linear-gradient(
+    to left,
+    rgba(120, 128, 140, 0.07),
+    rgba(120, 128, 140, 0)
+  );
+}
+
+.focus-board-edge svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.focus-board-edge.is-armed svg {
+  animation: focus-edge-pulse 0.62s ease-in-out infinite;
+}
+
+@keyframes focus-edge-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes focus-edge-pulse {
+  50% {
+    opacity: 0.4;
+    transform: scale(0.88);
+  }
+}
+
+.dark-theme .focus-ghost-slot {
+  border-color: #333a44;
+  color: #6c7480;
+}
+
+.dark-theme .focus-ghost-slot:hover:not(:disabled) {
+  border-color: #4f6ac4;
+  background: rgba(111, 139, 234, 0.06);
+  color: #93a8f5;
+}
+
+.dark-theme .focus-board-edge {
+  color: #98a1ad;
+}
+
+.dark-theme .focus-board-edge.is-armed {
+  color: #93a8f5;
 }
 </style>

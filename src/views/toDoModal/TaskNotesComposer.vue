@@ -170,6 +170,11 @@ export default {
       timer: null,
       preview: false,
       renderer: null,
+      /* FOCUS_OWNERSHIP_FIX_20260911 焦点归属守卫的状态 */
+      lastInside: null,
+      strikes: 0,
+      strikeTimer: null,
+      closing: false,
     };
   },
 
@@ -208,6 +213,9 @@ export default {
   },
 
   mounted() {
+    /* 顺序要紧：focusin 守卫必须先于下面 nextTick 里的首次 focus()
+       注册，否则第一次聚焦就会被 Bootstrap 抢掉。 */
+    document.addEventListener("focusin", this.onFocusinCapture, true);
     document.addEventListener("keydown", this.onKeydownCapture, true);
 
     this.$nextTick(() => {
@@ -223,14 +231,88 @@ export default {
 
   beforeUnmount() {
     document.removeEventListener(
+      "focusin",
+      this.onFocusinCapture,
+      true
+    );
+    document.removeEventListener(
       "keydown",
       this.onKeydownCapture,
       true
     );
+    clearTimeout(this.strikeTimer);
     this.flush();
   },
 
   methods: {
+    /* ---------- 焦点归属守卫 ---------- */
+
+    /* FOCUS_OWNERSHIP_FIX_20260911
+     *
+     * Bootstrap 5.3 util/focustrap.js：
+     *
+     *   activate() {
+     *     EventHandler.on(document, EVENT_FOCUSIN, e => this._handleFocusin(e))
+     *   }
+     *   _handleFocusin(event) {
+     *     const { trapElement } = this._config
+     *     if (event.target === document || event.target === trapElement
+     *         || trapElement.contains(event.target)) return
+     *     SelectorEngine.focusableChildren(trapElement)[0].focus()
+     *   }
+     *
+     * trapElement 是 #toDoModal。本层 Teleport 到 body，永远不在那棵
+     * 子树里，所以 contains() 恒为 false —— 每次聚焦都被拽回弹窗的
+     * 第一个 input，键入落到背后被遮住的字段上。
+     *
+     * 它的监听在 document 的【冒泡】阶段，我们在【捕获】阶段截断，
+     * 捕获先行，它就永远收不到这个事件。不动私有 _focustrap，也不设
+     * data-bs-focus="false"（那会永久废掉弹窗的焦点陷阱，普通场景下
+     * Tab 就能跑出去，是拿无障碍换便利）。
+     */
+    onFocusinCapture(event) {
+      if (this.closing) return;
+
+      const panel = this.$refs.panel;
+      if (!panel) return;
+
+      const target = event.target;
+      const inside = target === panel || panel.contains(target);
+
+      /* body / document 这一类也必须拦：点击面板头部留白时焦点会
+         落到 body，放过去的话焦点就被吸回背后的弹窗，用户的下一个
+         按键会写到错误的字段里。 */
+      const neutral =
+        target === document ||
+        target === document.body ||
+        target === document.documentElement;
+
+      if (inside || neutral) {
+        if (inside) this.lastInside = target;
+        event.stopPropagation();
+      }
+
+      if (inside) return;
+
+      /* 防线二：若焦点仍被别的陷阱抢走（或将来某个版本改用捕获），
+         把它拉回来。限额 3 次 / 400ms —— 宁可让焦点跑掉，
+         也绝不制造无限抢焦循环。 */
+      if (this.strikes >= 3) return;
+
+      this.strikes += 1;
+      clearTimeout(this.strikeTimer);
+      this.strikeTimer = setTimeout(() => {
+        this.strikes = 0;
+      }, 400);
+
+      const back =
+        this.lastInside && panel.contains(this.lastInside)
+          ? this.lastInside
+          : this.$refs.input;
+
+      if (back) back.focus();
+    },
+
     onKeydownCapture(event) {
       const key = event.key || "";
 
@@ -279,6 +361,9 @@ export default {
     },
 
     requestClose() {
+      /* 关闭期彻底让开：父级要把焦点交还给触发按钮，
+         此时守卫再去抢焦就会和它打架。 */
+      this.closing = true;
       this.flush();
       this.$emit("close");
     },

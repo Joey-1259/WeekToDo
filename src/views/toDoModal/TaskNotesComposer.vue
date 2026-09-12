@@ -419,7 +419,7 @@ export default {
 <style lang="scss">
 .tnc-layer {
   position: fixed;
-  z-index: 22000;
+  z-index: var(--z-overlay-notes, 1230);
   inset: 0;
   display: grid;
   place-items: center;

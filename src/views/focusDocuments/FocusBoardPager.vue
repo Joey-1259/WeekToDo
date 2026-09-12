@@ -63,7 +63,9 @@ export default {
     pageCount: { type: Number, default: 1 },
   },
 
-  emits: ["step", "go"],
+  /* HARDENING_20260911_V13：go 从未被 emit，宿主也只监听 step。
+     声明一个不存在的事件，会让下一个人去找它不存在的触发点。 */
+  emits: ["step"],
 };
 </script>
 

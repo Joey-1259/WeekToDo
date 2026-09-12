@@ -288,6 +288,7 @@
 </template>
 
 <script>
+import focusOwnership from "../../mixins/focusOwnership";
 /* FOCUS_UI_SYSTEM_20260912_V8 */
 import AppIcon from "../../components/ui/AppIcon.vue";
 import { tip } from "../../directives/tooltip";
@@ -310,8 +311,14 @@ import { tip } from "../../directives/tooltip";
 
 const EDGE_RATIO = 0.28;
 
+/* HARDENING_20260911_V13 · 焦点守卫
+   本组件 Teleport 到 body，一旦在 Bootstrap modal 打开期间被唤起，
+   内部输入框会拿不到焦点。成因与修法见 mixin 注释。
+   若根元素的 ref 不叫 panel 或 dialog，请覆写 focusOwnershipRoot。 */
 export default {
   name: "FocusDirectoryBrowser",
+
+  mixins: [focusOwnership],
 
   components: { AppIcon },
 

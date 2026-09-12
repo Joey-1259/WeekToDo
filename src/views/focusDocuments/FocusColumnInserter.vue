@@ -113,11 +113,18 @@
 </template>
 
 <script>
+import focusOwnership from "../../mixins/focusOwnership";
 /* FOCUS_COLUMN_LAYOUT_20260909_V1 */
 import FocusFolderPicker from "./FocusFolderPicker.vue";
 
+/* HARDENING_20260911_V13 · 焦点守卫
+   本组件 Teleport 到 body，一旦在 Bootstrap modal 打开期间被唤起，
+   内部输入框会拿不到焦点。成因与修法见 mixin 注释。
+   若根元素的 ref 不叫 panel 或 dialog，请覆写 focusOwnershipRoot。 */
 export default {
   name: "FocusColumnInserter",
+
+  mixins: [focusOwnership],
 
   components: { FocusFolderPicker },
 

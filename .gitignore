@@ -6,3 +6,8 @@ dist_electron/
 out/
 
 .ui-patch-backup/
+
+# HARDENING_20260911_V13
+# 补丁脚本的历史快照。留在仓库里只有害处：全局搜索会命中过期实现，
+# 把读代码的人引向错误的版本。要回滚请用 git，那是它的本职。
+.focus-patch-backup/

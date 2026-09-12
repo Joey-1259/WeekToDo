@@ -330,6 +330,11 @@ export default {
 
   data() {
     return {
+      /* HARDENING_20260911_V13：reload 互斥标志。放在 data 里是为了
+         随实例销毁，避免模块级变量在多实例之间串味。 */
+      reloadInFlight: false,
+      reloadPending: false,
+      focusReloadTimer: null,
       documents: [],
       layout: focusLayoutService.empty(),
       folders: [],
@@ -339,9 +344,6 @@ export default {
       treeVisible: false,
       selectedFolderId: null,
       moveDialogDocument: null,
-      moveFolderId: "__root__",
-      moveFolders: [],
-      moveSaving: false,
       pageSizeOptions: [1, 2, 3],
     };
   },
@@ -355,15 +357,6 @@ export default {
 
     pageCount() {
       return focusLayoutService.pageCount(this.layout);
-    },
-
-    moveDialogDirty() {
-      if (!this.moveDialogDocument) return false;
-
-      return (
-        this.moveFolderId !==
-        (this.moveDialogDocument.folderId || "__root__")
-      );
     },
 
     folderPaths() {
@@ -439,7 +432,7 @@ export default {
       "weektodo:focus-folders-changed",
       this.reloadFolders
     );
-    window.addEventListener("focus", this.reload);
+    window.addEventListener("focus", this.onWindowFocus);
     document.addEventListener("mousedown", this.onGlobalPointerDown);
   },
 
@@ -452,7 +445,8 @@ export default {
       "weektodo:focus-folders-changed",
       this.reloadFolders
     );
-    window.removeEventListener("focus", this.reload);
+    window.removeEventListener("focus", this.onWindowFocus);
+    clearTimeout(this.focusReloadTimer);
     document.removeEventListener(
       "mousedown",
       this.onGlobalPointerDown
@@ -493,11 +487,47 @@ export default {
       );
     },
 
-    equalizeColumns() {
-      this.applyLayout(focusLayoutService.equalize(this.layout));
+    /* HARDENING_20260911_V13 · reload 并发保护
+     *
+     * 原实现没有任何互斥。reload 会读全部文档、再对每篇并发取
+     * 关联事项文本；两次调用重叠时，赋值的落地顺序取决于哪次先
+     * resolve —— 后启动却先返回的那次会被随后返回的旧数据覆盖。
+     * 紧接着的 sanitize 又基于这份可能过期的 id 列表裁剪布局，
+     * 理论上能把刚打开的分栏裁掉。
+     *
+     * 同一时刻只允许一个在飞；期间的新请求不排队、只置标志，
+     * 结束后补跑一次。合并而非排队 —— 中间那些结果没人关心。
+     */
+    async reload() {
+      if (this.reloadInFlight) {
+        this.reloadPending = true;
+        return;
+      }
+
+      this.reloadInFlight = true;
+
+      try {
+        await this.reloadOnce();
+      } finally {
+        this.reloadInFlight = false;
+
+        if (this.reloadPending) {
+          this.reloadPending = false;
+          await this.reload();
+        }
+      }
     },
 
-    async reload() {
+    /* 窗口聚焦去抖：桌面端切换应用会连续触发，每次都是全量读取。 */
+    onWindowFocus() {
+      clearTimeout(this.focusReloadTimer);
+
+      this.focusReloadTimer = setTimeout(() => {
+        this.reload().catch((error) => console.error(error));
+      }, 400);
+    },
+
+    async reloadOnce() {
       const documents = await focusDocumentService.listDocuments();
 
       this.documents = await Promise.all(
@@ -598,11 +628,6 @@ export default {
       focusDocumentService.touchDocument(id).catch(() => {});
     },
 
-    createFromDirectory(folderId) {
-      this.closeDirectory();
-      this.createDocument(folderId);
-    },
-
     async createDocument(folderId = undefined) {
       const target =
         folderId === undefined ? this.selectedFolderId : folderId;
@@ -691,39 +716,6 @@ export default {
     /* FOCUS_UI_SYSTEM_20260912_V8：统一走 bridge 的 fdOpenPicker。 */
     openMoveDialog(document) {
       this.fdOpenPicker(document);
-    },
-
-    closeMoveDialog() {
-      if (this.moveSaving) return;
-
-      this.moveDialogDocument = null;
-      this.moveFolderId = "__root__";
-      this.moveFolders = [];
-    },
-
-    async confirmMoveDocument() {
-      if (!this.moveDialogDocument || this.moveSaving) return;
-
-      this.moveSaving = true;
-
-      try {
-        const saved = await focusDocumentService.moveDocument(
-          this.moveDialogDocument.id,
-          this.moveFolderId === "__root__"
-            ? null
-            : this.moveFolderId
-        );
-
-        this.replaceDocument(saved);
-        this.moveDialogDocument = null;
-        this.moveFolderId = "__root__";
-        this.moveFolders = [];
-      } catch (error) {
-        console.error(error);
-        window.alert("移动文档失败，请重试。");
-      } finally {
-        this.moveSaving = false;
-      }
     },
 
     async handleDocumentAction({ action, document }) {
@@ -887,27 +879,6 @@ export default {
   padding: 0 2px 12px;
 }
 
-.focus-workspace-heading {
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-}
-
-.focus-workspace-heading h1 {
-  margin: 0;
-  color: #272b31;
-  font-size: 20px;
-  font-weight: 680;
-  letter-spacing: -0.015em;
-}
-
-.focus-workspace-heading span {
-  color: #969ca5;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
 .focus-workspace-actions {
   display: flex;
   min-width: 0;
@@ -961,7 +932,7 @@ export default {
 
 .focus-search-results {
   position: absolute;
-  z-index: 40;
+  z-index: var(--z-popover, 40);
   top: calc(100% + 6px);
   left: 0;
   width: 306px;
@@ -1129,134 +1100,8 @@ export default {
   background: #4263eb;
 }
 
-.focus-move-backdrop {
-  position: fixed;
-  z-index: 21000;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(18, 22, 28, 0.46);
-  backdrop-filter: blur(5px);
-}
-
-.focus-move-dialog {
-  width: min(560px, calc(100vw - 32px));
-  border: 1px solid rgba(31, 35, 41, 0.13);
-  border-radius: 14px;
-  outline: none;
-  background: #fff;
-  box-shadow:
-    0 24px 70px rgba(18, 22, 28, 0.24),
-    0 4px 14px rgba(18, 22, 28, 0.08);
-  overflow: hidden;
-}
-
-.focus-move-dialog > header {
-  display: flex;
-  min-height: 66px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 13px 16px 12px 18px;
-  border-bottom: 1px solid #eceef1;
-}
-
-.focus-move-dialog > header > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.focus-move-dialog > header strong {
-  color: #282d34;
-  font-size: 15px;
-  font-weight: 650;
-}
-
-.focus-move-dialog > header small {
-  overflow: hidden;
-  color: #969ca5;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.focus-move-dialog > header button {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: #747c87;
-  font-size: 21px;
-  cursor: pointer;
-}
-
-.focus-move-dialog > header button:hover {
-  background: #eef1f5;
-  color: #343a42;
-}
-
-.focus-move-dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px 18px 18px;
-}
-
-.focus-move-dialog-hint {
-  margin: 0;
-  color: #969ca5;
-  font-size: 10px;
-  line-height: 1.55;
-}
-
-.focus-move-dialog > footer {
-  display: flex;
-  min-height: 58px;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 10px 16px;
-  border-top: 1px solid #eceef1;
-  background: #fafbfc;
-}
-
-.focus-move-dialog > footer button {
-  min-width: 76px;
-  height: 34px;
-  padding: 0 14px;
-  border: 1px solid #dfe2e7;
-  border-radius: 7px;
-  background: #fff;
-  color: #505761;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.focus-move-dialog > footer button.primary {
-  border-color: #4263eb;
-  background: #4263eb;
-  color: #fff;
-}
-
-.focus-move-dialog button:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-
 .dark-theme .focus-workspace {
   background: #0f141a;
-}
-
-.dark-theme .focus-workspace-heading h1 {
-  color: #e1e5ea;
 }
 
 .dark-theme .focus-search,
@@ -1284,30 +1129,6 @@ export default {
 
 .dark-theme .focus-pagesize button.active {
   background: #223052;
-}
-
-.dark-theme .focus-move-dialog {
-  border-color: #38414b;
-  background: #1d232b;
-}
-
-.dark-theme .focus-move-dialog > header,
-.dark-theme .focus-move-dialog > footer {
-  border-color: #343b45;
-}
-
-.dark-theme .focus-move-dialog > header strong {
-  color: #e1e5ea;
-}
-
-.dark-theme .focus-move-dialog > footer {
-  background: #181e25;
-}
-
-.dark-theme .focus-move-dialog > footer button {
-  border-color: #3a424d;
-  background: #20262e;
-  color: #d8dde3;
 }
 
 @media (max-width: 1000px) {

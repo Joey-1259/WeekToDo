@@ -40,6 +40,11 @@ import "bootstrap/dist/css/bootstrap.min.css";
 
 import "bootstrap-icons/font/bootstrap-icons.css";
 
+/* HARDENING_20260911_V13 · z-index 台账
+   这些数字原先散在多个文件里当字面量，新增浮层只能翻代码猜比谁大。
+   集中成令牌后，Bootstrap 占用的 1050 / 1055 也被显式记录下来。 */
+import "./assets/style/layers.scss";
+
 import "./assets/style/globalVars.scss";
 import "./assets/style/main.scss";
 import "./assets/style/uiComponents.scss";
@@ -48,7 +53,15 @@ import "./assets/style/uiComponents.scss";
 import { tip as vTipDirective } from "./directives/tooltip";
 
 Sentry.init({
-  dsn: process.env.VUE_APP_SENTRY_DNS,
+  /* HARDENING_20260911_V13 · 防御性取值
+     渲染进程默认没有 process 这个全局量。若构建配置里没有 define 它，
+     本行会在模块求值阶段抛 ReferenceError —— 时机早于 createApp，
+     下面所有兜底都还没装上，症状是纯白屏加一行看不出因果的报错。 */
+  dsn:
+    (typeof process !== "undefined" &&
+      process.env &&
+      process.env.VUE_APP_SENTRY_DNS) ||
+    undefined,
   ignoreErrors: [
     /ResizeObserver loop limit exceeded/i,
     /ResizeObserver loop completed with undelivered notifications/i,
@@ -64,16 +77,36 @@ Sentry.init({
     // }),
   ],
   // Performance Monitoring
-  tracesSampleRate: 1.0, //  Capture 100% of the transactions
+  /* HARDENING_20260911_V13 · 桌面端不需要全量性能追踪来发现回归，
+     而 1.0 意味着每次交互都产生一条外发记录。 */
+  tracesSampleRate: 0.05,
   // Session Replay
-  replaysSessionSampleRate: 0.1, // This sets the sample rate at 10%. You may want to change it to 100% while in development and then sample at a lower rate in production.
-  replaysOnErrorSampleRate: 1.0, // If you're not already sampling the entire session, change the sample rate to 100% when sampling sessions where errors occur.
-  // beforeSend(event) {
-  //   if (!store.getters.config.reportErrors) {
-  //     return null;
-  //   }
-  //   return event;
-  // },
+  replaysSessionSampleRate: 0,
+  replaysOnErrorSampleRate: 0,
+  /* HARDENING_20260911_V13 · 让错误上报开关真正生效
+   *
+   * beforeSend 此前整段是注释，意味着设置里那个开关完全不起作用：
+   * 用户关掉它，数据照样发。对一个把 focused on privacy 写进
+   * package.json description 的产品，这是最该修的一条。
+   */
+  beforeSend(event) {
+    try {
+      /* 读不到配置时按未同意处理 —— 隐私默认值必须站在保守一侧。 */
+      if (!store.getters.config.reportErrors) return null;
+    } catch (error) {
+      return null;
+    }
+    return event;
+  },
+
+  beforeSendTransaction(event) {
+    try {
+      if (!store.getters.config.reportErrors) return null;
+    } catch (error) {
+      return null;
+    }
+    return event;
+  },
 });
 
 // ------------------------------------------------------------------
@@ -96,7 +129,7 @@ function renderRuntimeErrorToast(title, detail) {
       host = document.createElement("div");
       host.id = "runtimeErrorHost";
       host.style.cssText =
-        "position:fixed;right:16px;bottom:16px;z-index:99999;display:flex;" +
+        "position:fixed;right:16px;bottom:16px;z-index:var(--z-diagnostic,99999);display:flex;" +
         "flex-direction:column;gap:8px;max-width:420px;";
       document.body.appendChild(host);
     }
@@ -150,7 +183,7 @@ function renderFatalErrorOverlay(title, detail) {
     let overlay = document.createElement("div");
     overlay.id = "fatalErrorOverlay";
     overlay.style.cssText =
-      "position:fixed;top:0;left:0;right:0;bottom:0;z-index:999999;background:#1a1e24;color:#f0f0f0;" +
+      "position:fixed;top:0;left:0;right:0;bottom:0;z-index:var(--z-diagnostic,99999);background:#1a1e24;color:#f0f0f0;" +
       "font-family:monospace;padding:24px;overflow:auto;box-sizing:border-box;";
 
     let heading = document.createElement("div");

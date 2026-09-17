@@ -1,36 +1,40 @@
 /**
- * UNIFIED_TAG_SYSTEM_V2 — 统一颜色标签体系
+ * UNIFIED_TAG_SYSTEM_V3
  *
- * 第一项是灰色"未分类"，与 macOS Finder 的无标签灰圆对齐。
- * 颜色值与原 colorPicker.vue 完全一致，确保数据向前兼容。
+ * Linear/Finder 风格：固定色板 + 可选命名
+ * 配色参考 Tailwind CSS 500 色阶，保证高对比度和辨识度。
+ *
+ * 前 6 个为"主色板"（灰 + 5 色），默认直接展示。
+ * 后 5 个为"扩展色板"，点击"更多"展开。
  */
 
 const STORAGE_KEY = "weektodo_tag_names";
 
 const PRESET_TAGS = [
-  { id: "tag_gray",    color: "#6b7280", defaultName: "未分类" },
-  { id: "tag_green",   color: "#77e785", defaultName: "工作" },
-  { id: "tag_cyan",    color: "#06b6d4", defaultName: "学习" },
-  { id: "tag_blue",    color: "#5e6ef2", defaultName: "项目" },
-  { id: "tag_purple",  color: "#8b5cf6", defaultName: "灵感" },
-  { id: "tag_pink",    color: "#ed56a1", defaultName: "生活" },
-  { id: "tag_red",     color: "#ed544b", defaultName: "紧急" },
-  { id: "tag_orange",  color: "#f97316", defaultName: "健康" },
-  { id: "tag_yellow",  color: "#f9d54a", defaultName: "待定" },
-  { id: "tag_brown",   color: "#ba7956", defaultName: "" },
-  { id: "tag_dark",    color: "#030712", defaultName: "" },
+  /* ── 主色板（默认展示） ── */
+  { id: "tag_gray",    color: "#6b7280", defaultName: "未分类", primary: true },
+  { id: "tag_blue",    color: "#3b82f6", defaultName: "",       primary: true },
+  { id: "tag_green",   color: "#22c55e", defaultName: "",       primary: true },
+  { id: "tag_amber",   color: "#f59e0b", defaultName: "",       primary: true },
+  { id: "tag_red",     color: "#ef4444", defaultName: "",       primary: true },
+  { id: "tag_purple",  color: "#a855f7", defaultName: "",       primary: true },
+
+  /* ── 扩展色板（点击更多展开） ── */
+  { id: "tag_cyan",    color: "#06b6d4", defaultName: "",       primary: false },
+  { id: "tag_pink",    color: "#ec4899", defaultName: "",       primary: false },
+  { id: "tag_orange",  color: "#f97316", defaultName: "",       primary: false },
+  { id: "tag_lime",    color: "#84cc16", defaultName: "",       primary: false },
+  { id: "tag_indigo",  color: "#6366f1", defaultName: "",       primary: false },
 ];
 
 function loadCustomNames() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { return {}; }
 }
 
 function saveCustomNames(map) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(map)); }
-  catch { /* noop */ }
+  catch {}
 }
 
 export default {
@@ -40,7 +44,16 @@ export default {
       id: t.id,
       color: t.color,
       name: custom[t.id] !== undefined ? custom[t.id] : t.defaultName,
+      primary: t.primary,
     }));
+  },
+
+  getPrimaryTags() {
+    return this.getDefaultTags().filter((t) => t.primary);
+  },
+
+  getExtendedTags() {
+    return this.getDefaultTags().filter((t) => !t.primary);
   },
 
   findTagByColor(color) {

@@ -147,13 +147,13 @@
               </div>
 
               <div class="attribute-toolbar">
-                <tag-picker
-                  :model-value="todo.tags || []"
-                  :all-tags="allTags"
-                  @update:modelValue="changeTags"
-                ></tag-picker>
-
                 <div class="attribute-tools">
+                  <color-picker
+                    :color="todo.color"
+                    :tags="todo.tags || []"
+                    @color-selected="changeColor"
+                  ></color-picker>
+
                   <time-picker
                     :time="todo.time"
                     @time-selected="changeTime"
@@ -170,12 +170,6 @@
                     :todo="todo"
                     @repeatingEventSelected="changeRepeatingEvent"
                   ></repeating-event>
-
-                  <color-picker
-                    :color="todo.color"
-                    :tags="todo.tags || []"
-                    @color-selected="changeColor"
-                  ></color-picker>
                 </div>
               </div>
             </section>

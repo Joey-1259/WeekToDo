@@ -418,7 +418,9 @@ export default {
         documentId: this.draft.id,
         insert: (attrs) => {
           this.$refs.editor?.insertLinkedTask(attrs);
-          this.scheduleSave();
+          /* FIX: 立即持久化，不依赖 debounce */
+          this.dirty = true;
+          this.$nextTick(() => this.persist());
         },
       });
     },

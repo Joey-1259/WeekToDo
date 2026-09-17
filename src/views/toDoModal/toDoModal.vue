@@ -765,19 +765,14 @@ export default {
     changeColor(color) {
       this.todo.color = color;
       // 统一标签体系：颜色选择时自动关联对应的标签 ID
-      const tagModule = require("../../data/defaultTaskTags.js").default || require("../../data/defaultTaskTags.js");
-      const matched = tagModule.findTagByColor ? tagModule.findTagByColor(color) : null;
-      if (matched && this.todo.tags && !this.todo.tags.includes(matched.id)) {
-        // 移除同体系的其他颜色标签，保留非颜色标签
-        const presetIds = (tagModule.PRESET_TAGS || []).map(t => t.id);
+      const matched = defaultTaskTags.findTagByColor(color);
+      if (matched && !this.todo.tags.includes(matched.id)) {
+        const presetIds = defaultTaskTags.PRESET_TAGS.map(t => t.id);
         this.todo.tags = this.todo.tags.filter(t => !presetIds.includes(t));
         this.todo.tags.push(matched.id);
       } else if (!matched || color === "none") {
-        // 清除所有颜色标签
-        const presetIds = (tagModule.PRESET_TAGS || []).map(t => t.id);
-        if (this.todo.tags) {
-          this.todo.tags = this.todo.tags.filter(t => !presetIds.includes(t));
-        }
+        const presetIds = defaultTaskTags.PRESET_TAGS.map(t => t.id);
+        this.todo.tags = (this.todo.tags || []).filter(t => !presetIds.includes(t));
       }
       this.updateTodo();
     },
@@ -900,7 +895,7 @@ export default {
     fullscreenToDoModal: function () { return this.$store.getters.config.fullscreenToDoModal; },
     moveSubtaskToBotttom: function () { return this.$store.getters.config.moveCompletedSubTaskToBottom; },
     weekStartOnMonday: function () { return this.$store.getters.config.weekStartOnMonday ? 1 : 0; },
-    allTags: function () { return defaultTaskTags.getDefaultTags(this); },
+    allTags: function () { return defaultTaskTags.getDefaultTags(); },
 
     /* UI_SYSTEM_20260911_V9：沉浸式编辑层的面包屑上下文。
        全屏写作时必须还能看见"我在哪一天／哪个清单的哪个事项里"，

@@ -7,8 +7,8 @@
       @click.stop="togglePanel"
     >
       <i
-        class="bi-circle-fill"
-        :style="currentColor !== 'none' ? `color: ${currentColor}` : 'color: #c9d1d9'"
+        :class="currentColor !== 'none' ? 'bi-circle-fill' : 'bi-circle'"
+        :style="currentColor !== 'none' ? `color: ${currentColor}` : ''"
       ></i>
       <span v-if="activeTagName" class="trigger-label">{{ activeTagName }}</span>
     </button>
@@ -17,59 +17,78 @@
       <div
         v-if="panelVisible"
         class="unified-tag-panel"
+        :class="{ 'dark-theme': isDark }"
         :style="panelStyle"
         @mousedown.stop
         @click.stop
       >
         <header class="unified-tag-header">
-          <strong>颜色标签</strong>
-          <small>选择颜色 · 双击名称可编辑</small>
+          <div class="unified-tag-header-row">
+            <strong>颜色标签</strong>
+            <button
+              type="button"
+              class="unified-tag-edit-toggle"
+              :class="{ active: editMode }"
+              :title="editMode ? '退出编辑' : '编辑标签名称'"
+              @click="editMode = !editMode"
+            >
+              <svg viewBox="0 0 16 16" width="12" height="12">
+                <path d="M11.5 1.5l3 3L5 14H2v-3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+          <small v-if="editMode">点击名称进行编辑，回车确认</small>
+          <small v-else>选择标签分类</small>
         </header>
 
         <div class="unified-tag-grid">
-          <!-- 无颜色选项 -->
           <button
             type="button"
             class="unified-tag-item"
             :class="{ active: currentColor === 'none' }"
             @click="selectTag('none', '')"
           >
-            <i class="bi-circle unified-tag-dot"></i>
+            <i class="bi-circle unified-tag-dot" style="color: #c9d1d9"></i>
             <span class="unified-tag-name">无标签</span>
           </button>
 
-          <button
+          <div
             v-for="tag in allTags"
             :key="tag.id"
-            type="button"
-            class="unified-tag-item"
-            :class="{ active: currentColor === tag.color }"
-            @click="selectTag(tag.color, tag.id)"
+            class="unified-tag-row"
           >
-            <i
-              class="bi-circle-fill unified-tag-dot"
-              :style="`color: ${tag.color}`"
-            ></i>
-            <span
-              v-if="editingId !== tag.id"
-              class="unified-tag-name"
-              @dblclick.stop="startEdit(tag)"
+            <button
+              type="button"
+              class="unified-tag-item"
+              :class="{ active: currentColor === tag.color }"
+              @click="selectTag(tag.color, tag.id)"
             >
-              {{ tag.name || '未命名' }}
-            </span>
-            <input
-              v-else
-              :ref="'edit_' + tag.id"
-              class="unified-tag-edit"
-              type="text"
-              maxlength="8"
-              :value="tag.name"
-              @blur="commitEdit(tag.id, $event)"
-              @keydown.enter="commitEdit(tag.id, $event)"
-              @keydown.esc="cancelEdit"
-              @click.stop
-            />
-          </button>
+              <i
+                class="bi-circle-fill unified-tag-dot"
+                :style="`color: ${tag.color}`"
+              ></i>
+              <span
+                v-if="editingId !== tag.id"
+                class="unified-tag-name"
+                :class="{ 'is-placeholder': !tag.name }"
+                @click.stop="editMode && startEdit(tag)"
+              >
+                {{ tag.name || '点击命名…' }}
+              </span>
+              <input
+                v-else
+                :ref="el => { if (el) editRefs[tag.id] = el }"
+                class="unified-tag-edit"
+                type="text"
+                maxlength="8"
+                :value="tag.name"
+                @blur="commitEdit(tag.id, $event)"
+                @keydown.enter="commitEdit(tag.id, $event)"
+                @keydown.esc="cancelEdit"
+                @click.stop
+              />
+            </button>
+          </div>
         </div>
       </div>
     </Teleport>
@@ -81,7 +100,8 @@ import defaultTaskTags from "../../data/defaultTaskTags.js";
 
 export default {
   name: "colorPicker",
-  emits: ["ColorSelected", "TagSelected"],
+  /* FIX: Vue 3 emit 名用 camelCase，模板中自动匹配 kebab-case */
+  emits: ["colorSelected", "tagSelected"],
   props: {
     color: { required: true, type: [String, null] },
     tags: { type: Array, default: () => [] },
@@ -90,14 +110,16 @@ export default {
     return {
       panelVisible: false,
       panelStyle: {},
+      editMode: false,
       editingId: null,
+      editRefs: {},
       allTags: defaultTaskTags.getDefaultTags(),
     };
   },
   computed: {
-    currentColor() {
-      return this.color || "none";
-    },
+    currentColor() { return this.color || "none"; },
+    isDark() { return document.body.classList.contains("dark-theme") ||
+                      document.querySelector(".dark-theme") !== null; },
     activeTagName() {
       if (this.currentColor === "none") return "";
       const tag = this.allTags.find((t) => t.color === this.currentColor);
@@ -116,54 +138,40 @@ export default {
   },
   methods: {
     togglePanel(event) {
-      if (this.panelVisible) {
-        this.panelVisible = false;
-        return;
-      }
+      if (this.panelVisible) { this.panelVisible = false; return; }
       this.allTags = defaultTaskTags.getDefaultTags();
+      this.editMode = false;
+      this.editingId = null;
       const rect = event.currentTarget.getBoundingClientRect();
-      const width = 240;
-      const height = 380;
-      const left = Math.max(10, Math.min(window.innerWidth - width - 10, rect.left));
-      const openAbove = rect.bottom + height > window.innerHeight - 10;
+      const w = 250, h = 420;
+      const left = Math.max(10, Math.min(window.innerWidth - w - 10, rect.left));
+      const openAbove = rect.bottom + h > window.innerHeight - 10;
       this.panelStyle = {
-        position: "fixed",
-        width: `${width}px`,
-        left: `${left}px`,
+        position: "fixed", width: `${w}px`, left: `${left}px`,
         top: openAbove ? "auto" : `${rect.bottom + 6}px`,
         bottom: openAbove ? `${window.innerHeight - rect.top + 6}px` : "auto",
       };
       this.panelVisible = true;
     },
     selectTag(color, tagId) {
-      this.$emit("ColorSelected", color);
-      // 同时更新 tags：如果选了一个有 id 的颜色，添加到 tags
-      if (tagId) {
-        this.$emit("TagSelected", tagId);
-      }
-      this.panelVisible = false;
+      this.$emit("colorSelected", color);
+      if (tagId) this.$emit("tagSelected", tagId);
+      if (!this.editMode) this.panelVisible = false;
     },
     startEdit(tag) {
       this.editingId = tag.id;
       this.$nextTick(() => {
-        const ref = this.$refs["edit_" + tag.id];
-        const input = Array.isArray(ref) ? ref[0] : ref;
-        if (input) {
-          input.focus();
-          input.select();
-        }
+        const input = this.editRefs[tag.id];
+        if (input) { input.focus(); input.select(); }
       });
     },
     commitEdit(tagId, event) {
-      const input = event.target;
-      const newName = (input.value || "").trim();
+      const newName = (event.target.value || "").trim();
       defaultTaskTags.renameTag(tagId, newName);
       this.allTags = defaultTaskTags.getDefaultTags();
       this.editingId = null;
     },
-    cancelEdit() {
-      this.editingId = null;
-    },
+    cancelEdit() { this.editingId = null; },
     onGlobalClick(event) {
       if (!event.target.closest(".unified-tag-panel") &&
           !event.target.closest(".unified-tag-trigger")) {
@@ -190,20 +198,9 @@ export default {
   font-size: 12px;
   cursor: pointer;
   transition: background-color 0.14s ease;
-
-  .dark-theme & {
-    color: #9aa0a8;
-  }
-
-  &:hover {
-    background: #f0f1f3;
-    .dark-theme & { background: #21262d; }
-  }
-
-  i {
-    font-size: 14px;
-  }
-
+  .dark-theme & { color: #9aa0a8; }
+  &:hover { background: #f0f1f3; .dark-theme & { background: #21262d; } }
+  i { font-size: 14px; }
   .trigger-label {
     max-width: 60px;
     overflow: hidden;
@@ -218,13 +215,8 @@ export default {
   border: 1px solid rgba(31, 35, 41, 0.12);
   border-radius: 12px;
   background: #fff;
-  box-shadow: 0 16px 42px rgba(24, 29, 38, 0.16),
-    0 2px 8px rgba(24, 29, 38, 0.07);
-
-  .dark-theme & {
-    border-color: #39414c;
-    background: #1d232b;
-  }
+  box-shadow: 0 16px 42px rgba(24, 29, 38, 0.16), 0 2px 8px rgba(24, 29, 38, 0.07);
+  &.dark-theme { border-color: #39414c; background: #1d232b; }
 }
 
 .unified-tag-header {
@@ -232,24 +224,35 @@ export default {
   flex-direction: column;
   gap: 2px;
   padding: 2px 4px 8px;
-
-  strong {
-    color: #3f454e;
-    font-size: 12px;
-    .dark-theme & { color: #d3d8de; }
-  }
-
-  small {
-    color: #9aa0a8;
-    font-size: 10px;
-  }
+  strong { color: #3f454e; font-size: 12px; .dark-theme & { color: #d3d8de; } }
+  small { color: #9aa0a8; font-size: 10px; }
 }
 
-.unified-tag-grid {
+.unified-tag-header-row {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  justify-content: space-between;
 }
+
+.unified-tag-edit-toggle {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #9aa0a8;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  &:hover { background: #f0f1f3; color: #4263eb; }
+  &.active { background: #eef2ff; color: #4263eb; }
+  .dark-theme &:hover { background: #252c35; }
+  .dark-theme &.active { background: #1e2740; color: #8da2fb; }
+}
+
+.unified-tag-grid { display: flex; flex-direction: column; gap: 1px; }
+.unified-tag-row { display: flex; align-items: center; }
 
 .unified-tag-item {
   display: flex;
@@ -266,57 +269,27 @@ export default {
   text-align: left;
   cursor: pointer;
   transition: background-color 0.12s ease;
-
-  .dark-theme & {
-    color: #c5cbd3;
-  }
-
-  &:hover {
-    background: #f4f5f7;
-    .dark-theme & { background: #252c35; }
-  }
-
+  .dark-theme & { color: #c5cbd3; }
+  &:hover { background: #f4f5f7; .dark-theme & { background: #252c35; } }
   &.active {
-    background: #eef2ff;
-    color: #4263eb;
-    font-weight: 500;
-    .dark-theme & {
-      background: #1e2740;
-      color: #8da2fb;
-    }
+    background: #eef2ff; color: #4263eb; font-weight: 500;
+    .dark-theme & { background: #1e2740; color: #8da2fb; }
   }
 }
 
-.unified-tag-dot {
-  font-size: 12px;
-  flex: 0 0 16px;
-}
+.unified-tag-dot { font-size: 12px; flex: 0 0 16px; }
 
 .unified-tag-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  &.is-placeholder { color: #c0c5cc; font-style: italic; .dark-theme & { color: #4a515b; } }
 }
 
 .unified-tag-edit {
-  flex: 1;
-  min-width: 0;
-  height: 22px;
-  padding: 0 6px;
-  border: 1px solid #4263eb;
-  border-radius: 4px;
-  outline: none;
-  background: #fff;
-  color: #2f353d;
-  font-family: inherit;
-  font-size: 12px;
-
-  .dark-theme & {
-    border-color: #6c8fff;
-    background: #161b22;
-    color: #e0e5eb;
-  }
+  flex: 1; min-width: 0; height: 22px;
+  padding: 0 6px; border: 1px solid #4263eb; border-radius: 4px;
+  outline: none; background: #fff; color: #2f353d;
+  font-family: inherit; font-size: 12px;
+  .dark-theme & { border-color: #6c8fff; background: #161b22; color: #e0e5eb; }
 }
 </style>

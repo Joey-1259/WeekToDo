@@ -113,6 +113,7 @@
 import toDoListRepository from "../repositories/toDoListRepository";
 import moment from "moment";
 import linkifyStr from "linkify-string";
+import defaultTaskTags from "../data/defaultTaskTags.js";
 import {
   isSpanningTask,
   syncSpanningState,
@@ -267,15 +268,10 @@ export default {
     tagChips: function () {
       const tags = this.toDo.tags;
       if (!tags || !tags.length) return [];
-      try {
-        const tagModule = require("../data/defaultTaskTags.js").default || require("../data/defaultTaskTags.js");
-        const allTags = tagModule.getDefaultTags ? tagModule.getDefaultTags() : [];
-        return tags
-          .map((id) => allTags.find((t) => t.id === id))
-          .filter((t) => t && t.name);
-      } catch {
-        return [];
-      }
+      const allTags = defaultTaskTags.getDefaultTags();
+      return tags
+        .map((id) => allTags.find((t) => t.id === id))
+        .filter((t) => t && t.name);
     },
 
     notificationIndicator: function () {

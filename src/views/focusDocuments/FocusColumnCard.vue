@@ -351,7 +351,10 @@ export default {
         documentId: this.document.id,
         insert: (attrs) => {
           this.$refs.editor?.insertLinkedTask(attrs);
-          this.scheduleSave();
+          /* FIX: 立即触发持久化，不依赖 debounce。
+             确保关联事项节点在关闭/切换前已写入 DB。 */
+          this.dirty = true;
+          this.$nextTick(() => this.persist());
         },
       });
     },

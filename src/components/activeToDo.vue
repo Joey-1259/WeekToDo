@@ -56,6 +56,7 @@ import moment from "moment";
 import notifications from "../helpers/notifications";
 import linkifyStr from 'linkify-string';
 import tasksHelper from "../helpers/tasksHelper";
+import defaultTaskTags from "../data/defaultTaskTags.js";
 import {
   clearMirrorsBySpanId,
   isSpanningTask,
@@ -239,15 +240,10 @@ export default {
     tagChips: function () {
       const tags = this.activeTodo?.toDo?.tags;
       if (!tags || !tags.length) return [];
-      try {
-        const tagModule = require("../data/defaultTaskTags.js").default || require("../data/defaultTaskTags.js");
-        const allTags = tagModule.getDefaultTags ? tagModule.getDefaultTags() : [];
-        return tags
-          .map((id) => allTags.find((t) => t.id === id))
-          .filter((t) => t && t.name);
-      } catch {
-        return [];
-      }
+      const allTags = defaultTaskTags.getDefaultTags();
+      return tags
+        .map((id) => allTags.find((t) => t.id === id))
+        .filter((t) => t && t.name);
     },
   }
 };

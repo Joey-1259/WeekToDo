@@ -146,7 +146,7 @@ export default {
         "none";
     },
 
-    doneEdit: function () {
+    doneEdit: async function () {
       this.editing = false;
 
       this.$store.commit("updateTodo", {
@@ -155,9 +155,11 @@ export default {
         text: this.text,
       });
 
-      toDoListRepository.update(
+      await toDoListRepository.update(
         this.toDoListId,
-        this.$store.getters.todoLists[this.toDoListId]
+        this.$store.getters.todoLists[
+          this.toDoListId
+        ]
       );
 
       // 行内编辑后，同步跨天任务的文本到所有镜像。

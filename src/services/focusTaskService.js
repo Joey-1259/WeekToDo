@@ -12,6 +12,43 @@ function dispatchChange(detail) {
   );
 }
 
+function pruneLinkedTaskNodes(node, taskId) {
+  if (!node || typeof node !== "object") {
+    return node;
+  }
+
+  if (
+    node.type === "linkedTask" &&
+    node.attrs?.taskId === taskId
+  ) {
+    return null;
+  }
+
+  const next = { ...node };
+
+  if (Array.isArray(node.content)) {
+    next.content = node.content
+      .map((child) =>
+        pruneLinkedTaskNodes(child, taskId)
+      )
+      .filter(Boolean);
+  }
+
+  if (
+    next.type === "doc" &&
+    (
+      !Array.isArray(next.content) ||
+      !next.content.length
+    )
+  ) {
+    next.content = [
+      { type: "paragraph" },
+    ];
+  }
+
+  return next;
+}
+
 const focusTaskService = {
   async initializeTaskIds() {
     return todoTaskRepository.ensureAllTaskIds();
@@ -111,6 +148,107 @@ const focusTaskService = {
       .filter(Boolean)
       .map((task) => task.text)
       .join(" ");
+  },
+
+  async purgeTaskReferences(taskId) {
+    if (!taskId) return;
+
+    const links =
+      await focusDataRepository.getAllByIndex(
+        FOCUS_STORES.taskLinks,
+        "taskId",
+        taskId
+      );
+
+    const documentIds = [
+      ...new Set(
+        links
+          .map((link) => link.documentId)
+          .filter(Boolean)
+      ),
+    ];
+
+    await Promise.all(
+      documentIds.map(async (documentId) => {
+        const document =
+          await focusDataRepository.get(
+            FOCUS_STORES.documents,
+            documentId
+          );
+
+        if (!document) return;
+
+        const nextContent =
+          pruneLinkedTaskNodes(
+            document.content,
+            taskId
+          );
+
+        if (
+          JSON.stringify(nextContent) ===
+          JSON.stringify(document.content)
+        ) {
+          return;
+        }
+
+        await focusDataRepository.put(
+          FOCUS_STORES.documents,
+          {
+            ...document,
+            content: nextContent,
+            updatedAt:
+              new Date().toISOString(),
+          }
+        );
+      })
+    );
+
+    await Promise.all(
+      links.map((link) =>
+        focusDataRepository.remove(
+          FOCUS_STORES.taskLinks,
+          link.id
+        )
+      )
+    );
+  },
+
+  async deleteLinkedTask({
+    taskId,
+    listId = null,
+  }) {
+    if (!taskId) return false;
+
+    const deleted =
+      await todoTaskRepository.deleteTask(
+        taskId,
+        listId
+      );
+
+    await this.purgeTaskReferences(taskId);
+
+    dispatchChange({
+      action: "deleted",
+      taskId,
+      listId,
+    });
+
+    return deleted;
+  },
+
+  async handleExternalDeletion({
+    taskId,
+    listId = null,
+  }) {
+    if (!taskId) return;
+
+    await this.purgeTaskReferences(taskId);
+
+    dispatchChange({
+      action: "deleted",
+      taskId,
+      listId,
+    });
   },
 
   async unlink({ documentId, taskId, blockId, deleteTask = false, listId = null }) {

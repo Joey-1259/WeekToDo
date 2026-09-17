@@ -255,6 +255,7 @@ import descriptionTextArea from "./descriptionTextArea.vue";
 import tagPicker from "./tagPicker.vue";
 import reminderPicker from "./reminderPicker.vue";
 import defaultTaskTags from "../../data/defaultTaskTags.js";
+import focusTaskService from "../../services/focusTaskService.js";
 import {
   isSpanningTask,
   syncSpanningState,
@@ -468,23 +469,54 @@ export default {
         syncSpanningState(this.todo, this.$store);
       }
     },
-    updateTodoList: function (todoListId, TodoList) {
-      notifications.refreshDayNotifications(this, todoListId);
-      toDoListRepository.update(todoListId, TodoList);
-
-      window.dispatchEvent(
-        new CustomEvent("weektodo:task-changed", {
-          detail: {
-            action: "updated",
-            taskId: this.todo?.id || null,
-            listId: todoListId,
-            task: this.todo || null,
-          },
-        })
+    updateTodoList: async function (
+      todoListId,
+      TodoList
+    ) {
+      notifications.refreshDayNotifications(
+        this,
+        todoListId
       );
-    },
 
-    // ============ 原有方法 ============
+      const taskSnapshot = this.todo
+        ? JSON.parse(
+            JSON.stringify(this.todo)
+          )
+        : null;
+
+      try {
+        /*
+         * 先等待 IndexedDB 事务完成，
+         * 再通知重点事项读取新数据。
+         */
+        await toDoListRepository.update(
+          todoListId,
+          TodoList
+        );
+
+        window.dispatchEvent(
+          new CustomEvent(
+            "weektodo:task-changed",
+            {
+              detail: {
+                action: "updated",
+                taskId:
+                  taskSnapshot?.id || null,
+                listId:
+                  taskSnapshot?.listId ||
+                  todoListId,
+                task: taskSnapshot,
+              },
+            }
+          )
+        );
+      } catch (error) {
+        console.error(
+          "保存事项失败：",
+          error
+        );
+      }
+    },
     removeSubTask: function (index) {
       this.todo.subTaskList.splice(index, 1);
       this.updateTodo();
@@ -647,27 +679,135 @@ export default {
         }.bind(this);
       }.bind(this);
     },
-    removeTodo: function () {
-      // ★ 清除所有关联镜像
-      if (this.todo._spanId && this.todo.endDate) {
-        let sourceId = this.todo._isSpanMirror ? this.todo._spanSourceId : this.todo.listId;
-        clearMirrorsBySpanId(this.todo._spanId, sourceId, this.todo.endDate, this.$store);
-        // 如果删除的是镜像，同时删除源
-        if (this.todo._isSpanMirror && this.todo._spanSourceId) {
-          let sourceList = this.$store.getters.todoLists[this.todo._spanSourceId];
+    removeTodo: async function () {
+      const deletedTodo = JSON.parse(
+        JSON.stringify(this.todo)
+      );
+
+      if (
+        this.todo._spanId &&
+        this.todo.endDate
+      ) {
+        const sourceId =
+          this.todo._isSpanMirror
+            ? this.todo._spanSourceId
+            : this.todo.listId;
+
+        clearMirrorsBySpanId(
+          this.todo._spanId,
+          sourceId,
+          this.todo.endDate,
+          this.$store
+        );
+
+        if (
+          this.todo._isSpanMirror &&
+          this.todo._spanSourceId
+        ) {
+          const sourceList =
+            this.$store.getters.todoLists[
+              this.todo._spanSourceId
+            ];
+
           if (sourceList) {
-            let idx = sourceList.findIndex((t) => !t._isSpanMirror && t._spanId === this.todo._spanId);
-            if (idx !== -1) {
-              sourceList.splice(idx, 1);
-              toDoListRepository.update(this.todo._spanSourceId, sourceList);
+            const sourceIndex =
+              sourceList.findIndex(
+                (task) =>
+                  !task._isSpanMirror &&
+                  task._spanId ===
+                    this.todo._spanId
+              );
+
+            if (sourceIndex !== -1) {
+              sourceList.splice(
+                sourceIndex,
+                1
+              );
+
+              await toDoListRepository.update(
+                this.todo._spanSourceId,
+                sourceList
+              );
             }
           }
         }
       }
-      this.$store.commit("setUndoElement", { type: "task", todo: this.todo, index: this.index });
-      this.$store.commit("removeTodo", { toDoListId: this.todo.listId, index: this.index });
-      this.updateTodoList(this.todo.listId, this.$store.getters.todoLists[this.todo.listId]);
-      let toast = new Toast(document.getElementById("taskRemoved"));
+
+      const currentList =
+        this.$store.getters.todoLists[
+          deletedTodo.listId
+        ] || [];
+
+      const currentIndex =
+        currentList.findIndex(
+          (task) =>
+            task === this.todo ||
+            (
+              deletedTodo.id &&
+              task?.id === deletedTodo.id
+            )
+        );
+
+      this.$store.commit(
+        "setUndoElement",
+        {
+          type: "task",
+          todo: deletedTodo,
+          index:
+            currentIndex >= 0
+              ? currentIndex
+              : this.index,
+        }
+      );
+
+      if (currentIndex >= 0) {
+        this.$store.commit(
+          "removeTodo",
+          {
+            toDoListId:
+              deletedTodo.listId,
+            index: currentIndex,
+          }
+        );
+      }
+
+      notifications.refreshDayNotifications(
+        this,
+        deletedTodo.listId
+      );
+
+      try {
+        await toDoListRepository.update(
+          deletedTodo.listId,
+          this.$store.getters.todoLists[
+            deletedTodo.listId
+          ] || []
+        );
+
+        await focusTaskService
+          .handleExternalDeletion({
+            taskId: deletedTodo.id,
+            listId: deletedTodo.listId,
+          });
+      } catch (error) {
+        console.error(
+          "删除事项关联失败：",
+          error
+        );
+
+        window.alert(
+          error?.message ||
+            "事项已从当前列表移除，"
+            + "但关联清理失败，请重试。"
+        );
+      }
+
+      const toast = new Toast(
+        document.getElementById(
+          "taskRemoved"
+        )
+      );
+
       toast.show();
     },
     undoRemoveTask: function () {

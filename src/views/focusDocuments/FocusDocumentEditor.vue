@@ -1218,33 +1218,104 @@ export default {
     },
 
     async onTaskUnlink(event) {
-      const attrs = this.normalizeTaskEvent(event);
+      const attrs =
+        this.normalizeTaskEvent(event);
+
       if (!attrs?.taskId) return;
 
-      const deleteTask = window.confirm(
-        "是否同时删除每周事项？\n\n确定：删除事项及关联\n取消：仅解除文档关联"
+      const confirmed = window.confirm(
+        "确定删除该关联事项吗？\n\n"
+        + "删除后，它会同时从每周事项和"
+        + "所有重点文档中移除。"
       );
 
-      await focusTaskService.unlink({
-        documentId: this.documentId,
-        ...attrs,
-        deleteTask,
-      });
+      if (!confirmed) return;
 
-      this.editor
-        ?.chain()
-        .focus()
-        .deleteSelection()
-        .run();
+      try {
+        await focusTaskService.deleteLinkedTask({
+          taskId: attrs.taskId,
+          listId: attrs.listId,
+        });
+      } catch (error) {
+        console.error(error);
+
+        window.alert(
+          error?.message ||
+            "删除关联事项失败，请重试。"
+        );
+      }
+    },
+    removeTaskNodes(taskId) {
+      if (!this.editor || !taskId) return;
+
+      const prune = (node) => {
+        if (
+          !node ||
+          typeof node !== "object"
+        ) {
+          return node;
+        }
+
+        if (
+          node.type === "linkedTask" &&
+          node.attrs?.taskId === taskId
+        ) {
+          return null;
+        }
+
+        const next = { ...node };
+
+        if (Array.isArray(node.content)) {
+          next.content = node.content
+            .map(prune)
+            .filter(Boolean);
+        }
+
+        if (
+          next.type === "doc" &&
+          (
+            !Array.isArray(next.content) ||
+            !next.content.length
+          )
+        ) {
+          next.content = [
+            { type: "paragraph" },
+          ];
+        }
+
+        return next;
+      };
+
+      const current =
+        this.editor.getJSON();
+      const next = prune(current);
+
+      if (
+        JSON.stringify(current) !==
+        JSON.stringify(next)
+      ) {
+        this.editor.commands.setContent(
+          next,
+          { emitUpdate: true }
+        );
+      }
     },
 
     onTaskChanged(event) {
-      const taskId = event.detail?.taskId;
+      const taskId =
+        event.detail?.taskId;
+
       if (!taskId) return;
+
+      if (
+        event.detail?.action === "deleted"
+      ) {
+        this.removeTaskNodes(taskId);
+        return;
+      }
 
       this.refreshLinkedTasks();
     },
-
     editLink() {
       this.linkInput =
         this.editor?.getAttributes("link").href || "";

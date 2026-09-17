@@ -46,6 +46,7 @@ import notifications from "../helpers/notifications";
 import linkifyStr from 'linkify-string';
 import tasksHelper from "../helpers/tasksHelper";
 import defaultTaskTags from "../data/defaultTaskTags.js";
+import focusTaskService from "../services/focusTaskService.js";
 import {
   clearMirrorsBySpanId,
   isSpanningTask,
@@ -68,49 +69,139 @@ export default {
     };
   },
   methods: {
-    removeTodo: function () {
-      let todo = this.activeTodo.toDo;
-      // ★ 删除跨天任务时，清除所有镜像
-      if (isSpanningTask(todo) && todo._spanId) {
-        let sourceId = todo._isSpanMirror ? todo._spanSourceId : todo.listId;
-        clearMirrorsBySpanId(todo._spanId, sourceId, todo.endDate, this.$store);
-        // 如果删除的是镜像，也要删除源
-        if (todo._isSpanMirror && todo._spanSourceId) {
-          let sourceList = this.$store.getters.todoLists[todo._spanSourceId];
+    removeTodo: async function () {
+      const todo = JSON.parse(
+        JSON.stringify(
+          this.activeTodo.toDo
+        )
+      );
+
+      if (
+        isSpanningTask(todo) &&
+        todo._spanId
+      ) {
+        const sourceId =
+          todo._isSpanMirror
+            ? todo._spanSourceId
+            : todo.listId;
+
+        clearMirrorsBySpanId(
+          todo._spanId,
+          sourceId,
+          todo.endDate,
+          this.$store
+        );
+
+        if (
+          todo._isSpanMirror &&
+          todo._spanSourceId
+        ) {
+          const sourceList =
+            this.$store.getters.todoLists[
+              todo._spanSourceId
+            ];
+
           if (sourceList) {
-            let idx = sourceList.findIndex((t) => !t._isSpanMirror && t._spanId === todo._spanId);
-            if (idx !== -1) {
-              sourceList.splice(idx, 1);
-              toDoListRepository.update(todo._spanSourceId, sourceList);
+            const sourceIndex =
+              sourceList.findIndex(
+                (task) =>
+                  !task._isSpanMirror &&
+                  task._spanId ===
+                    todo._spanId
+              );
+
+            if (sourceIndex !== -1) {
+              sourceList.splice(
+                sourceIndex,
+                1
+              );
+
+              await toDoListRepository.update(
+                todo._spanSourceId,
+                sourceList
+              );
             }
           }
         }
       }
-      this.$store.commit("setUndoElement", { type: 'task', todo: todo, index: this.activeTodo.index });
-      this.$store.commit("removeTodo", { toDoListId: this.activeTodo.toDoListId, index: this.activeTodo.index, });
-      notifications.refreshDayNotifications(this, this.activeTodo.toDoListId);
-      window.dispatchEvent(
-        new CustomEvent("weektodo:task-changed", {
-          detail: {
-            action: "updated",
-            taskId: todo.id,
-            listId: todo.listId,
-          },
-        })
+
+      const listId =
+        this.activeTodo.toDoListId;
+
+      const currentList =
+        this.$store.getters.todoLists[
+          listId
+        ] || [];
+
+      const currentIndex =
+        currentList.findIndex(
+          (task) =>
+            task === this.activeTodo.toDo ||
+            (
+              todo.id &&
+              task?.id === todo.id
+            )
+        );
+
+      this.$store.commit(
+        "setUndoElement",
+        {
+          type: "task",
+          todo,
+          index:
+            currentIndex >= 0
+              ? currentIndex
+              : this.activeTodo.index,
+        }
       );
-      // weektodo:task-checked
-      toDoListRepository.update(this.activeTodo.toDoListId, this.$store.getters.todoLists[this.activeTodo.toDoListId]);
-      window.dispatchEvent(
-        new CustomEvent("weektodo:task-changed", {
-          detail: {
-            action: "deleted",
-            taskId: todo.id,
-            listId: this.activeTodo.toDoListId,
-          },
-        })
+
+      if (currentIndex >= 0) {
+        this.$store.commit(
+          "removeTodo",
+          {
+            toDoListId: listId,
+            index: currentIndex,
+          }
+        );
+      }
+
+      notifications.refreshDayNotifications(
+        this,
+        listId
       );
-      // weektodo:task-removed
-      let toast = new Toast(document.getElementById("taskRemoved"));
+
+      try {
+        await toDoListRepository.update(
+          listId,
+          this.$store.getters.todoLists[
+            listId
+          ] || []
+        );
+
+        await focusTaskService
+          .handleExternalDeletion({
+            taskId: todo.id,
+            listId,
+          });
+      } catch (error) {
+        console.error(
+          "删除事项关联失败：",
+          error
+        );
+
+        window.alert(
+          error?.message ||
+            "事项已从当前列表移除，"
+            + "但关联清理失败，请重试。"
+        );
+      }
+
+      const toast = new Toast(
+        document.getElementById(
+          "taskRemoved"
+        )
+      );
+
       toast.show();
       this.hideToDoItem();
     },

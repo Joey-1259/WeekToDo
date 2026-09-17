@@ -21,8 +21,12 @@
           ref="panel"
           class="ctp-panel"
           :style="panelPos"
+          tabindex="-1"
+          role="dialog"
+          aria-label="颜色标签"
           @mousedown.stop
           @click.stop
+          @keydown.stop
         >
           <!-- 当前状态行 -->
           <div class="ctp-status">
@@ -41,7 +45,10 @@
               maxlength="10"
               :value="editableTag.name"
               placeholder="输入标签含义"
-              @keydown.enter.prevent="commitName"
+              @mousedown.stop
+              @click.stop
+              @keydown.stop
+              @keydown.enter.stop.prevent="commitName"
               @blur="commitName"
             />
             <span v-else-if="hasColor" class="ctp-hint">点击色块选择标签</span>
@@ -54,8 +61,10 @@
               type="button"
               class="ctp-color"
               :class="{ 'is-active': !hasColor }"
-              title="无标签"
-              @click="pickColor('none')"
+              title="无颜色"
+              aria-label="清除颜色标签"
+              @mousedown.prevent.stop
+              @click.stop="pickColor('none')"
             >
               <span class="ctp-ring"></span>
               <svg v-if="!hasColor" class="ctp-check" viewBox="0 0 16 16">
@@ -70,8 +79,10 @@
               type="button"
               class="ctp-color"
               :class="{ 'is-active': currentColor === tag.color }"
-              :title="tag.name || tag.color"
-              @click="pickColor(tag.color)"
+              :title="tag.name || '选择此颜色'"
+              :aria-label="tag.name || '选择此颜色'"
+              @mousedown.prevent.stop
+              @click.stop="pickColor(tag.color)"
             >
               <span class="ctp-fill" :style="{ backgroundColor: tag.color }"></span>
               <svg v-if="currentColor === tag.color" class="ctp-check" viewBox="0 0 16 16">
@@ -84,12 +95,26 @@
           <!-- 主色下方标签名 -->
           <div class="ctp-labels">
             <span class="ctp-label-slot"></span>
-            <span
+            <button
               v-for="tag in primaryTags"
               :key="tag.id"
+              type="button"
               class="ctp-label-slot"
+              :class="{
+                'is-empty':
+                  !tag.name || tag.id === 'tag_gray',
+              }"
               :style="{ color: tag.color }"
-            >{{ tag.name }}</span>
+              :aria-label="
+                tag.name
+                  ? `编辑标签：${tag.name}`
+                  : '选择颜色后编辑标签'
+              "
+              @mousedown.prevent.stop
+              @click.stop="beginRename(tag)"
+            >{{
+              tag.id === "tag_gray" ? "" : tag.name
+            }}</button>
           </div>
 
           <!-- 更多颜色 -->
@@ -107,8 +132,10 @@
               type="button"
               class="ctp-color"
               :class="{ 'is-active': currentColor === tag.color }"
-              :title="tag.name || tag.color"
-              @click="pickColor(tag.color)"
+              :title="tag.name || '选择此颜色'"
+              :aria-label="tag.name || '选择此颜色'"
+              @mousedown.prevent.stop
+              @click.stop="pickColor(tag.color)"
             >
               <span class="ctp-fill" :style="{ backgroundColor: tag.color }"></span>
               <svg v-if="currentColor === tag.color" class="ctp-check" viewBox="0 0 16 16">
@@ -211,12 +238,68 @@ export default {
         width: W + "px",
       };
       this.open = true;
+
+      /*
+       * ColorPicker 通过 Teleport 挂载到 body。
+       * 如果不主动转移焦点，键盘输入可能继续进入顶部
+       * 原生 date input，最终表现为日期年份被修改。
+       */
+      this.$nextTick(() => {
+        this.$refs.panel?.focus({
+          preventScroll: true,
+        });
+
+        if (
+          this.hasColor &&
+          this.$refs.nameInput
+        ) {
+          this.$refs.nameInput.focus({
+            preventScroll: true,
+          });
+        }
+      });
+    },
+
+    focusNameInput(select = false) {
+      this.$nextTick(() => {
+        const input = this.$refs.nameInput;
+        if (!input) return;
+
+        input.focus({
+          preventScroll: true,
+        });
+
+        if (select) input.select();
+      });
+    },
+
+    beginRename(tag) {
+      if (!tag) return;
+
+      this.$emit(
+        "color-selected",
+        tag.color
+      );
+      this.refreshTags();
+      this.focusNameInput(true);
     },
 
     pickColor(color) {
-      this.$emit("color-selected", color);
-      /* 立即刷新，确保 editableTag computed 能找到匹配 */
+      this.$emit(
+        "color-selected",
+        color
+      );
       this.refreshTags();
+
+      if (color && color !== "none") {
+        this.focusNameInput(false);
+      } else {
+        this.$nextTick(() => {
+          this.$refs.panel?.focus({
+            preventScroll: true,
+          });
+        });
+      }
     },
 
     commitName() {
@@ -301,7 +384,27 @@ export default {
   width: 100%; aspect-ratio: 1; border: 2px solid transparent; border-radius: 8px;
   background: transparent; cursor: pointer; transition: border-color 0.12s, transform 0.12s;
   &:hover { transform: scale(1.12); }
-  &.is-active { border-color: currentColor; }
+  &.is-active {
+    border-color: #20242b;
+    box-shadow:
+      0 0 0 2px rgba(66, 99, 235, 0.12);
+
+    .dark-theme & {
+      border-color: #f0f3f6;
+      box-shadow:
+        0 0 0 2px rgba(108, 143, 255, 0.18);
+    }
+  }
+
+  &:focus-visible {
+    outline:
+      2px solid rgba(66, 99, 235, 0.45);
+    outline-offset: 1px;
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
 }
 .ctp-fill {
   display: block; width: 20px; height: 20px; border-radius: 50%;
@@ -323,8 +426,39 @@ export default {
   padding: 0 0 2px;
 }
 .ctp-label-slot {
-  font-size: 9px; font-weight: 500; text-align: center;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0;
+  height: 18px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 18px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+
+  &:hover:not(.is-empty) {
+    background: #f3f4f6;
+  }
+
+  &:focus-visible {
+    outline:
+      2px solid rgba(66, 99, 235, 0.35);
+  }
+
+  &.is-empty {
+    color: transparent !important;
+    cursor: default;
+  }
+
+  .dark-theme &:hover:not(.is-empty) {
+    background: #252c35;
+  }
 }
 
 /* ── 更多颜色 ── */

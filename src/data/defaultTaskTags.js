@@ -10,7 +10,7 @@ const PRESET_TAGS = [
   { id: "tag_amber",  color: "#f59e0b", defaultName: "",       primary: true,  order: 2 },
   { id: "tag_red",    color: "#ef4444", defaultName: "",       primary: true,  order: 3 },
   { id: "tag_purple", color: "#a855f7", defaultName: "",       primary: true,  order: 4 },
-  { id: "tag_gray",   color: "#9ca3af", defaultName: "未分类", primary: true,  order: 5 },
+  { id: "tag_gray",   color: "#9ca3af", defaultName: "",       primary: true,  order: 5 },
 
   { id: "tag_cyan",   color: "#06b6d4", defaultName: "",       primary: false, order: 6 },
   { id: "tag_pink",   color: "#ec4899", defaultName: "",       primary: false, order: 7 },

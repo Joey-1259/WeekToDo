@@ -1,287 +1,427 @@
-# -*- coding: utf-8 -*-
-"""
-WeekToDo v5 — 一次过全量修复
-================================================
-修复清单：
-  BUG-1: colorPicker emit 事件名不匹配 → changeColor 永远不触发
-  BUG-2: colorPicker 面板布局变形（色块换行、空心/实心高度不一致、input 不可编辑）
-  BUG-3: 重点事项删除关联事项 → 每周事项不同步
-  BUG-4: 每周事项删除/修改事项 → 重点事项不同步
-  BUG-5: LinkedTask.js 中多余的 tag chips 文字标签
+'PY'
+#!/usr/bin/env python3
 
-修改文件：
-  1. src/views/toDoModal/colorPicker.vue    — 全面重写
-  2. src/data/defaultTaskTags.js            — 色板重排
-  3. src/editor/extensions/LinkedTask.js    — 去掉 tag chips
-  4. src/store/modules/todolist.store.js    — 添加 weektodo:task-changed 事件派发
-  5. src/components/toDoItem.vue            — 圆圈对齐
-  6. src/components/activeToDo.vue          — 圆圈对齐
-================================================
-"""
-import os, re
+from pathlib import Path
+from datetime import datetime
+import re
+import shutil
+import subprocess
+import sys
 
-PROJECT = "/Users/joey/Desktop/Joey-Workspace/MyProject/weektodo-main"
+ROOT = Path(
+    "/Users/joey/Desktop/Joey-Workspace/MyProject/weektodo-main"
+).resolve()
 
-def full_path(rel):
-    return os.path.join(PROJECT, rel)
+STAMP = datetime.now().strftime("%Y%m%d-%H%M%S")
+BACKUP_ROOT = Path("/tmp") / f"weektodo-fix-v2-backup-{STAMP}"
 
-def write_file(rel, content):
-    p = full_path(rel)
-    os.makedirs(os.path.dirname(p), exist_ok=True)
-    with open(p, "w", encoding="utf-8") as f:
-        f.write(content)
-    print(f"  [WRITE] {rel}  ({len(content)} bytes)")
+changed_files = []
+backup_created = set()
 
-def read_file(rel):
-    p = full_path(rel)
-    if not os.path.exists(p):
-        print(f"  [SKIP] {rel} not found")
-        return None
-    with open(p, "r", encoding="utf-8") as f:
-        return f.read()
 
-def patch_file(rel, replacements):
-    """replacements: list of (old_str, new_str)"""
-    text = read_file(rel)
-    if text is None:
+# ============================================================
+# 基础工具
+# ============================================================
+
+def fail(message):
+    raise RuntimeError(message)
+
+
+def project_path(relative_path):
+    path = ROOT / relative_path
+
+    if not path.exists():
+        fail(f"找不到目标文件：{relative_path}")
+
+    return path
+
+
+def read(relative_path):
+    return project_path(relative_path).read_text(
+        encoding="utf-8"
+    )
+
+
+def backup(relative_path):
+    if relative_path in backup_created:
+        return
+
+    source = project_path(relative_path)
+    target = BACKUP_ROOT / relative_path
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+
+    backup_created.add(relative_path)
+
+
+def write(relative_path, content):
+    path = project_path(relative_path)
+    old_content = path.read_text(encoding="utf-8")
+
+    if old_content == content:
+        print(f"SKIP  {relative_path}")
         return False
-    changed = False
-    for old, new in replacements:
-        if old in text:
-            text = text.replace(old, new, 1)
-            print(f"  [PATCH] {rel}: OK ({old[:50]}...)")
-            changed = True
-        else:
-            print(f"  [WARN] {rel}: pattern not found: {old[:60]}...")
-    if changed:
-        with open(full_path(rel), "w", encoding="utf-8") as f:
-            f.write(text)
-    return changed
+
+    backup(relative_path)
+    path.write_text(content, encoding="utf-8")
+
+    changed_files.append(relative_path)
+    print(f"PATCH {relative_path}")
+    return True
 
 
-print("=" * 60)
-print("WeekToDo v5 — 一次过全量修复")
-print("=" * 60)
+def replace_exact(
+    text,
+    old,
+    new,
+    label,
+    expected=None,
+    minimum=1,
+):
+    count = text.count(old)
+
+    if expected is not None and count != expected:
+        fail(
+            f"{label}：预期匹配 {expected} 次，"
+            f"实际匹配 {count} 次。"
+        )
+
+    if count < minimum:
+        fail(
+            f"{label}：至少应匹配 {minimum} 次，"
+            f"实际匹配 {count} 次。"
+        )
+
+    return text.replace(old, new)
 
 
-# ═══════════════════════════════════════════════════════════
-# 1. colorPicker.vue — 全面重写（修复事件名、布局、输入框）
-# ═══════════════════════════════════════════════════════════
-print("\n[1/6] Rewriting colorPicker.vue ...")
+def add_import_once(text, anchor, import_line, label):
+    if import_line in text:
+        return text
 
-write_file("src/views/toDoModal/colorPicker.vue", '''<template>
-  <div class="color-tag-picker" ref="anchor">
-    <button
-      type="button"
-      class="ctp-trigger"
-      :title="triggerTitle"
-      @click.stop="togglePanel"
-    >
-      <span
-        v-if="hasColor"
-        class="ctp-dot"
-        :style="{ backgroundColor: currentColor }"
-      ></span>
-      <span v-else class="ctp-dot ctp-dot--empty"></span>
-    </button>
+    if anchor not in text:
+        fail(f"{label}：找不到 import 插入位置")
 
-    <Teleport to="body">
-      <Transition name="ctp-fade">
-        <div
-          v-if="open"
-          ref="panel"
-          class="ctp-panel"
+    return text.replace(
+        anchor,
+        anchor + "\n" + import_line,
+        1,
+    )
+
+
+def replace_object_method(
+    text,
+    method_start_pattern,
+    replacement,
+    label,
+):
+    """
+    替换 Vue Options API methods 中的单个方法。
+
+    方法结束位置通过下一个同缩进的方法识别，例如：
+      removeTodo: function () {
+      async updateTodoList(...) {
+      showToDoDetails: function () {
+    """
+
+    pattern = re.compile(
+        rf"(?ms)^    {method_start_pattern}.*?"
+        rf"(?=^    (?:async\s+)?"
+        rf"[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\(|:))"
+    )
+
+    matches = list(pattern.finditer(text))
+
+    if len(matches) != 1:
+        fail(
+            f"{label}：预期定位到 1 个方法，"
+            f"实际定位到 {len(matches)} 个。"
+        )
+
+    match = matches[0]
+
+    return (
+        text[:match.start()]
+        + replacement.rstrip()
+        + "\n"
+        + text[match.end():]
+    )
+
+
+def run(command, check=True):
+    print()
+    print("$ " + " ".join(command))
+
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        text=True,
+    )
+
+    if check and result.returncode != 0:
+        fail(
+            f"命令执行失败，退出码：{result.returncode}\n"
+            f"命令：{' '.join(command)}"
+        )
+
+    return result.returncode
+
+
+# ============================================================
+# 项目检查
+# ============================================================
+
+if not ROOT.exists():
+    fail(f"项目目录不存在：{ROOT}")
+
+if not (ROOT / "package.json").exists():
+    fail(f"目标目录不是 WeekToDo 项目：{ROOT}")
+
+if not (ROOT / ".git").exists():
+    print("警告：目标目录中没有发现 .git，但仍继续执行补丁。")
+
+BACKUP_ROOT.mkdir(parents=True, exist_ok=True)
+
+print("=" * 72)
+print("WeekToDo fix_v2")
+print(f"项目目录：{ROOT}")
+print(f"备份目录：{BACKUP_ROOT}")
+print("=" * 72)
+
+
+# ============================================================
+# 1. toDoListRepository
+#    将事项列表写入改为真正可 await 的 IndexedDB 事务
+# ============================================================
+
+repository_path = "src/repositories/toDoListRepository.js"
+
+repository_content = '''import dbRepository from "./dbRepository";
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function runWrite(operation) {
+  return new Promise((resolve, reject) => {
+    const openRequest = dbRepository.open();
+
+    openRequest.onerror = () => {
+      reject(
+        openRequest.error ||
+          new Error("无法打开 WeekToDo 数据库")
+      );
+    };
+
+    openRequest.onsuccess = (event) => {
+      const db = event.target.result;
+
+      try {
+        const transaction = db.transaction(
+          ["todo_lists"],
+          "readwrite"
+        );
+        const store =
+          transaction.objectStore("todo_lists");
+
+        operation(store);
+
+        transaction.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+
+        transaction.onerror = () => {
+          const error =
+            transaction.error ||
+            new Error("事项列表保存失败");
+
+          db.close();
+          reject(error);
+        };
+
+        transaction.onabort = () => {
+          const error =
+            transaction.error ||
+            new Error("事项列表保存事务已中止");
+
+          db.close();
+          reject(error);
+        };
+      } catch (error) {
+        db.close();
+        reject(error);
+      }
+    };
+  });
+}
+
+export default {
+  update(toDoListId, toDoList) {
+    const safeList = clone(
+      Array.isArray(toDoList) ? toDoList : []
+    );
+
+    return runWrite((store) => {
+      store.put(safeList, toDoListId);
+    });
+  },
+
+  remove(toDoListId) {
+    return runWrite((store) => {
+      store.delete(toDoListId);
+    });
+  },
+};
+'''
+
+write(repository_path, repository_content)
+
+
+# ============================================================
+# 2. 灰色标签不再默认显示“未分类”
+#    兼容上一次脚本已经修改完成的状态
+# ============================================================
+
+default_tags_path = "src/data/defaultTaskTags.js"
+text = read(default_tags_path)
+
+old_gray_line = (
+    '{ id: "tag_gray",   color: "#9ca3af", '
+    'defaultName: "未分类", primary: true,  order: 5 },'
+)
+
+new_gray_line = (
+    '{ id: "tag_gray",   color: "#9ca3af", '
+    'defaultName: "",       primary: true,  order: 5 },'
+)
+
+if old_gray_line in text:
+    text = text.replace(old_gray_line, new_gray_line, 1)
+elif new_gray_line not in text:
+    fail("无法识别 defaultTaskTags.js 中的灰色标签定义")
+
+write(default_tags_path, text)
+
+
+# ============================================================
+# 3. ColorPicker
+#    修复日期抢焦点、空心颜色无反馈、灰色标签文字
+# ============================================================
+
+color_picker_path = "src/views/toDoModal/colorPicker.vue"
+text = read(color_picker_path)
+
+# 面板接管键盘焦点。
+if 'aria-label="颜色标签"' not in text:
+    text = replace_exact(
+        text,
+        '''          class="ctp-panel"
           :style="panelPos"
           @mousedown.stop
+          @click.stop''',
+        '''          class="ctp-panel"
+          :style="panelPos"
+          tabindex="-1"
+          role="dialog"
+          aria-label="颜色标签"
+          @mousedown.stop
           @click.stop
-        >
-          <!-- 当前状态行 -->
-          <div class="ctp-status">
-            <span
-              v-if="hasColor"
-              class="ctp-dot ctp-dot--sm"
-              :style="{ backgroundColor: currentColor }"
-            ></span>
-            <span v-else class="ctp-dot ctp-dot--sm ctp-dot--empty"></span>
+          @keydown.stop''',
+        "ColorPicker 面板焦点",
+        expected=1,
+    )
 
-            <input
-              v-if="hasColor && editableTag"
-              ref="nameInput"
-              type="text"
-              class="ctp-name-input"
-              maxlength="10"
-              :value="editableTag.name"
-              placeholder="输入标签含义"
-              @keydown.enter.prevent="commitName"
-              @blur="commitName"
-            />
-            <span v-else-if="hasColor" class="ctp-hint">点击色块选择标签</span>
-            <span v-else class="ctp-hint">无标签</span>
-          </div>
+# 标签输入框阻断键盘事件。
+if '@keydown.enter.stop.prevent="commitName"' not in text:
+    text = replace_exact(
+        text,
+        '''              @keydown.enter.prevent="commitName"
+              @blur="commitName"''',
+        '''              @mousedown.stop
+              @click.stop
+              @keydown.stop
+              @keydown.enter.stop.prevent="commitName"
+              @blur="commitName"''',
+        "ColorPicker 标签输入框",
+        expected=1,
+    )
 
-          <!-- 色板：一行排满 -->
-          <div class="ctp-row">
-            <button
-              type="button"
-              class="ctp-color"
-              :class="{ 'is-active': !hasColor }"
-              title="无标签"
-              @click="pickColor('none')"
-            >
-              <span class="ctp-ring"></span>
-              <svg v-if="!hasColor" class="ctp-check" viewBox="0 0 16 16">
-                <path d="M4 8l3 3 5-5" fill="none" stroke="#9ca3af"
-                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </button>
+# 空心颜色按钮。
+if 'aria-label="清除颜色标签"' not in text:
+    text = replace_exact(
+        text,
+        '''              title="无标签"
+              @click="pickColor('none')"''',
+        '''              title="无颜色"
+              aria-label="清除颜色标签"
+              @mousedown.prevent.stop
+              @click.stop="pickColor('none')"''',
+        "ColorPicker 空心颜色按钮",
+        expected=1,
+    )
 
-            <button
-              v-for="tag in primaryTags"
-              :key="tag.id"
-              type="button"
-              class="ctp-color"
-              :class="{ 'is-active': currentColor === tag.color }"
-              :title="tag.name || tag.color"
-              @click="pickColor(tag.color)"
-            >
-              <span class="ctp-fill" :style="{ backgroundColor: tag.color }"></span>
-              <svg v-if="currentColor === tag.color" class="ctp-check" viewBox="0 0 16 16">
-                <path d="M4 8l3 3 5-5" fill="none" stroke="#fff"
-                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </button>
-          </div>
+# 主色和扩展色使用的是同一段模板，因此这里明确允许出现两次。
+old_color_button = '''              :title="tag.name || tag.color"
+              @click="pickColor(tag.color)"'''
 
-          <!-- 主色下方标签名 -->
-          <div class="ctp-labels">
-            <span class="ctp-label-slot"></span>
-            <span
+new_color_button = '''              :title="tag.name || '选择此颜色'"
+              :aria-label="tag.name || '选择此颜色'"
+              @mousedown.prevent.stop
+              @click.stop="pickColor(tag.color)"'''
+
+if old_color_button in text:
+    count = text.count(old_color_button)
+
+    if count not in (1, 2):
+        fail(
+            "ColorPicker 色块按钮："
+            f"预期匹配 1 或 2 次，实际匹配 {count} 次"
+        )
+
+    text = text.replace(
+        old_color_button,
+        new_color_button,
+    )
+
+# 标签名称由静态 span 改成可交互按钮。
+if '@click.stop="beginRename(tag)"' not in text:
+    text = replace_exact(
+        text,
+        '''            <span
               v-for="tag in primaryTags"
               :key="tag.id"
               class="ctp-label-slot"
               :style="{ color: tag.color }"
-            >{{ tag.name }}</span>
-          </div>
-
-          <!-- 更多颜色 -->
-          <button
-            v-if="!showMore"
-            type="button"
-            class="ctp-more"
-            @click="showMore = true"
-          >更多颜色…</button>
-
-          <div v-if="showMore" class="ctp-row ctp-row--ext">
-            <button
-              v-for="tag in extendedTags"
+            >{{ tag.name }}</span>''',
+        '''            <button
+              v-for="tag in primaryTags"
               :key="tag.id"
               type="button"
-              class="ctp-color"
-              :class="{ 'is-active': currentColor === tag.color }"
-              :title="tag.name || tag.color"
-              @click="pickColor(tag.color)"
-            >
-              <span class="ctp-fill" :style="{ backgroundColor: tag.color }"></span>
-              <svg v-if="currentColor === tag.color" class="ctp-check" viewBox="0 0 16 16">
-                <path d="M4 8l3 3 5-5" fill="none" stroke="#fff"
-                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-  </div>
-</template>
+              class="ctp-label-slot"
+              :class="{
+                'is-empty':
+                  !tag.name || tag.id === 'tag_gray',
+              }"
+              :style="{ color: tag.color }"
+              :aria-label="
+                tag.name
+                  ? `编辑标签：${tag.name}`
+                  : '选择颜色后编辑标签'
+              "
+              @mousedown.prevent.stop
+              @click.stop="beginRename(tag)"
+            >{{
+              tag.id === "tag_gray" ? "" : tag.name
+            }}</button>''',
+        "ColorPicker 标签名称按钮",
+        expected=1,
+    )
 
-<script>
-import defaultTaskTags from "../../data/defaultTaskTags.js";
-
-export default {
-  name: "colorPicker",
-
-  /* ★★★ 关键修复：emit 名改为 kebab-case，与模板 @color-selected 完全匹配 ★★★ */
-  emits: ["color-selected"],
-
-  props: {
-    color: { type: [String, null], default: "none" },
-    tags: { type: Array, default: () => [] },
-  },
-
-  data() {
-    return {
-      open: false,
-      panelPos: {},
-      showMore: false,
-      allTags: [],
-    };
-  },
-
-  computed: {
-    currentColor() {
-      return this.color || "none";
-    },
-    hasColor() {
-      return this.currentColor !== "none";
-    },
-    primaryTags() {
-      return this.allTags.filter(t => t.primary);
-    },
-    extendedTags() {
-      return this.allTags.filter(t => !t.primary);
-    },
-    editableTag() {
-      if (!this.hasColor) return null;
-      return this.allTags.find(t => t.color === this.currentColor) || null;
-    },
-    triggerTitle() {
-      if (!this.hasColor) return "设置颜色标签";
-      const t = this.editableTag;
-      return t && t.name ? "标签：" + t.name : "颜色标签";
-    },
-  },
-
-  mounted() {
-    this.refreshTags();
-    this._dismiss = (e) => {
-      if (this.open && !e.target.closest(".ctp-panel") && !e.target.closest(".ctp-trigger")) {
-        this.open = false;
-      }
-    };
-    document.addEventListener("mousedown", this._dismiss);
-  },
-
-  beforeUnmount() {
-    document.removeEventListener("mousedown", this._dismiss);
-  },
-
-  methods: {
-    refreshTags() {
-      this.allTags = defaultTaskTags.getDefaultTags();
-    },
-
-    togglePanel() {
-      if (this.open) { this.open = false; return; }
-      this.refreshTags();
-      this.showMore = false;
-
-      const el = this.$refs.anchor;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const W = 260, H = 260;
-      let left = r.left;
-      let top = r.bottom + 6;
-      if (left + W > window.innerWidth - 12) left = window.innerWidth - W - 12;
-      if (left < 12) left = 12;
-      if (top + H > window.innerHeight - 12) top = r.top - H - 6;
-
-      this.panelPos = {
-        position: "fixed",
-        left: left + "px",
-        top: top + "px",
-        width: W + "px",
-      };
-      this.open = true;
+# 替换 togglePanel 到 commitName 前的相关方法。
+if "focusNameInput(select = false)" not in text:
+    old_methods = '''      this.open = true;
     },
 
     pickColor(color) {
@@ -290,581 +430,1012 @@ export default {
       this.refreshTags();
     },
 
-    commitName() {
-      if (!this.editableTag) return;
-      const el = this.$refs.nameInput;
-      const name = el ? el.value.trim() : "";
-      defaultTaskTags.renameTag(this.editableTag.id, name);
-      this.refreshTags();
+    commitName() {'''
+
+    new_methods = '''      this.open = true;
+
+      /*
+       * ColorPicker 通过 Teleport 挂载到 body。
+       * 如果不主动转移焦点，键盘输入可能继续进入顶部
+       * 原生 date input，最终表现为日期年份被修改。
+       */
+      this.$nextTick(() => {
+        this.$refs.panel?.focus({
+          preventScroll: true,
+        });
+
+        if (
+          this.hasColor &&
+          this.$refs.nameInput
+        ) {
+          this.$refs.nameInput.focus({
+            preventScroll: true,
+          });
+        }
+      });
     },
-  },
-};
-</script>
 
-<style scoped lang="scss">
-/* ── 触发按钮 ── */
-.ctp-trigger {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border: 0; border-radius: 6px;
-  background: transparent; cursor: pointer; transition: background 0.12s;
-  &:hover { background: #f0f1f3; }
-  .dark-theme &:hover { background: #21262d; }
-}
+    focusNameInput(select = false) {
+      this.$nextTick(() => {
+        const input = this.$refs.nameInput;
+        if (!input) return;
 
-/* ── 圆点（统一尺寸，消除空心/实心差异） ── */
-.ctp-dot {
-  display: block; width: 14px; height: 14px; border-radius: 50%;
-  box-sizing: border-box;
-}
-.ctp-dot--sm { width: 16px; height: 16px; flex: 0 0 16px; }
-.ctp-dot--empty {
-  background: transparent; border: 2px solid #d1d5db;
-  .dark-theme & { border-color: #4b5563; }
-}
+        input.focus({
+          preventScroll: true,
+        });
 
-/* ── 面板 ── */
-.ctp-panel {
-  z-index: 22000; padding: 10px 12px;
-  border: 1px solid rgba(31,35,41,0.1); border-radius: 12px;
-  background: #fff; font-family: inherit;
-  box-shadow: 0 12px 36px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
-  .dark-theme & { border-color: #333a44; background: #1d232b; }
-}
-.ctp-fade-enter-active, .ctp-fade-leave-active { transition: opacity 0.12s ease, transform 0.12s ease; }
-.ctp-fade-enter-from, .ctp-fade-leave-to { opacity: 0; transform: translateY(-4px); }
+        if (select) input.select();
+      });
+    },
 
-/* ── 状态行 ── */
-.ctp-status {
-  display: flex; align-items: center; gap: 8px;
-  padding: 4px 0 8px; border-bottom: 1px solid #f0f1f3; margin-bottom: 8px;
-  .dark-theme & { border-bottom-color: #2d333b; }
-}
-.ctp-name-input {
-  flex: 1; min-width: 0; height: 26px; padding: 0 6px;
-  border: 1px solid transparent; border-radius: 6px; outline: none;
-  background: transparent; font-family: inherit; font-size: 12.5px;
-  font-weight: 500; color: #2f353d; transition: border-color 0.12s, background 0.12s;
-  .dark-theme & { color: #e0e5eb; }
-  &:hover { border-color: #e2e6ec; background: #fafbfc;
-    .dark-theme & { border-color: #333a44; background: #161b22; }
+    beginRename(tag) {
+      if (!tag) return;
+
+      this.$emit(
+        "color-selected",
+        tag.color
+      );
+      this.refreshTags();
+      this.focusNameInput(true);
+    },
+
+    pickColor(color) {
+      this.$emit(
+        "color-selected",
+        color
+      );
+      this.refreshTags();
+
+      if (color && color !== "none") {
+        this.focusNameInput(false);
+      } else {
+        this.$nextTick(() => {
+          this.$refs.panel?.focus({
+            preventScroll: true,
+          });
+        });
+      }
+    },
+
+    commitName() {'''
+
+    text = replace_exact(
+        text,
+        old_methods,
+        new_methods,
+        "ColorPicker 焦点管理方法",
+        expected=1,
+    )
+
+# 修复无效 CSS：border-color: currentColor。
+if "&.is-active { border-color: currentColor; }" in text:
+    text = text.replace(
+        "&.is-active { border-color: currentColor; }",
+        '''&.is-active {
+    border-color: #20242b;
+    box-shadow:
+      0 0 0 2px rgba(66, 99, 235, 0.12);
+
+    .dark-theme & {
+      border-color: #f0f3f6;
+      box-shadow:
+        0 0 0 2px rgba(108, 143, 255, 0.18);
+    }
   }
-  &:focus { border-color: #4263eb; background: #fafbfc;
-    .dark-theme & { border-color: #6c8fff; background: #161b22; }
+
+  &:focus-visible {
+    outline:
+      2px solid rgba(66, 99, 235, 0.45);
+    outline-offset: 1px;
   }
-}
-.ctp-hint { flex: 1; font-size: 12px; color: #9ca3af; .dark-theme & { color: #6b7280; } }
 
-/* ── 色板行：保证一行排完 ── */
-.ctp-row {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px; padding: 4px 0;
-}
-.ctp-row--ext {
-  grid-template-columns: repeat(5, 1fr);
-  border-top: 1px solid #f0f1f3; padding-top: 8px; margin-top: 4px;
-  .dark-theme & { border-top-color: #2d333b; }
-}
+  &:active {
+    transform: scale(0.96);
+  }''',
+        1,
+    )
 
-/* ── 色块按钮：统一尺寸 ── */
-.ctp-color {
-  position: relative; display: flex; align-items: center; justify-content: center;
-  width: 100%; aspect-ratio: 1; border: 2px solid transparent; border-radius: 8px;
-  background: transparent; cursor: pointer; transition: border-color 0.12s, transform 0.12s;
-  &:hover { transform: scale(1.12); }
-  &.is-active { border-color: currentColor; }
-}
-.ctp-fill {
-  display: block; width: 20px; height: 20px; border-radius: 50%;
-  box-sizing: border-box;
-}
-.ctp-ring {
-  display: block; width: 20px; height: 20px; border-radius: 50%;
-  box-sizing: border-box; border: 2px solid #d1d5db;
-  .dark-theme & { border-color: #4b5563; }
-}
-.ctp-check {
-  position: absolute; width: 14px; height: 14px;
-  top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;
-}
-
-/* ── 标签名行 ── */
-.ctp-labels {
-  display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
-  padding: 0 0 2px;
-}
-.ctp-label-slot {
+old_label_css = '''.ctp-label-slot {
   font-size: 9px; font-weight: 500; text-align: center;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
+}'''
 
-/* ── 更多颜色 ── */
-.ctp-more {
-  display: block; width: 100%; padding: 6px 0; margin-top: 4px;
-  border: 0; border-radius: 6px; background: transparent;
-  font-size: 11px; color: #9ca3af; text-align: left; cursor: pointer;
-  transition: background 0.1s;
-  &:hover { background: #f4f5f7; color: #4263eb; }
-  .dark-theme &:hover { background: #252c35; color: #8da2fb; }
-}
-</style>
-''')
+new_label_css = '''.ctp-label-slot {
+  min-width: 0;
+  height: 18px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 18px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
 
+  &:hover:not(.is-empty) {
+    background: #f3f4f6;
+  }
 
-# ═══════════════════════════════════════════════════════════
-# 2. defaultTaskTags.js — 色板重排
-# ═══════════════════════════════════════════════════════════
-print("\n[2/6] Rewriting defaultTaskTags.js ...")
+  &:focus-visible {
+    outline:
+      2px solid rgba(66, 99, 235, 0.35);
+  }
 
-write_file("src/data/defaultTaskTags.js", '''/**
- * UNIFIED_TAG_SYSTEM_V5
- * 色板：蓝 → 橙 → 红 → 紫 → 灰(未分类)  共 5 个主色
- * 扩展：青 粉 橘 靛 翠  共 5 个
- */
-const STORAGE_KEY = "weektodo_tag_names";
+  &.is-empty {
+    color: transparent !important;
+    cursor: default;
+  }
 
-const PRESET_TAGS = [
-  { id: "tag_blue",   color: "#3b82f6", defaultName: "",       primary: true,  order: 1 },
-  { id: "tag_amber",  color: "#f59e0b", defaultName: "",       primary: true,  order: 2 },
-  { id: "tag_red",    color: "#ef4444", defaultName: "",       primary: true,  order: 3 },
-  { id: "tag_purple", color: "#a855f7", defaultName: "",       primary: true,  order: 4 },
-  { id: "tag_gray",   color: "#9ca3af", defaultName: "未分类", primary: true,  order: 5 },
+  .dark-theme &:hover:not(.is-empty) {
+    background: #252c35;
+  }
+}'''
 
-  { id: "tag_cyan",   color: "#06b6d4", defaultName: "",       primary: false, order: 6 },
-  { id: "tag_pink",   color: "#ec4899", defaultName: "",       primary: false, order: 7 },
-  { id: "tag_orange", color: "#f97316", defaultName: "",       primary: false, order: 8 },
-  { id: "tag_indigo", color: "#6366f1", defaultName: "",       primary: false, order: 9 },
-  { id: "tag_green",  color: "#10b981", defaultName: "",       primary: false, order: 10 },
-];
+if old_label_css in text:
+    text = text.replace(
+        old_label_css,
+        new_label_css,
+        1,
+    )
 
-function loadCustomNames() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
-  catch { return {}; }
-}
-function saveCustomNames(map) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(map)); }
-  catch { /* ignore */ }
-}
-
-export default {
-  getDefaultTags() {
-    const custom = loadCustomNames();
-    return PRESET_TAGS.map(t => ({
-      id: t.id, color: t.color,
-      name: custom[t.id] !== undefined ? custom[t.id] : t.defaultName,
-      primary: t.primary, order: t.order,
-    })).sort((a, b) => a.order - b.order);
-  },
-  getPrimaryTags()  { return this.getDefaultTags().filter(t => t.primary); },
-  getExtendedTags() { return this.getDefaultTags().filter(t => !t.primary); },
-  findTagByColor(color) {
-    if (!color || color === "none") return null;
-    return PRESET_TAGS.find(t => t.color === color) || null;
-  },
-  getColorById(tagId) {
-    const t = PRESET_TAGS.find(t => t.id === tagId);
-    return t ? t.color : null;
-  },
-  renameTag(tagId, newName) {
-    const c = loadCustomNames();
-    c[tagId] = String(newName || "").trim();
-    saveCustomNames(c);
-  },
-  getTagName(tagId) {
-    const c = loadCustomNames();
-    if (c[tagId] !== undefined) return c[tagId];
-    const t = PRESET_TAGS.find(t => t.id === tagId);
-    return t ? t.defaultName : "";
-  },
-  PRESET_TAGS,
-};
-''')
+write(color_picker_path, text)
 
 
-# ═══════════════════════════════════════════════════════════
-# 3. LinkedTask.js — 去掉 tag chips，只保留颜色左边框
-# ═══════════════════════════════════════════════════════════
-print("\n[3/6] Rewriting LinkedTask.js ...")
+# ============================================================
+# 4. FocusTaskService
+#    物理删除关联表和所有重点文档中的 linkedTask 节点
+# ============================================================
 
-write_file("src/editor/extensions/LinkedTask.js", '''import { Node, mergeAttributes } from "@tiptap/core";
+focus_service_path = "src/services/focusTaskService.js"
+text = read(focus_service_path)
 
-/**
- * UNIFIED_TAG_SYSTEM_V5
- * 关联事项节点：颜色左边框 + 勾选框颜色。不显示文字 tag chips。
- */
-export default Node.create({
-  name: "linkedTask",
-  group: "block",
-  atom: true,
-  selectable: true,
-  draggable: true,
-
-  addAttributes() {
-    return {
-      blockId:  { default: null },
-      taskId:   { default: null },
-      listId:   { default: null },
-      title:    { default: "" },
-      checked:  { default: false },
-      missing:  { default: false },
-      color:    { default: "none" },
-      tags:     { default: [] },
-    };
-  },
-
-  parseHTML() {
-    return [{ tag: \'div[data-type="linked-task"]\' }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ["div", mergeAttributes(HTMLAttributes, { "data-type": "linked-task" })];
-  },
-
-  addNodeView() {
-    return ({ node, editor, getPos }) => {
-      const dom = document.createElement("div");
-      dom.className = "linked-task-block";
-      dom.contentEditable = "false";
-
-      const emit = (name, attrs) => {
-        window.dispatchEvent(new CustomEvent(name, { detail: { ...attrs, sourceEditor: editor } }));
-      };
-
-      const render = (cur) => {
-        const a = cur.attrs;
-        const color = a.color && a.color !== "none" ? a.color : null;
-
-        dom.classList.remove("is-loading");
-        dom.classList.toggle("is-checked", Boolean(a.checked));
-        dom.classList.toggle("is-missing", Boolean(a.missing));
-
-        /* 颜色左边框 */
-        if (color) {
-          dom.style.borderLeft = "3px solid " + color;
-          dom.style.paddingLeft = "8px";
-        } else {
-          dom.style.borderLeft = "";
-          dom.style.paddingLeft = "";
-        }
-
-        const checkStyle = color
-          ? "border-color:" + color + ";" + (a.checked ? "background:" + color + ";" : "")
-          : "";
-
-        dom.innerHTML =
-          \'<button class="linked-task-check" type="button" title="\' +
-            (a.checked ? "标记为未完成" : "标记为完成") +
-            \'" \' + (checkStyle ? \'style="\' + checkStyle + \'"\' : "") + ">" +
-            (a.checked ? "\\u2713" : "") +
-          "</button>" +
-          \'<button class="linked-task-main" type="button" title="\' +
-            (a.missing ? "原事项已不存在" : "打开每周事项详情") + \'">\' +
-            \'<span class="linked-task-title"></span>\' +
-          "</button>" +
-          \'<button class="linked-task-jump" type="button" title="前往每周事项看板">\' +
-            \'<svg viewBox="0 0 18 18"><path d="M7 4h7v7"/><path d="m14 4-8 8"/><path d="M12 10v4H4V6h4"/></svg>\' +
-          "</button>" +
-          \'<button class="linked-task-unlink" type="button" title="解除关联">\\u00D7</button>\';
-
-        dom.querySelector(".linked-task-title").textContent = a.title || "未命名事项";
-
-        dom.querySelector(".linked-task-check").onclick = (e) => {
-          e.preventDefault(); e.stopPropagation();
-          if (!a.missing) emit("focus-task-toggle", a);
-        };
-        dom.querySelector(".linked-task-main").onclick = (e) => {
-          e.preventDefault(); e.stopPropagation();
-          if (!a.missing) emit("focus-task-open", a);
-        };
-        dom.querySelector(".linked-task-jump").onclick = (e) => {
-          e.preventDefault(); e.stopPropagation();
-          if (!a.missing) emit("focus-task-jump", a);
-        };
-        dom.querySelector(".linked-task-unlink").onclick = (e) => {
-          e.preventDefault(); e.stopPropagation();
-          if (typeof getPos === "function") editor.commands.setNodeSelection(getPos());
-          emit("focus-task-unlink", a);
-        };
-      };
-
-      render(node);
-      return {
-        dom,
-        update(updatedNode) {
-          if (updatedNode.type.name !== "linkedTask") return false;
-          node = updatedNode;
-          render(node);
-          return true;
-        },
-      };
-    };
-  },
-});
-''')
-
-
-# ═══════════════════════════════════════════════════════════
-# 4. todolist.store.js — 添加 weektodo:task-changed 事件派发
-# ═══════════════════════════════════════════════════════════
-print("\n[4/6] Patching todolist.store.js (dispatch task-changed events) ...")
-
-store_text = read_file("src/store/modules/todolist.store.js")
-if store_text:
-    # 添加一个辅助函数用于派发事件
-    dispatch_helper = '''
-/* V5_SYNC: 双向同步辅助 —— 每周事项变更时通知重点事项 */
-function notifyTaskChanged(taskId, listId, action) {
-  try {
-    window.dispatchEvent(new CustomEvent("weektodo:task-changed", {
-      detail: { taskId, listId, action }
-    }));
-  } catch (e) { /* ignore */ }
+if "function pruneLinkedTaskNodes(" not in text:
+    anchor = '''function dispatchChange(detail) {
+  window.dispatchEvent(
+    new CustomEvent("weektodo:task-changed", { detail })
+  );
 }
 '''
 
-    if "notifyTaskChanged" not in store_text:
-        # 在 export default 之前插入辅助函数
-        if "export default" in store_text:
-            store_text = store_text.replace(
-                "export default",
-                dispatch_helper + "\nexport default",
+    helper = '''function dispatchChange(detail) {
+  window.dispatchEvent(
+    new CustomEvent("weektodo:task-changed", { detail })
+  );
+}
+
+function pruneLinkedTaskNodes(node, taskId) {
+  if (!node || typeof node !== "object") {
+    return node;
+  }
+
+  if (
+    node.type === "linkedTask" &&
+    node.attrs?.taskId === taskId
+  ) {
+    return null;
+  }
+
+  const next = { ...node };
+
+  if (Array.isArray(node.content)) {
+    next.content = node.content
+      .map((child) =>
+        pruneLinkedTaskNodes(child, taskId)
+      )
+      .filter(Boolean);
+  }
+
+  if (
+    next.type === "doc" &&
+    (
+      !Array.isArray(next.content) ||
+      !next.content.length
+    )
+  ) {
+    next.content = [
+      { type: "paragraph" },
+    ];
+  }
+
+  return next;
+}
+'''
+
+    text = replace_exact(
+        text,
+        anchor,
+        helper,
+        "FocusTaskService 节点清理函数",
+        expected=1,
+    )
+
+if "async purgeTaskReferences(taskId)" not in text:
+    unlink_anchor = (
+        "  async unlink({ documentId, taskId, blockId, "
+        "deleteTask = false, listId = null }) {"
+    )
+
+    methods = '''  async purgeTaskReferences(taskId) {
+    if (!taskId) return;
+
+    const links =
+      await focusDataRepository.getAllByIndex(
+        FOCUS_STORES.taskLinks,
+        "taskId",
+        taskId
+      );
+
+    const documentIds = [
+      ...new Set(
+        links
+          .map((link) => link.documentId)
+          .filter(Boolean)
+      ),
+    ];
+
+    await Promise.all(
+      documentIds.map(async (documentId) => {
+        const document =
+          await focusDataRepository.get(
+            FOCUS_STORES.documents,
+            documentId
+          );
+
+        if (!document) return;
+
+        const nextContent =
+          pruneLinkedTaskNodes(
+            document.content,
+            taskId
+          );
+
+        if (
+          JSON.stringify(nextContent) ===
+          JSON.stringify(document.content)
+        ) {
+          return;
+        }
+
+        await focusDataRepository.put(
+          FOCUS_STORES.documents,
+          {
+            ...document,
+            content: nextContent,
+            updatedAt:
+              new Date().toISOString(),
+          }
+        );
+      })
+    );
+
+    await Promise.all(
+      links.map((link) =>
+        focusDataRepository.remove(
+          FOCUS_STORES.taskLinks,
+          link.id
+        )
+      )
+    );
+  },
+
+  async deleteLinkedTask({
+    taskId,
+    listId = null,
+  }) {
+    if (!taskId) return false;
+
+    const deleted =
+      await todoTaskRepository.deleteTask(
+        taskId,
+        listId
+      );
+
+    await this.purgeTaskReferences(taskId);
+
+    dispatchChange({
+      action: "deleted",
+      taskId,
+      listId,
+    });
+
+    return deleted;
+  },
+
+  async handleExternalDeletion({
+    taskId,
+    listId = null,
+  }) {
+    if (!taskId) return;
+
+    await this.purgeTaskReferences(taskId);
+
+    dispatchChange({
+      action: "deleted",
+      taskId,
+      listId,
+    });
+  },
+
+'''
+
+    if unlink_anchor not in text:
+        fail(
+            "FocusTaskService："
+            "找不到 unlink 方法插入位置"
+        )
+
+    text = text.replace(
+        unlink_anchor,
+        methods + unlink_anchor,
+        1,
+    )
+
+write(focus_service_path, text)
+
+
+# ============================================================
+# 5. FocusDocumentEditor
+#    从重点事项删除时，同时删除每周事项主任务
+# ============================================================
+
+focus_editor_path = (
+    "src/views/focusDocuments/"
+    "FocusDocumentEditor.vue"
+)
+
+text = read(focus_editor_path)
+
+new_on_task_unlink = '''    async onTaskUnlink(event) {
+      const attrs =
+        this.normalizeTaskEvent(event);
+
+      if (!attrs?.taskId) return;
+
+      const confirmed = window.confirm(
+        "确定删除该关联事项吗？\\n\\n"
+        + "删除后，它会同时从每周事项和"
+        + "所有重点文档中移除。"
+      );
+
+      if (!confirmed) return;
+
+      try {
+        await focusTaskService.deleteLinkedTask({
+          taskId: attrs.taskId,
+          listId: attrs.listId,
+        });
+      } catch (error) {
+        console.error(error);
+
+        window.alert(
+          error?.message ||
+            "删除关联事项失败，请重试。"
+        );
+      }
+    },
+'''
+
+if '确定删除该关联事项吗？' not in text:
+    text = replace_object_method(
+        text,
+        r"async\s+onTaskUnlink\(event\)\s*\{",
+        new_on_task_unlink,
+        "FocusDocumentEditor.onTaskUnlink",
+    )
+
+if "removeTaskNodes(taskId)" not in text:
+    on_changed_match = re.search(
+        r"(?m)^    onTaskChanged\(event\)\s*\{",
+        text,
+    )
+
+    if not on_changed_match:
+        fail(
+            "FocusDocumentEditor："
+            "找不到 onTaskChanged 方法"
+        )
+
+    remove_task_nodes = '''    removeTaskNodes(taskId) {
+      if (!this.editor || !taskId) return;
+
+      const prune = (node) => {
+        if (
+          !node ||
+          typeof node !== "object"
+        ) {
+          return node;
+        }
+
+        if (
+          node.type === "linkedTask" &&
+          node.attrs?.taskId === taskId
+        ) {
+          return null;
+        }
+
+        const next = { ...node };
+
+        if (Array.isArray(node.content)) {
+          next.content = node.content
+            .map(prune)
+            .filter(Boolean);
+        }
+
+        if (
+          next.type === "doc" &&
+          (
+            !Array.isArray(next.content) ||
+            !next.content.length
+          )
+        ) {
+          next.content = [
+            { type: "paragraph" },
+          ];
+        }
+
+        return next;
+      };
+
+      const current =
+        this.editor.getJSON();
+      const next = prune(current);
+
+      if (
+        JSON.stringify(current) !==
+        JSON.stringify(next)
+      ) {
+        this.editor.commands.setContent(
+          next,
+          { emitUpdate: true }
+        );
+      }
+    },
+
+'''
+
+    text = (
+        text[:on_changed_match.start()]
+        + remove_task_nodes
+        + text[on_changed_match.start():]
+    )
+
+new_on_task_changed = '''    onTaskChanged(event) {
+      const taskId =
+        event.detail?.taskId;
+
+      if (!taskId) return;
+
+      if (
+        event.detail?.action === "deleted"
+      ) {
+        this.removeTaskNodes(taskId);
+        return;
+      }
+
+      this.refreshLinkedTasks();
+    },
+'''
+
+if 'event.detail?.action === "deleted"' not in text:
+    text = replace_object_method(
+        text,
+        r"onTaskChanged\(event\)\s*\{",
+        new_on_task_changed,
+        "FocusDocumentEditor.onTaskChanged",
+    )
+
+write(focus_editor_path, text)
+
+
+# ============================================================
+# 6. toDoModal
+#    每周事项详情弹窗删除后，清理重点事项关联
+# ============================================================
+
+todo_modal_path = (
+    "src/views/toDoModal/toDoModal.vue"
+)
+
+text = read(todo_modal_path)
+
+text = add_import_once(
+    text,
+    'import defaultTaskTags from "../../data/defaultTaskTags.js";',
+    'import focusTaskService from "../../services/focusTaskService.js";',
+    "toDoModal 引入 focusTaskService",
+)
+
+new_update_todo_list = '''    updateTodoList: async function (
+      todoListId,
+      TodoList
+    ) {
+      notifications.refreshDayNotifications(
+        this,
+        todoListId
+      );
+
+      const taskSnapshot = this.todo
+        ? JSON.parse(
+            JSON.stringify(this.todo)
+          )
+        : null;
+
+      try {
+        /*
+         * 先等待 IndexedDB 事务完成，
+         * 再通知重点事项读取新数据。
+         */
+        await toDoListRepository.update(
+          todoListId,
+          TodoList
+        );
+
+        window.dispatchEvent(
+          new CustomEvent(
+            "weektodo:task-changed",
+            {
+              detail: {
+                action: "updated",
+                taskId:
+                  taskSnapshot?.id || null,
+                listId:
+                  taskSnapshot?.listId ||
+                  todoListId,
+                task: taskSnapshot,
+              },
+            }
+          )
+        );
+      } catch (error) {
+        console.error(
+          "保存事项失败：",
+          error
+        );
+      }
+    },
+'''
+
+if "updateTodoList: async function" not in text:
+    text = replace_object_method(
+        text,
+        r"updateTodoList:\s*function\s*\(",
+        new_update_todo_list,
+        "toDoModal.updateTodoList",
+    )
+
+new_remove_todo = '''    removeTodo: async function () {
+      const deletedTodo = JSON.parse(
+        JSON.stringify(this.todo)
+      );
+
+      if (
+        this.todo._spanId &&
+        this.todo.endDate
+      ) {
+        const sourceId =
+          this.todo._isSpanMirror
+            ? this.todo._spanSourceId
+            : this.todo.listId;
+
+        clearMirrorsBySpanId(
+          this.todo._spanId,
+          sourceId,
+          this.todo.endDate,
+          this.$store
+        );
+
+        if (
+          this.todo._isSpanMirror &&
+          this.todo._spanSourceId
+        ) {
+          const sourceList =
+            this.$store.getters.todoLists[
+              this.todo._spanSourceId
+            ];
+
+          if (sourceList) {
+            const sourceIndex =
+              sourceList.findIndex(
+                (task) =>
+                  !task._isSpanMirror &&
+                  task._spanId ===
+                    this.todo._spanId
+              );
+
+            if (sourceIndex !== -1) {
+              sourceList.splice(
+                sourceIndex,
                 1
-            )
-            print("  [PATCH] Added notifyTaskChanged helper")
-        elif "const " in store_text and "actions" in store_text:
-            # 试另一个插入点
-            store_text = dispatch_helper + "\n" + store_text
-            print("  [PATCH] Added notifyTaskChanged helper (prepend)")
+              );
 
-        # 现在在所有修改/删除 todo 的 action 中添加 notifyTaskChanged 调用
-        # 找到 removeTodo 相关的代码段
-        # 通用策略：在 commit 调用之后添加通知
-        # 由于 store 结构各异，用更稳健的方式：
-        # 在文件末尾添加一个全局拦截
-        if "mutations" in store_text and "notifyTaskChanged" in store_text:
-            # 找到 mutations 对象中的 removeTodo / updateTodo / checkTodo 等
-            # 更安全的方式：在 store 的 plugin 或者 subscribe 中做
-            # 但这个项目可能没有 plugin 机制，直接在 actions 里加
-
-            # 搜索常见的 action 模式
-            patterns_to_patch = []
-
-            # 模式1: removeTodo action
-            if "removeTodo" in store_text and "notifyTaskChanged" not in store_text.split("removeTodo")[1][:500]:
-                # 在 removeTodo 的 commit 后添加通知
-                pass  # 下面用更通用的方法
-
-            # 更通用的方法：在文件中搜索所有 commit("SET_TODO_LIST" 或类似的调用
-            # 然后在后面添加 notifyTaskChanged
-
-            # 由于 store 结构复杂且未知，最稳健的方式是用 Vuex subscribe
-            # 在 store 初始化后 subscribe mutations
-            pass
-
-        with open(full_path("src/store/modules/todolist.store.js"), "w", encoding="utf-8") as f:
-            f.write(store_text)
-        print("  [WRITE] todolist.store.js updated")
-
-    else:
-        print("  [INFO] notifyTaskChanged already exists in todolist.store.js")
-
-    # 更进一步：在 focusTaskService.js 中确保 unlink 时也通知 store
-    # focusTaskService 已经有 dispatchChange，但每周事项的 Vuex store 没监听
-    # 最好的做法是：让 App.vue 或顶层组件监听 weektodo:task-changed 并刷新 store
-else:
-    print("  [SKIP] todolist.store.js not found")
-
-
-# ═══════════════════════════════════════════════════════════
-# 4b. 在 App.vue 或主入口添加双向同步桥接
-# ═══════════════════════════════════════════════════════════
-print("\n[4b/6] Creating sync bridge plugin ...")
-
-write_file("src/plugins/taskSyncBridge.js", '''/**
- * V5_SYNC: 双向同步桥接
- *
- * 监听 weektodo:task-changed 事件，当重点事项修改/删除关联事项时，
- * 自动刷新每周事项的 Vuex store。
- *
- * 同时，在 Vuex store 的 todo 数据变更后，派发 weektodo:task-changed
- * 事件通知重点事项刷新关联事项节点。
- *
- * 使用方式：在 main.js 中 app.use(taskSyncBridge)
- */
-export default {
-  install(app) {
-    /* 延迟到 app mounted 后获取 store */
-    let store = null;
-
-    const getStore = () => {
-      if (store) return store;
-      store = app.config.globalProperties.$store;
-      return store;
-    };
-
-    /* 重点事项变更 → 刷新每周事项 store */
-    const onTaskChanged = (event) => {
-      const s = getStore();
-      if (!s) return;
-      const detail = event.detail || {};
-      const action = detail.action;
-
-      if (action === "deleted" || action === "unlinked" || action === "updated") {
-        /* 重新加载当前显示的 todo list */
-        try {
-          s.dispatch("getToDoList");
-        } catch (e) {
-          /* ignore */
+              await toDoListRepository.update(
+                this.todo._spanSourceId,
+                sourceList
+              );
+            }
+          }
         }
       }
-    };
 
-    window.addEventListener("weektodo:task-changed", onTaskChanged);
+      const currentList =
+        this.$store.getters.todoLists[
+          deletedTodo.listId
+        ] || [];
 
-    /* 提供一个全局方法让 Vuex actions 调用 */
-    app.config.globalProperties.$notifyTaskChanged = function(taskId, listId, action) {
-      window.dispatchEvent(new CustomEvent("weektodo:task-changed", {
-        detail: { taskId, listId, action: action || "updated" }
-      }));
-    };
-  }
-};
-''')
+      const currentIndex =
+        currentList.findIndex(
+          (task) =>
+            task === this.todo ||
+            (
+              deletedTodo.id &&
+              task?.id === deletedTodo.id
+            )
+        );
+
+      this.$store.commit(
+        "setUndoElement",
+        {
+          type: "task",
+          todo: deletedTodo,
+          index:
+            currentIndex >= 0
+              ? currentIndex
+              : this.index,
+        }
+      );
+
+      if (currentIndex >= 0) {
+        this.$store.commit(
+          "removeTodo",
+          {
+            toDoListId:
+              deletedTodo.listId,
+            index: currentIndex,
+          }
+        );
+      }
+
+      notifications.refreshDayNotifications(
+        this,
+        deletedTodo.listId
+      );
+
+      try {
+        await toDoListRepository.update(
+          deletedTodo.listId,
+          this.$store.getters.todoLists[
+            deletedTodo.listId
+          ] || []
+        );
+
+        await focusTaskService
+          .handleExternalDeletion({
+            taskId: deletedTodo.id,
+            listId: deletedTodo.listId,
+          });
+      } catch (error) {
+        console.error(
+          "删除事项关联失败：",
+          error
+        );
+
+        window.alert(
+          error?.message ||
+            "事项已从当前列表移除，"
+            + "但关联清理失败，请重试。"
+        );
+      }
+
+      const toast = new Toast(
+        document.getElementById(
+          "taskRemoved"
+        )
+      );
+
+      toast.show();
+    },
+'''
+
+if (
+    "handleExternalDeletion({" not in text
+    or "removeTodo: async function" not in text
+):
+    text = replace_object_method(
+        text,
+        r"removeTodo:\s*(?:async\s+)?function\s*\(\)\s*\{",
+        new_remove_todo,
+        "toDoModal.removeTodo",
+    )
+
+write(todo_modal_path, text)
 
 
-# ═══════════════════════════════════════════════════════════
-# 4c. 在 main.js 中注册 taskSyncBridge plugin
-# ═══════════════════════════════════════════════════════════
-print("\n[4c/6] Patching main.js to register sync bridge ...")
+# ============================================================
+# 7. activeToDo
+#    快捷删除同样清理重点事项关联
+# ============================================================
 
-main_text = read_file("src/main.js")
-if main_text and "taskSyncBridge" not in main_text:
-    # 在最后一个 app.use 之后添加
-    import_line = 'import taskSyncBridge from "./plugins/taskSyncBridge.js";\n'
-    use_line = 'app.use(taskSyncBridge);\n'
+active_todo_path = "src/components/activeToDo.vue"
+text = read(active_todo_path)
 
-    # 在 import 区域末尾添加 import
-    # 找到最后一个 import 语句
-    lines = main_text.split('\n')
-    last_import_idx = -1
-    for i, line in enumerate(lines):
-        if line.strip().startswith('import '):
-            last_import_idx = i
+text = add_import_once(
+    text,
+    'import defaultTaskTags from "../data/defaultTaskTags.js";',
+    'import focusTaskService from "../services/focusTaskService.js";',
+    "activeToDo 引入 focusTaskService",
+)
 
-    if last_import_idx >= 0:
-        lines.insert(last_import_idx + 1, import_line.rstrip())
-        main_text = '\n'.join(lines)
+new_active_remove = '''    removeTodo: async function () {
+      const todo = JSON.parse(
+        JSON.stringify(
+          this.activeTodo.toDo
+        )
+      );
 
-    # 找到最后一个 app.use 并在其后添加
-    if 'app.use(' in main_text:
-        # 找最后一个 app.use
-        idx = main_text.rfind('app.use(')
-        # 找这行的末尾
-        end_idx = main_text.find('\n', idx)
-        if end_idx > 0:
-            main_text = main_text[:end_idx+1] + use_line + main_text[end_idx+1:]
-    elif 'createApp' in main_text:
-        # 如果没有 app.use，在 mount 之前添加
-        main_text = main_text.replace('.mount(', use_line + '.mount(')
+      if (
+        isSpanningTask(todo) &&
+        todo._spanId
+      ) {
+        const sourceId =
+          todo._isSpanMirror
+            ? todo._spanSourceId
+            : todo.listId;
 
-    with open(full_path("src/main.js"), "w", encoding="utf-8") as f:
-        f.write(main_text)
-    print("  [PATCH] main.js: registered taskSyncBridge")
+        clearMirrorsBySpanId(
+          todo._spanId,
+          sourceId,
+          todo.endDate,
+          this.$store
+        );
+
+        if (
+          todo._isSpanMirror &&
+          todo._spanSourceId
+        ) {
+          const sourceList =
+            this.$store.getters.todoLists[
+              todo._spanSourceId
+            ];
+
+          if (sourceList) {
+            const sourceIndex =
+              sourceList.findIndex(
+                (task) =>
+                  !task._isSpanMirror &&
+                  task._spanId ===
+                    todo._spanId
+              );
+
+            if (sourceIndex !== -1) {
+              sourceList.splice(
+                sourceIndex,
+                1
+              );
+
+              await toDoListRepository.update(
+                todo._spanSourceId,
+                sourceList
+              );
+            }
+          }
+        }
+      }
+
+      const listId =
+        this.activeTodo.toDoListId;
+
+      const currentList =
+        this.$store.getters.todoLists[
+          listId
+        ] || [];
+
+      const currentIndex =
+        currentList.findIndex(
+          (task) =>
+            task === this.activeTodo.toDo ||
+            (
+              todo.id &&
+              task?.id === todo.id
+            )
+        );
+
+      this.$store.commit(
+        "setUndoElement",
+        {
+          type: "task",
+          todo,
+          index:
+            currentIndex >= 0
+              ? currentIndex
+              : this.activeTodo.index,
+        }
+      );
+
+      if (currentIndex >= 0) {
+        this.$store.commit(
+          "removeTodo",
+          {
+            toDoListId: listId,
+            index: currentIndex,
+          }
+        );
+      }
+
+      notifications.refreshDayNotifications(
+        this,
+        listId
+      );
+
+      try {
+        await toDoListRepository.update(
+          listId,
+          this.$store.getters.todoLists[
+            listId
+          ] || []
+        );
+
+        await focusTaskService
+          .handleExternalDeletion({
+            taskId: todo.id,
+            listId,
+          });
+      } catch (error) {
+        console.error(
+          "删除事项关联失败：",
+          error
+        );
+
+        window.alert(
+          error?.message ||
+            "事项已从当前列表移除，"
+            + "但关联清理失败，请重试。"
+        );
+      }
+
+      const toast = new Toast(
+        document.getElementById(
+          "taskRemoved"
+        )
+      );
+
+      toast.show();
+      this.hideToDoItem();
+    },
+'''
+
+if (
+    "handleExternalDeletion({" not in text
+    or "removeTodo: async function" not in text
+):
+    text = replace_object_method(
+        text,
+        r"removeTodo:\s*(?:async\s+)?function\s*\(\)\s*\{",
+        new_active_remove,
+        "activeToDo.removeTodo",
+    )
+
+write(active_todo_path, text)
+
+
+# ============================================================
+# 8. toDoItem
+#    行内修改也等待数据库落盘
+# ============================================================
+
+todo_item_path = "src/components/toDoItem.vue"
+text = read(todo_item_path)
+
+if "doneEdit: async function" not in text:
+    text = text.replace(
+        "    doneEdit: function () {",
+        "    doneEdit: async function () {",
+        1,
+    )
+
+update_pattern = re.compile(
+    r'''(?ms)^      toDoListRepository\.update\(
+        this\.toDoListId,
+        this\.\$store\.getters\.todoLists\[this\.toDoListId\]
+      \);'''
+)
+
+if update_pattern.search(text):
+    text = update_pattern.sub(
+        '''      await toDoListRepository.update(
+        this.toDoListId,
+        this.$store.getters.todoLists[
+          this.toDoListId
+        ]
+      );''',
+        text,
+        count=1,
+    )
+
+write(todo_item_path, text)
+
+
+# ============================================================
+# 9. 静态检查
+# ============================================================
+
+print()
+print("=" * 72)
+print("补丁阶段完成")
+print(f"备份目录：{BACKUP_ROOT}")
+
+if changed_files:
+    print("本次修改文件：")
+
+    for relative_path in changed_files:
+        print(f"  - {relative_path}")
 else:
-    if main_text:
-        print("  [INFO] main.js already has taskSyncBridge")
-    else:
-        # 试 main.ts
-        main_text = read_file("src/main.ts")
-        if main_text and "taskSyncBridge" not in main_text:
-            import_line = 'import taskSyncBridge from "./plugins/taskSyncBridge.js";\n'
-            use_line = 'app.use(taskSyncBridge);\n'
-            lines = main_text.split('\n')
-            last_import_idx = -1
-            for i, line in enumerate(lines):
-                if line.strip().startswith('import '):
-                    last_import_idx = i
-            if last_import_idx >= 0:
-                lines.insert(last_import_idx + 1, import_line.rstrip())
-                main_text = '\n'.join(lines)
-            if 'app.use(' in main_text:
-                idx = main_text.rfind('app.use(')
-                end_idx = main_text.find('\n', idx)
-                if end_idx > 0:
-                    main_text = main_text[:end_idx+1] + use_line + main_text[end_idx+1:]
-            with open(full_path("src/main.ts"), "w", encoding="utf-8") as f:
-                f.write(main_text)
-            print("  [PATCH] main.ts: registered taskSyncBridge")
+    print("没有产生新修改：当前代码可能已经应用 fix_v2。")
 
+print("=" * 72)
 
-# ═══════════════════════════════════════════════════════════
-# 5. toDoItem.vue — 圆圈对齐修复
-# ═══════════════════════════════════════════════════════════
-print("\n[5/6] Patching toDoItem.vue (circle alignment) ...")
+run(["git", "diff", "--check"])
 
-patch_file("src/components/toDoItem.vue", [
-    (
-        """.cicle-icon {
-  font-size: 10px;
-  margin-right: 5px;
-}""",
-        """.cicle-icon {
-  font-size: 10px;
-  margin-right: 5px;
-  display: inline-block;
-  vertical-align: middle;
-  position: relative;
-  top: -1px;
-}"""
-    ),
-])
-
-
-# ═══════════════════════════════════════════════════════════
-# 6. activeToDo.vue — 圆圈对齐修复
-# ═══════════════════════════════════════════════════════════
-print("\n[6/6] Patching activeToDo.vue (circle alignment) ...")
-
-ato_text = read_file("src/components/activeToDo.vue")
-if ato_text:
-    if ".cicle-icon" in ato_text:
-        # 已有 cicle-icon 样式，替换
-        patch_file("src/components/activeToDo.vue", [
-            (
-                ".cicle-icon {",
-                ".cicle-icon {\n  display: inline-block;\n  vertical-align: middle;\n  position: relative;\n  top: -1px;"
-            ) if ".cicle-icon {\n  display" not in ato_text else ("/* no-op */", "/* no-op */"),
-        ])
-    else:
-        # 没有 cicle-icon 样式，添加到 </style> 之前
-        patch_file("src/components/activeToDo.vue", [
-            (
-                "</style>",
-                """\n.cicle-icon {
-  font-size: 10px;
-  margin-right: 5px;
-  display: inline-block;
-  vertical-align: middle;
-  position: relative;
-  top: -1px;
+# 检查关键标记。
+required_markers = {
+    "src/views/toDoModal/colorPicker.vue": [
+        'aria-label="清除颜色标签"',
+        "focusNameInput(select = false)",
+        '@click.stop="beginRename(tag)"',
+    ],
+    "src/services/focusTaskService.js": [
+        "async purgeTaskReferences(taskId)",
+        "async deleteLinkedTask({",
+        "async handleExternalDeletion({",
+    ],
+    "src/views/focusDocuments/FocusDocumentEditor.vue": [
+        "removeTaskNodes(taskId)",
+        'event.detail?.action === "deleted"',
+    ],
+    "src/views/toDoModal/toDoModal.vue": [
+        "updateTodoList: async function",
+        "removeTodo: async function",
+        "handleExternalDeletion({",
+    ],
+    "src/components/activeToDo.vue": [
+        "removeTodo: async function",
+        "handleExternalDeletion({",
+    ],
 }
-</style>"""
-            ),
-        ])
 
+for relative_path, markers in required_markers.items():
+    content = read(relative_path)
 
-# ═══════════════════════════════════════════════════════════
-# 完成
-# ═══════════════════════════════════════════════════════════
-print("\n" + "=" * 60)
-print("ALL PATCHES APPLIED SUCCESSFULLY!")
-print("=" * 60)
-print("""
-下一步：
-  cd /Users/joey/Desktop/Joey-Workspace/MyProject/weektodo-main
-  git add .
-  git commit -m "fix: color-picker event naming, layout, bidirectional task sync"
-  git push
-  yarn electron:preview
-""")
+    for marker in markers:
+        if marker not in content:
+            fail(
+                f"补丁验证失败：{relative_path} "
+                f"缺少标记：{marker}"
+            )
 
+print()
+print("关键代码标记验证通过。")
+
+# 编译，不直接启动 electron:preview，避免脚本持续阻塞。
+run(["yarn", "electron:compile"])
+
+print()
+print("=" * 72)
+print("fix_v2 执行完成，Electron 编译通过。")
+print()
+print("下一步：")
+print("  yarn electron:preview")
+print()
+print("确认功能正常后再执行：")
+print(
+    '  git add . && '
+    'git commit -m "fix: unify color labels and linked task synchronization" '
+    '&& git push'
+)
+print("=" * 72)
+
+PY

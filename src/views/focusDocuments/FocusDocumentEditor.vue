@@ -1223,19 +1223,16 @@ export default {
 
       if (!attrs?.taskId) return;
 
-      const confirmed = window.confirm(
-        "确定删除该关联事项吗？\n\n"
-        + "删除后，它会同时从每周事项和"
-        + "所有重点文档中移除。"
-      );
-
-      if (!confirmed) return;
-
       try {
-        await focusTaskService.deleteLinkedTask({
-          taskId: attrs.taskId,
-          listId: attrs.listId,
-        });
+        /*
+         * 关联事项的 X 是明确删除动作，
+         * 不再弹出浏览器确认框。
+         */
+        await focusTaskService
+          .deleteLinkedTask({
+            taskId: attrs.taskId,
+            listId: attrs.listId,
+          });
       } catch (error) {
         console.error(error);
 
@@ -4012,6 +4009,69 @@ export default {
   width: 15px;
   height: 15px;
 }
+
+/*
+ * LINKED_TASK_INLINE_EDIT_V4
+ *
+ * 文字区域单击进入行内编辑；
+ * 更多按钮才进入完整事项详情。
+ */
+:deep(.linked-task-main) {
+  min-width: 0;
+  flex: 1 1 auto;
+  cursor: text;
+}
+
+:deep(.linked-task-title) {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:deep(.linked-task-title-input) {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 3px 8px;
+  border:
+    1px solid rgba(66, 99, 235, 0.58);
+  border-radius: 6px;
+  outline: none;
+  background: #ffffff;
+  color: #252a31;
+  font: inherit;
+  line-height: 22px;
+  box-shadow:
+    0 0 0 3px rgba(66, 99, 235, 0.1);
+}
+
+:deep(.linked-task-block.is-saving) {
+  opacity: 0.72;
+}
+
+:deep(.linked-task-more svg) {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+  stroke: none;
+}
+
+.dark-theme {
+  :deep(.linked-task-title-input) {
+    border-color:
+      rgba(108, 143, 255, 0.72);
+    background: #171b21;
+    color: #e6e9ed;
+    box-shadow:
+      0 0 0 3px
+      rgba(108, 143, 255, 0.12);
+  }
+}
+
 </style>
 
 

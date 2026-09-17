@@ -39,7 +39,11 @@
             <span v-else class="ctp-dot ctp-dot--sm ctp-dot--empty"></span>
 
             <input
-              v-if="hasColor && editableTag"
+              v-if="
+                hasColor &&
+                editableTag &&
+                editingName
+              "
               ref="nameInput"
               type="text"
               class="ctp-name-input"
@@ -49,11 +53,56 @@
               @mousedown.stop
               @click.stop
               @keydown.stop
-              @keydown.enter.stop.prevent="commitName"
+              @keydown.enter.stop.prevent="
+                commitName
+              "
+              @keydown.esc.stop.prevent="
+                cancelNameEdit
+              "
               @blur="commitName"
             />
-            <span v-else-if="hasColor" class="ctp-hint">点击色块选择标签</span>
-            <span v-else class="ctp-hint">无标签</span>
+
+            <button
+              v-else-if="
+                hasColor &&
+                editableTag
+              "
+              type="button"
+              class="ctp-name-display"
+              title="点击修改颜色标签名称"
+              @mousedown.prevent.stop
+              @click.stop="startNameEdit"
+            >
+              <span
+                v-if="editableTag.name"
+                class="ctp-name-display-text"
+              >
+                {{ editableTag.name }}
+              </span>
+
+              <span
+                v-else
+                class="ctp-name-placeholder"
+              >
+                添加标签名称
+              </span>
+
+              <i class="bi-pencil"></i>
+            </button>
+
+            <span
+              v-else-if="hasColor"
+              class="ctp-hint"
+            >
+              当前颜色
+            </span>
+
+            <span
+              v-else
+              class="ctp-hint"
+            >
+              无颜色
+            </span>
           </div>
 
           <!-- 色板：一行排满 -->
@@ -92,32 +141,6 @@
               </svg>
             </button>
           </div>
-
-          <!-- 主色下方标签名 -->
-          <div class="ctp-labels">
-            <span class="ctp-label-slot"></span>
-            <button
-              v-for="tag in primaryTags"
-              :key="tag.id"
-              type="button"
-              class="ctp-label-slot"
-              :class="{
-                'is-empty':
-                  !tag.name || tag.id === 'tag_gray',
-              }"
-              :style="{ color: tag.color }"
-              :aria-label="
-                tag.name
-                  ? `编辑标签：${tag.name}`
-                  : '选择颜色后编辑标签'
-              "
-              @mousedown.prevent.stop
-              @click.stop="beginRename(tag)"
-            >{{
-              tag.id === "tag_gray" ? "" : tag.name
-            }}</button>
-          </div>
-
           <!-- 更多颜色 -->
           <button
             v-if="!showMore"
@@ -166,6 +189,7 @@ export default {
 
   data() {
     return {
+      editingName: false,
       open: false,
       showMore: false,
       allTags: [],
@@ -242,6 +266,28 @@ export default {
       });
     },
 
+    startNameEdit() {
+      if (
+        !this.hasColor ||
+        !this.editableTag
+      ) {
+        return;
+      }
+
+      this.editingName = true;
+      this.focusNameInput(true);
+    },
+
+    cancelNameEdit() {
+      this.editingName = false;
+
+      this.$nextTick(() => {
+        this.$refs.panel?.focus({
+          preventScroll: true,
+        });
+      });
+    },
+
     focusNameInput(select = false) {
       this.$nextTick(() => {
         const input = this.$refs.nameInput;
@@ -258,33 +304,36 @@ export default {
     beginRename(tag) {
       if (!tag) return;
 
-      this.$emit(
-        "color-selected",
-        tag.color
-      );
-      this.refreshTags();
+      if (this.currentColor !== tag.color) {
+        this.$emit(
+          "color-selected",
+          tag.color
+        );
+        this.refreshTags();
+      }
+
+      this.editingName = true;
       this.focusNameInput(true);
     },
-
     pickColor(color) {
       this.$emit(
         "color-selected",
         color
       );
+
       this.refreshTags();
+      this.editingName = false;
 
-      if (color && color !== "none") {
-        this.focusNameInput(false);
-      } else {
-        this.$nextTick(() => {
-          this.$refs.panel?.focus({
-            preventScroll: true,
-          });
+      this.$nextTick(() => {
+        this.$refs.panel?.focus({
+          preventScroll: true,
         });
-      }
+      });
     },
-
     commitName() {
+      if (!this.editingName) return;
+
+      this.editingName = false;
       if (!this.editableTag) return;
       const el = this.$refs.nameInput;
       const name = el ? el.value.trim() : "";
@@ -479,4 +528,75 @@ export default {
   &:hover { background: #f4f5f7; color: #4263eb; }
   .dark-theme &:hover { background: #252c35; color: #8da2fb; }
 }
+
+.ctp-name-display {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #333840;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: text;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease;
+
+  &:hover {
+    border-color: #e2e5e9;
+    background: #f6f7f8;
+  }
+
+  &:focus-visible {
+    outline:
+      2px solid rgba(66, 99, 235, 0.3);
+    outline-offset: 1px;
+  }
+
+  i {
+    flex: 0 0 auto;
+    color: #a0a6ae;
+    font-size: 11px;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+
+  &:hover i,
+  &:focus-visible i {
+    opacity: 1;
+  }
+
+  .dark-theme & {
+    color: #e1e5ea;
+
+    &:hover {
+      border-color: #343b45;
+      background: #252c35;
+    }
+  }
+}
+
+.ctp-name-display-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 550;
+}
+
+.ctp-name-placeholder {
+  min-width: 0;
+  flex: 1 1 auto;
+  color: #a0a6ae;
+  font-weight: 400;
+}
+
 </style>

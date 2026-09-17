@@ -173,6 +173,7 @@
 
                   <color-picker
                     :color="todo.color"
+                    :tags="todo.tags || []"
                     @color-selected="changeColor"
                   ></color-picker>
                 </div>
@@ -761,7 +762,25 @@ export default {
       }
       return text;
     },
-    changeColor(color) { this.todo.color = color; this.updateTodo(); },
+    changeColor(color) {
+      this.todo.color = color;
+      // 统一标签体系：颜色选择时自动关联对应的标签 ID
+      const tagModule = require("../../data/defaultTaskTags.js").default || require("../../data/defaultTaskTags.js");
+      const matched = tagModule.findTagByColor ? tagModule.findTagByColor(color) : null;
+      if (matched && this.todo.tags && !this.todo.tags.includes(matched.id)) {
+        // 移除同体系的其他颜色标签，保留非颜色标签
+        const presetIds = (tagModule.PRESET_TAGS || []).map(t => t.id);
+        this.todo.tags = this.todo.tags.filter(t => !presetIds.includes(t));
+        this.todo.tags.push(matched.id);
+      } else if (!matched || color === "none") {
+        // 清除所有颜色标签
+        const presetIds = (tagModule.PRESET_TAGS || []).map(t => t.id);
+        if (this.todo.tags) {
+          this.todo.tags = this.todo.tags.filter(t => !presetIds.includes(t));
+        }
+      }
+      this.updateTodo();
+    },
     changeTime(time) {
       this.todo.time = time;
       if (!time) { this.todo.alarm = false; this.todo.reminders = []; }

@@ -1,7 +1,8 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 
-/* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1
- * 完成状态只改变视觉状态，不改变详情入口和可编辑性。
+/* UNIFIED_TAG_SYSTEM_20260917_V1
+ * 关联事项节点：新增 color / tags 属性，
+ * 在重点事项文档中渲染颜色圆点和标签 chip。
  */
 
 export default Node.create({
@@ -19,6 +20,8 @@ export default Node.create({
       title: { default: "" },
       checked: { default: false },
       missing: { default: false },
+      color: { default: "none" },
+      tags: { default: [] },
     };
   },
 
@@ -54,31 +57,28 @@ export default Node.create({
 
       const render = (currentNode) => {
         const attrs = currentNode.attrs;
+        const color = attrs.color && attrs.color !== "none" ? attrs.color : null;
 
         dom.classList.remove("is-loading");
-        dom.classList.toggle(
-          "is-checked",
-          Boolean(attrs.checked)
-        );
-        dom.classList.toggle(
-          "is-missing",
-          Boolean(attrs.missing)
-        );
+        dom.classList.toggle("is-checked", Boolean(attrs.checked));
+        dom.classList.toggle("is-missing", Boolean(attrs.missing));
+
+        // 如果有颜色，给整行加左边框
+        if (color) {
+          dom.style.borderLeft = `3px solid ${color}`;
+          dom.style.paddingLeft = "8px";
+        } else {
+          dom.style.borderLeft = "";
+          dom.style.paddingLeft = "";
+        }
 
         dom.innerHTML = `
           <button
             class="linked-task-check"
             type="button"
-            aria-label="${
-              attrs.checked
-                ? "标记为未完成"
-                : "标记为完成"
-            }"
-            title="${
-              attrs.checked
-                ? "标记为未完成"
-                : "标记为完成"
-            }"
+            aria-label="${attrs.checked ? "标记为未完成" : "标记为完成"}"
+            title="${attrs.checked ? "标记为未完成" : "标记为完成"}"
+            ${color ? `style="border-color: ${color}; ${attrs.checked ? `background: ${color};` : ""}"` : ""}
           >
             ${attrs.checked ? "✓" : ""}
           </button>
@@ -87,13 +87,10 @@ export default Node.create({
             class="linked-task-main"
             type="button"
             aria-label="打开每周事项详情"
-            title="${
-              attrs.missing
-                ? "原事项已不存在"
-                : "打开每周事项详情"
-            }"
+            title="${attrs.missing ? "原事项已不存在" : "打开每周事项详情"}"
           >
             <span class="linked-task-title"></span>
+            <span class="linked-task-tags"></span>
           </button>
 
           <button
@@ -119,59 +116,69 @@ export default Node.create({
           </button>
         `;
 
-        dom.querySelector(
-          ".linked-task-title"
-        ).textContent =
+        // 标题
+        dom.querySelector(".linked-task-title").textContent =
           attrs.title || "未命名事项";
 
-        const checkbox = dom.querySelector(
-          ".linked-task-check"
-        );
-        const main = dom.querySelector(
-          ".linked-task-main"
-        );
-        const jump = dom.querySelector(
-          ".linked-task-jump"
-        );
-        const unlink = dom.querySelector(
-          ".linked-task-unlink"
-        );
+        // 标签 chips
+        const tagsContainer = dom.querySelector(".linked-task-tags");
+        tagsContainer.innerHTML = "";
+
+        // 渲染颜色标签 chips
+        const tagIds = Array.isArray(attrs.tags) ? attrs.tags : [];
+        if (tagIds.length > 0) {
+          try {
+            // 动态加载标签数据
+            const tagModule = require("../../data/defaultTaskTags.js").default || require("../../data/defaultTaskTags.js");
+            const allTags = tagModule.getDefaultTags ? tagModule.getDefaultTags() : [];
+
+            tagIds.forEach((tagId) => {
+              const tagDef = allTags.find((t) => t.id === tagId);
+              if (tagDef && tagDef.name) {
+                const chip = document.createElement("span");
+                chip.className = "linked-task-tag-chip";
+                chip.style.backgroundColor = tagDef.color + "1a";
+                chip.style.color = tagDef.color;
+                chip.style.borderColor = tagDef.color + "33";
+                chip.textContent = tagDef.name;
+                tagsContainer.appendChild(chip);
+              }
+            });
+          } catch {
+            // 标签模块加载失败时不影响主渲染
+          }
+        }
+
+        // 事件绑定
+        const checkbox = dom.querySelector(".linked-task-check");
+        const main = dom.querySelector(".linked-task-main");
+        const jump = dom.querySelector(".linked-task-jump");
+        const unlink = dom.querySelector(".linked-task-unlink");
 
         checkbox.onclick = (event) => {
           event.preventDefault();
           event.stopPropagation();
-
-          if (!attrs.missing) {
-            emit("focus-task-toggle", attrs);
-          }
+          if (!attrs.missing) emit("focus-task-toggle", attrs);
         };
 
         main.onclick = (event) => {
           event.preventDefault();
           event.stopPropagation();
-
-          if (!attrs.missing) {
-            emit("focus-task-open", attrs);
-          }
+          if (!attrs.missing) emit("focus-task-open", attrs);
         };
 
         jump.onclick = (event) => {
           event.preventDefault();
           event.stopPropagation();
-
-          if (!attrs.missing) {
-            emit("focus-task-jump", attrs);
-          }
+          if (!attrs.missing) emit("focus-task-jump", attrs);
         };
 
         unlink.onclick = (event) => {
           event.preventDefault();
           event.stopPropagation();
-
           if (typeof getPos === "function") {
             editor.commands.setNodeSelection(getPos());
           }
-
           emit("focus-task-unlink", attrs);
         };
       };
@@ -180,12 +187,8 @@ export default Node.create({
 
       return {
         dom,
-
         update(updatedNode) {
-          if (updatedNode.type.name !== "linkedTask") {
-            return false;
-          }
-
+          if (updatedNode.type.name !== "linkedTask") return false;
           node = updatedNode;
           render(node);
           return true;

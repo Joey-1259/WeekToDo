@@ -48,6 +48,18 @@
             <span v-html="todoText"></span>
 
             <span
+              v-if="!compactView && tagChips.length"
+              class="item-tags-inline"
+            >
+              <span
+                v-for="chip in tagChips"
+                :key="chip.id"
+                class="item-tag-chip"
+                :style="{ backgroundColor: chip.color + '1a', color: chip.color }"
+              >{{ chip.name }}</span>
+            </span>
+
+            <span
               v-if="!compactView"
               class="item-time mx-2"
               :class="{ 'checked-todo': toDo.checked }"
@@ -252,6 +264,20 @@ export default {
       return this.$store.getters.config.compactView;
     },
 
+    tagChips: function () {
+      const tags = this.toDo.tags;
+      if (!tags || !tags.length) return [];
+      try {
+        const tagModule = require("../data/defaultTaskTags.js").default || require("../data/defaultTaskTags.js");
+        const allTags = tagModule.getDefaultTags ? tagModule.getDefaultTags() : [];
+        return tags
+          .map((id) => allTags.find((t) => t.id === id))
+          .filter((t) => t && t.name);
+      } catch {
+        return [];
+      }
+    },
+
     notificationIndicator: function () {
       return this.$store.getters.config.notificationIndicator;
     },
@@ -399,6 +425,22 @@ export default {
 .cicle-icon {
   font-size: 10px;
   margin-right: 5px;
+}
+
+.item-tags-inline {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.item-tag-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .bi-check-circle-fill,

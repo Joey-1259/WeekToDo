@@ -13,6 +13,17 @@
           :class="{ 'bi-check-circle': activeTodo.toDo.checked, 'bi-circle': !activeTodo.toDo.checked, }"
           @click.stop="checkTodoClickhandler"></span>
         <span v-html="todoText" @click="editTodoClickHandler"></span>
+        <span
+              v-if="tagChips.length"
+              class="active-tags-inline"
+            >
+              <span
+                v-for="chip in tagChips"
+                :key="chip.id"
+                class="active-tag-chip"
+                :style="{ backgroundColor: chip.color + '1a', color: chip.color }"
+              >{{ chip.name }}</span>
+            </span>
         <span class="time-details"> {{ timeFormat(activeTodo.toDo.time) }}
           <div class="alarm-indicator"
             :class="{ 'show-alarm-indicator': notificationIndicator && activeTodo.toDo.alarm }"></div>
@@ -224,6 +235,20 @@ export default {
     moveSubtaskToBotttom: function () {
       return this.$store.getters.config.moveCompletedSubTaskToBottom;
     },
+
+    tagChips: function () {
+      const tags = this.activeTodo?.toDo?.tags;
+      if (!tags || !tags.length) return [];
+      try {
+        const tagModule = require("../data/defaultTaskTags.js").default || require("../data/defaultTaskTags.js");
+        const allTags = tagModule.getDefaultTags ? tagModule.getDefaultTags() : [];
+        return tags
+          .map((id) => allTags.find((t) => t.id === id))
+          .filter((t) => t && t.name);
+      } catch {
+        return [];
+      }
+    },
   }
 };
 </script>
@@ -414,6 +439,22 @@ export default {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
   }
+}
+
+.active-tags-inline {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.active-tag-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .cicle-icon {

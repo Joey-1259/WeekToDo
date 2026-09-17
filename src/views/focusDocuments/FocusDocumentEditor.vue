@@ -1149,6 +1149,8 @@ export default {
                 checked: task.checked,
                 listId: task.listId,
                 missing: false,
+                color: task.color || "none",
+                tags: Array.isArray(task.tags) ? task.tags : [],
               }
             : { missing: true }
         );
@@ -1189,6 +1191,8 @@ export default {
           title: task.text,
           checked: task.checked,
           missing: false,
+          color: task.color || "none",
+          tags: Array.isArray(task.tags) ? task.tags : [],
         });
       } catch (error) {
         this.updateTaskNodes(attrs.taskId, {
@@ -1535,6 +1539,29 @@ export default {
 
 .linked-task-block.is-missing {
   opacity: 0.58;
+}
+
+/* UNIFIED_TAG_SYSTEM_20260917_V1: 关联事项标签 chips */
+.linked-task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+.linked-task-tag-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.55;
+  white-space: nowrap;
+}
+
+.linked-task-block.is-checked .linked-task-tag-chip {
+  opacity: 0.5;
 }
 
 .linked-task-unlink {

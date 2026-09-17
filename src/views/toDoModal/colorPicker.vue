@@ -4,6 +4,9 @@
       type="button"
       class="ctp-trigger"
       :title="triggerTitle"
+      aria-haspopup="dialog"
+      :aria-expanded="String(open)"
+      @mousedown.prevent.stop
       @click.stop="togglePanel"
     >
       <span
@@ -14,13 +17,11 @@
       <span v-else class="ctp-dot ctp-dot--empty"></span>
     </button>
 
-    <Teleport to="body">
-      <Transition name="ctp-fade">
+    <Transition name="ctp-fade">
         <div
           v-if="open"
           ref="panel"
           class="ctp-panel"
-          :style="panelPos"
           tabindex="-1"
           role="dialog"
           aria-label="颜色标签"
@@ -145,8 +146,7 @@
             </button>
           </div>
         </div>
-      </Transition>
-    </Teleport>
+    </Transition>
   </div>
 </template>
 
@@ -167,7 +167,6 @@ export default {
   data() {
     return {
       open: false,
-      panelPos: {},
       showMore: false,
       allTags: [],
     };
@@ -220,29 +219,12 @@ export default {
       if (this.open) { this.open = false; return; }
       this.refreshTags();
       this.showMore = false;
-
-      const el = this.$refs.anchor;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const W = 260, H = 260;
-      let left = r.left;
-      let top = r.bottom + 6;
-      if (left + W > window.innerWidth - 12) left = window.innerWidth - W - 12;
-      if (left < 12) left = 12;
-      if (top + H > window.innerHeight - 12) top = r.top - H - 6;
-
-      this.panelPos = {
-        position: "fixed",
-        left: left + "px",
-        top: top + "px",
-        width: W + "px",
-      };
       this.open = true;
 
       /*
-       * ColorPicker 通过 Teleport 挂载到 body。
-       * 如果不主动转移焦点，键盘输入可能继续进入顶部
-       * 原生 date input，最终表现为日期年份被修改。
+       * 颜色面板必须保留在 Bootstrap Modal 的 DOM 内。
+       * 不可 Teleport 到 body，否则 Modal FocusTrap 会把
+       * 焦点重定向到顶部第一个日期输入框。
        */
       this.$nextTick(() => {
         this.$refs.panel?.focus({
@@ -314,6 +296,28 @@ export default {
 </script>
 
 <style scoped lang="scss">
+/*
+ * ColorPicker 必须建立自己的定位上下文。
+ * 面板保留在 Bootstrap Modal 内，避免 FocusTrap 将焦点
+ * 错误重定向到顶部的日期输入框。
+ */
+.color-tag-picker {
+  position: relative;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  isolation: isolate;
+}
+
+/*
+ * 属性工具条及属性区域必须允许颜色浮层越界显示。
+ */
+:global(#toDoModal .task-properties-section),
+:global(#toDoModal .attribute-toolbar),
+:global(#toDoModal .attribute-tools) {
+  overflow: visible;
+}
+
 /* ── 触发按钮 ── */
 .ctp-trigger {
   display: inline-flex; align-items: center; justify-content: center;
@@ -336,7 +340,12 @@ export default {
 
 /* ── 面板 ── */
 .ctp-panel {
-  z-index: 22000; padding: 10px 12px;
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 22000;
+  width: 260px;
+  padding: 10px 12px;
   border: 1px solid rgba(31,35,41,0.1); border-radius: 12px;
   background: #fff; font-family: inherit;
   box-shadow: 0 12px 36px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);

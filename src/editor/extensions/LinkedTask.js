@@ -1,8 +1,9 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import defaultTaskTags from "../../data/defaultTaskTags.js";
 
-/* UNIFIED_TAG_SYSTEM_V2
- * 关联事项节点：渲染颜色圆点 + 标签 chip + 颜色左边框
+/**
+ * UNIFIED_TAG_SYSTEM_V4
+ * 关联事项节点：仅通过颜色左边框 + 勾选框颜色表示标签。
+ * 不再显示文字 tag chips。
  */
 
 export default Node.create({
@@ -78,7 +79,6 @@ export default Node.create({
           <button class="linked-task-main" type="button"
             title="${attrs.missing ? "原事项已不存在" : "打开每周事项详情"}">
             <span class="linked-task-title"></span>
-            <span class="linked-task-tags"></span>
           </button>
           <button class="linked-task-jump" type="button" title="前往每周事项看板">
             <svg viewBox="0 0 18 18"><path d="M7 4h7v7"/><path d="m14 4-8 8"/><path d="M12 10v4H4V6h4"/></svg>
@@ -88,26 +88,6 @@ export default Node.create({
 
         dom.querySelector(".linked-task-title").textContent =
           attrs.title || "未命名事项";
-
-        /* 标签 chips */
-        const tagsEl = dom.querySelector(".linked-task-tags");
-        tagsEl.innerHTML = "";
-        const tagIds = Array.isArray(attrs.tags) ? attrs.tags : [];
-        if (tagIds.length > 0) {
-          const allTags = defaultTaskTags.getDefaultTags();
-          tagIds.forEach((tagId) => {
-            const def = allTags.find((t) => t.id === tagId);
-            if (def && def.name) {
-              const chip = document.createElement("span");
-              chip.className = "linked-task-tag-chip";
-              chip.style.backgroundColor = def.color + "1a";
-              chip.style.color = def.color;
-              chip.style.borderColor = def.color + "33";
-              chip.textContent = def.name;
-              tagsEl.appendChild(chip);
-            }
-          });
-        }
 
         /* 事件绑定 */
         dom.querySelector(".linked-task-check").onclick = (e) => {

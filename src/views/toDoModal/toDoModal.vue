@@ -757,16 +757,18 @@ export default {
       return text;
     },
     changeColor(color) {
-      this.todo.color = color;
+      this.todo.color = color === "none" ? "none" : color;
       // 统一标签体系：颜色选择时自动关联对应的标签 ID
-      const matched = defaultTaskTags.findTagByColor(color);
-      if (matched && !this.todo.tags.includes(matched.id)) {
-        const presetIds = defaultTaskTags.PRESET_TAGS.map(t => t.id);
-        this.todo.tags = this.todo.tags.filter(t => !presetIds.includes(t));
-        this.todo.tags.push(matched.id);
-      } else if (!matched || color === "none") {
-        const presetIds = defaultTaskTags.PRESET_TAGS.map(t => t.id);
-        this.todo.tags = (this.todo.tags || []).filter(t => !presetIds.includes(t));
+      if (!this.todo.tags) this.todo.tags = [];
+      const presetIds = defaultTaskTags.PRESET_TAGS.map(t => t.id);
+      // 先清除所有预置标签
+      this.todo.tags = this.todo.tags.filter(t => !presetIds.includes(t));
+      // 如果选了颜色，加入对应标签
+      if (color && color !== "none") {
+        const matched = defaultTaskTags.findTagByColor(color);
+        if (matched) {
+          this.todo.tags.push(matched.id);
+        }
       }
       this.updateTodo();
     },

@@ -400,6 +400,14 @@ export default {
 .cicle-icon {
   font-size: 10px;
   margin-right: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  vertical-align: middle;
+  position: relative;
+  top: -0.5px;
 }
 
 .bi-check-circle-fill,

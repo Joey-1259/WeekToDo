@@ -285,6 +285,10 @@ export default {
   padding: 0 3px 0 7px;
 
   .cicle-icon {
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
     cursor: pointer;
   }
 }

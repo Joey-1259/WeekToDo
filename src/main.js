@@ -51,6 +51,7 @@ import "./assets/style/uiComponents.scss";
 
 /* FOCUS_UI_SYSTEM_20260909_V4 */
 import { tip as vTipDirective } from "./directives/tooltip";
+import taskSyncBridge from "./plugins/taskSyncBridge.js";
 
 Sentry.init({
   /* HARDENING_20260911_V13 · 防御性取值
@@ -275,6 +276,7 @@ try {
 
   app.use(store);
   app.use(i18n);
+app.use(taskSyncBridge);
   app.directive("tip", vTipDirective);
   app.mount("#app");
   weekToDoAppMounted = true;

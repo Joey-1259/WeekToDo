@@ -100,6 +100,16 @@ const actions = {
   },
 };
 
+
+/* V5_SYNC: 双向同步辅助 —— 每周事项变更时通知重点事项 */
+function notifyTaskChanged(taskId, listId, action) {
+  try {
+    window.dispatchEvent(new CustomEvent("weektodo:task-changed", {
+      detail: { taskId, listId, action }
+    }));
+  } catch (e) { /* ignore */ }
+}
+
 export default {
   namespaced: false,
   state,

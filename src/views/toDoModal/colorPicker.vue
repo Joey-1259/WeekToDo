@@ -1,6 +1,5 @@
 <template>
   <div class="color-tag-picker" ref="anchor">
-    <!-- 触发按钮 -->
     <button
       type="button"
       class="ctp-trigger"
@@ -9,131 +8,114 @@
     >
       <span
         v-if="hasColor"
-        class="ctp-trigger-dot"
+        class="ctp-dot"
         :style="{ backgroundColor: currentColor }"
       ></span>
-      <span v-else class="ctp-trigger-dot ctp-trigger-dot--empty"></span>
+      <span v-else class="ctp-dot ctp-dot--empty"></span>
     </button>
 
-    <!-- 浮层面板 -->
     <Teleport to="body">
       <Transition name="ctp-fade">
         <div
           v-if="open"
           ref="panel"
           class="ctp-panel"
-          :style="pos"
+          :style="panelPos"
           @mousedown.stop
           @click.stop
         >
-          <!-- ====== 第一层：当前选中状态 ====== -->
-          <div class="ctp-current">
+          <!-- 当前状态行 -->
+          <div class="ctp-status">
             <span
               v-if="hasColor"
-              class="ctp-current-dot"
+              class="ctp-dot ctp-dot--sm"
               :style="{ backgroundColor: currentColor }"
             ></span>
-            <span v-else class="ctp-current-dot ctp-current-dot--empty"></span>
+            <span v-else class="ctp-dot ctp-dot--sm ctp-dot--empty"></span>
+
             <input
-              v-if="hasColor && currentTag"
+              v-if="hasColor && editableTag"
               ref="nameInput"
               type="text"
-              class="ctp-current-name"
+              class="ctp-name-input"
               maxlength="10"
-              :value="currentTag.name"
-              :placeholder="'输入标签含义'"
-              @keydown.enter="commitName"
+              :value="editableTag.name"
+              placeholder="输入标签含义"
+              @keydown.enter.prevent="commitName"
               @blur="commitName"
             />
-            <span v-else class="ctp-current-label">
-              {{ hasColor ? '（点击下方色块或输入标签名）' : '无标签' }}
-            </span>
+            <span v-else-if="hasColor" class="ctp-hint">点击色块选择标签</span>
+            <span v-else class="ctp-hint">无标签</span>
           </div>
 
-          <!-- ====== 第二层：色板 ====== -->
-          <div class="ctp-grid">
-            <!-- 无标签选项 -->
-            <div class="ctp-cell">
-              <button
-                type="button"
-                class="ctp-swatch ctp-swatch--empty"
-                :class="{ selected: !hasColor }"
-                title="无标签"
-                @click="pickColor('none')"
-              >
-                <span class="ctp-swatch-ring"></span>
-                <svg v-if="!hasColor" class="ctp-check" viewBox="0 0 16 16">
-                  <path d="M4 8l3 3 5-5" fill="none" stroke="#9ca3af" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-            </div>
+          <!-- 色板：一行排满 -->
+          <div class="ctp-row">
+            <button
+              type="button"
+              class="ctp-color"
+              :class="{ 'is-active': !hasColor }"
+              title="无标签"
+              @click="pickColor('none')"
+            >
+              <span class="ctp-ring"></span>
+              <svg v-if="!hasColor" class="ctp-check" viewBox="0 0 16 16">
+                <path d="M4 8l3 3 5-5" fill="none" stroke="#9ca3af"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
 
-            <!-- 主色 -->
-            <div
+            <button
               v-for="tag in primaryTags"
               :key="tag.id"
-              class="ctp-cell"
+              type="button"
+              class="ctp-color"
+              :class="{ 'is-active': currentColor === tag.color }"
+              :title="tag.name || tag.color"
+              @click="pickColor(tag.color)"
             >
-              <button
-                type="button"
-                class="ctp-swatch"
-                :class="{ selected: isSelected(tag) }"
-                :style="`--sw: ${tag.color}`"
-                :title="tag.name || tag.color"
-                @click="pickColor(tag.color)"
-              >
-                <span class="ctp-swatch-fill" :style="{ backgroundColor: tag.color }"></span>
-                <svg v-if="isSelected(tag)" class="ctp-check" viewBox="0 0 16 16">
-                  <path d="M4 8l3 3 5-5" fill="none" stroke="#fff" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-              <span
-                v-if="tag.name"
-                class="ctp-swatch-label"
-                :style="{ color: tag.color }"
-              >{{ tag.name }}</span>
-            </div>
+              <span class="ctp-fill" :style="{ backgroundColor: tag.color }"></span>
+              <svg v-if="currentColor === tag.color" class="ctp-check" viewBox="0 0 16 16">
+                <path d="M4 8l3 3 5-5" fill="none" stroke="#fff"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
           </div>
 
-          <!-- 更多颜色入口 -->
+          <!-- 主色下方标签名 -->
+          <div class="ctp-labels">
+            <span class="ctp-label-slot"></span>
+            <span
+              v-for="tag in primaryTags"
+              :key="tag.id"
+              class="ctp-label-slot"
+              :style="{ color: tag.color }"
+            >{{ tag.name }}</span>
+          </div>
+
+          <!-- 更多颜色 -->
           <button
-            v-if="!showExtended"
+            v-if="!showMore"
             type="button"
             class="ctp-more"
-            @click="showExtended = true"
-          >
-            更多颜色…
-          </button>
+            @click="showMore = true"
+          >更多颜色…</button>
 
-          <!-- 扩展色板 -->
-          <div v-if="showExtended" class="ctp-grid ctp-extended">
-            <div
+          <div v-if="showMore" class="ctp-row ctp-row--ext">
+            <button
               v-for="tag in extendedTags"
               :key="tag.id"
-              class="ctp-cell"
+              type="button"
+              class="ctp-color"
+              :class="{ 'is-active': currentColor === tag.color }"
+              :title="tag.name || tag.color"
+              @click="pickColor(tag.color)"
             >
-              <button
-                type="button"
-                class="ctp-swatch"
-                :class="{ selected: isSelected(tag) }"
-                :style="`--sw: ${tag.color}`"
-                :title="tag.name || tag.color"
-                @click="pickColor(tag.color)"
-              >
-                <span class="ctp-swatch-fill" :style="{ backgroundColor: tag.color }"></span>
-                <svg v-if="isSelected(tag)" class="ctp-check" viewBox="0 0 16 16">
-                  <path d="M4 8l3 3 5-5" fill="none" stroke="#fff" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-              <span
-                v-if="tag.name"
-                class="ctp-swatch-label"
-                :style="{ color: tag.color }"
-              >{{ tag.name }}</span>
-            </div>
+              <span class="ctp-fill" :style="{ backgroundColor: tag.color }"></span>
+              <svg v-if="currentColor === tag.color" class="ctp-check" viewBox="0 0 16 16">
+                <path d="M4 8l3 3 5-5" fill="none" stroke="#fff"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
           </div>
         </div>
       </Transition>
@@ -146,86 +128,102 @@ import defaultTaskTags from "../../data/defaultTaskTags.js";
 
 export default {
   name: "colorPicker",
-  emits: ["colorSelected"],
+
+  /* ★★★ 关键修复：emit 名改为 kebab-case，与模板 @color-selected 完全匹配 ★★★ */
+  emits: ["color-selected"],
+
   props: {
     color: { type: [String, null], default: "none" },
     tags: { type: Array, default: () => [] },
   },
+
   data() {
     return {
       open: false,
-      pos: {},
-      showExtended: false,
-      primaryTags: [],
-      extendedTags: [],
+      panelPos: {},
+      showMore: false,
+      allTags: [],
     };
   },
+
   computed: {
-    currentColor() { return this.color || "none"; },
-    hasColor() { return this.currentColor !== "none"; },
-    currentTag() {
+    currentColor() {
+      return this.color || "none";
+    },
+    hasColor() {
+      return this.currentColor !== "none";
+    },
+    primaryTags() {
+      return this.allTags.filter(t => t.primary);
+    },
+    extendedTags() {
+      return this.allTags.filter(t => !t.primary);
+    },
+    editableTag() {
       if (!this.hasColor) return null;
-      return this.primaryTags.concat(this.extendedTags)
-        .find(t => t.color === this.currentColor) || null;
+      return this.allTags.find(t => t.color === this.currentColor) || null;
     },
     triggerTitle() {
       if (!this.hasColor) return "设置颜色标签";
-      const tag = this.currentTag;
-      return tag?.name ? `标签：${tag.name}` : "颜色标签";
+      const t = this.editableTag;
+      return t && t.name ? "标签：" + t.name : "颜色标签";
     },
   },
+
   mounted() {
-    this._onGlobal = (e) => {
-      if (this.open &&
-          !e.target.closest(".ctp-panel") &&
-          !e.target.closest(".ctp-trigger")) {
-        this.close();
+    this.refreshTags();
+    this._dismiss = (e) => {
+      if (this.open && !e.target.closest(".ctp-panel") && !e.target.closest(".ctp-trigger")) {
+        this.open = false;
       }
     };
-    document.addEventListener("mousedown", this._onGlobal);
+    document.addEventListener("mousedown", this._dismiss);
   },
+
   beforeUnmount() {
-    document.removeEventListener("mousedown", this._onGlobal);
+    document.removeEventListener("mousedown", this._dismiss);
   },
+
   methods: {
     refreshTags() {
-      this.primaryTags = defaultTaskTags.getPrimaryTags();
-      this.extendedTags = defaultTaskTags.getExtendedTags();
+      this.allTags = defaultTaskTags.getDefaultTags();
     },
+
     togglePanel() {
-      if (this.open) { this.close(); return; }
+      if (this.open) { this.open = false; return; }
       this.refreshTags();
-      this.showExtended = false;
+      this.showMore = false;
 
-      const anchor = this.$refs.anchor;
-      if (!anchor) return;
-      const rect = anchor.getBoundingClientRect();
-      const pw = 240, ph = 300;
-      let left = rect.left;
-      let top = rect.bottom + 6;
-
-      if (left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
+      const el = this.$refs.anchor;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const W = 260, H = 260;
+      let left = r.left;
+      let top = r.bottom + 6;
+      if (left + W > window.innerWidth - 12) left = window.innerWidth - W - 12;
       if (left < 12) left = 12;
-      if (top + ph > window.innerHeight - 12) top = rect.top - ph - 6;
+      if (top + H > window.innerHeight - 12) top = r.top - H - 6;
 
-      this.pos = { position: "fixed", left: `${left}px`, top: `${top}px`, width: `${pw}px` };
+      this.panelPos = {
+        position: "fixed",
+        left: left + "px",
+        top: top + "px",
+        width: W + "px",
+      };
       this.open = true;
     },
-    close() {
-      this.open = false;
-    },
-    isSelected(tag) {
-      return this.currentColor === tag.color;
-    },
+
     pickColor(color) {
-      this.$emit("colorSelected", color);
+      this.$emit("color-selected", color);
+      /* 立即刷新，确保 editableTag computed 能找到匹配 */
       this.refreshTags();
     },
+
     commitName() {
-      if (!this.currentTag) return;
-      const input = this.$refs.nameInput;
-      const newName = input ? input.value.trim() : "";
-      defaultTaskTags.renameTag(this.currentTag.id, newName);
+      if (!this.editableTag) return;
+      const el = this.$refs.nameInput;
+      const name = el ? el.value.trim() : "";
+      defaultTaskTags.renameTag(this.editableTag.id, name);
       this.refreshTags();
     },
   },
@@ -235,170 +233,107 @@ export default {
 <style scoped lang="scss">
 /* ── 触发按钮 ── */
 .ctp-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px; height: 28px;
-  border: 0; border-radius: 6px;
-  background: transparent; cursor: pointer;
-  transition: background 0.12s;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border: 0; border-radius: 6px;
+  background: transparent; cursor: pointer; transition: background 0.12s;
   &:hover { background: #f0f1f3; }
   .dark-theme &:hover { background: #21262d; }
 }
-.ctp-trigger-dot {
-  display: block;
-  width: 14px; height: 14px;
-  border-radius: 50%;
+
+/* ── 圆点（统一尺寸，消除空心/实心差异） ── */
+.ctp-dot {
+  display: block; width: 14px; height: 14px; border-radius: 50%;
+  box-sizing: border-box;
 }
-.ctp-trigger-dot--empty {
-  background: transparent;
-  border: 2px solid #d1d5db;
+.ctp-dot--sm { width: 16px; height: 16px; flex: 0 0 16px; }
+.ctp-dot--empty {
+  background: transparent; border: 2px solid #d1d5db;
   .dark-theme & { border-color: #4b5563; }
 }
 
 /* ── 面板 ── */
 .ctp-panel {
-  z-index: 22000;
-  padding: 10px;
-  border: 1px solid rgba(31,35,41,0.1);
-  border-radius: 12px;
-  background: #fff;
+  z-index: 22000; padding: 10px 12px;
+  border: 1px solid rgba(31,35,41,0.1); border-radius: 12px;
+  background: #fff; font-family: inherit;
   box-shadow: 0 12px 36px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
-  font-family: inherit;
   .dark-theme & { border-color: #333a44; background: #1d232b; }
 }
+.ctp-fade-enter-active, .ctp-fade-leave-active { transition: opacity 0.12s ease, transform 0.12s ease; }
+.ctp-fade-enter-from, .ctp-fade-leave-to { opacity: 0; transform: translateY(-4px); }
 
-.ctp-fade-enter-active, .ctp-fade-leave-active {
-  transition: opacity 0.12s ease, transform 0.12s ease;
-}
-.ctp-fade-enter-from, .ctp-fade-leave-to {
-  opacity: 0; transform: translateY(-4px);
-}
-
-/* ── 第一层：当前选中状态 ── */
-.ctp-current {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 4px 10px;
-  border-bottom: 1px solid #f0f1f3;
-  margin-bottom: 8px;
+/* ── 状态行 ── */
+.ctp-status {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0 8px; border-bottom: 1px solid #f0f1f3; margin-bottom: 8px;
   .dark-theme & { border-bottom-color: #2d333b; }
 }
-.ctp-current-dot {
-  display: block;
-  width: 16px; height: 16px;
-  border-radius: 50%;
-  flex: 0 0 16px;
-}
-.ctp-current-dot--empty {
-  background: transparent;
-  border: 2px solid #d1d5db;
-  .dark-theme & { border-color: #4b5563; }
-}
-.ctp-current-name {
-  flex: 1;
-  min-width: 0;
-  height: 26px;
-  padding: 0 6px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  outline: none;
-  background: transparent;
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: #2f353d;
-  transition: border-color 0.12s, background 0.12s;
+.ctp-name-input {
+  flex: 1; min-width: 0; height: 26px; padding: 0 6px;
+  border: 1px solid transparent; border-radius: 6px; outline: none;
+  background: transparent; font-family: inherit; font-size: 12.5px;
+  font-weight: 500; color: #2f353d; transition: border-color 0.12s, background 0.12s;
   .dark-theme & { color: #e0e5eb; }
-  &:hover {
-    border-color: #e2e6ec;
-    background: #fafbfc;
+  &:hover { border-color: #e2e6ec; background: #fafbfc;
     .dark-theme & { border-color: #333a44; background: #161b22; }
   }
-  &:focus {
-    border-color: #4263eb;
-    background: #fafbfc;
+  &:focus { border-color: #4263eb; background: #fafbfc;
     .dark-theme & { border-color: #6c8fff; background: #161b22; }
   }
 }
-.ctp-current-label {
-  flex: 1;
-  font-size: 12px;
-  color: #9ca3af;
-  .dark-theme & { color: #6b7280; }
+.ctp-hint { flex: 1; font-size: 12px; color: #9ca3af; .dark-theme & { color: #6b7280; } }
+
+/* ── 色板行：保证一行排完 ── */
+.ctp-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px; padding: 4px 0;
+}
+.ctp-row--ext {
+  grid-template-columns: repeat(5, 1fr);
+  border-top: 1px solid #f0f1f3; padding-top: 8px; margin-top: 4px;
+  .dark-theme & { border-top-color: #2d333b; }
 }
 
-/* ── 色板网格 ── */
-.ctp-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 4px 2px;
+/* ── 色块按钮：统一尺寸 ── */
+.ctp-color {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 100%; aspect-ratio: 1; border: 2px solid transparent; border-radius: 8px;
+  background: transparent; cursor: pointer; transition: border-color 0.12s, transform 0.12s;
+  &:hover { transform: scale(1.12); }
+  &.is-active { border-color: currentColor; }
 }
-.ctp-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
+.ctp-fill {
+  display: block; width: 20px; height: 20px; border-radius: 50%;
+  box-sizing: border-box;
 }
-.ctp-swatch {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px; height: 30px;
-  border: 2px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-  transition: border-color 0.12s, transform 0.12s;
-  &:hover { border-color: var(--sw, #d1d5db); transform: scale(1.1); }
-  &.selected { border-color: var(--sw, #d1d5db); }
-}
-.ctp-swatch-fill {
-  display: block;
-  width: 18px; height: 18px;
-  border-radius: 50%;
-}
-.ctp-swatch--empty {
-  --sw: #d1d5db;
-}
-.ctp-swatch-ring {
-  display: block;
-  width: 18px; height: 18px;
-  border-radius: 50%;
-  border: 2px solid #d1d5db;
+.ctp-ring {
+  display: block; width: 20px; height: 20px; border-radius: 50%;
+  box-sizing: border-box; border: 2px solid #d1d5db;
   .dark-theme & { border-color: #4b5563; }
 }
 .ctp-check {
-  position: absolute;
-  width: 14px; height: 14px;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+  position: absolute; width: 14px; height: 14px;
+  top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none;
 }
-.ctp-swatch-label {
-  font-size: 9px; font-weight: 500;
-  max-width: 34px;
+
+/* ── 标签名行 ── */
+.ctp-labels {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
+  padding: 0 0 2px;
+}
+.ctp-label-slot {
+  font-size: 9px; font-weight: 500; text-align: center;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  text-align: center;
 }
 
 /* ── 更多颜色 ── */
 .ctp-more {
-  display: block; width: 100%;
-  padding: 6px 4px; margin-top: 4px;
+  display: block; width: 100%; padding: 6px 0; margin-top: 4px;
   border: 0; border-radius: 6px; background: transparent;
-  font-size: 11px; color: #9ca3af; text-align: left;
-  cursor: pointer; transition: background 0.1s;
+  font-size: 11px; color: #9ca3af; text-align: left; cursor: pointer;
+  transition: background 0.1s;
   &:hover { background: #f4f5f7; color: #4263eb; }
   .dark-theme &:hover { background: #252c35; color: #8da2fb; }
-}
-
-.ctp-extended {
-  border-top: 1px solid #f0f1f3;
-  padding-top: 8px; margin-top: 4px;
-  .dark-theme & { border-top-color: #2d333b; }
 }
 </style>

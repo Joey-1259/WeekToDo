@@ -1724,8 +1724,15 @@ export default {
 }
 
 
+/*
+ * FOCUS_FULLSCREEN_FLOATING_LAYER_20260920_V2
+ *
+ * 单文档全屏遮罩为 19000；
+ * Slash 菜单由 Floating UI 挂载到浮动层，
+ * 必须高于文档全屏，但低于思维导图沉浸层 30000。
+ */
 .focus-command-menu {
-  z-index: 13000;
+  z-index: 24000;
   width: min(470px, calc(100vw - 32px));
   max-height: min(620px, calc(100vh - 40px));
   border: 1px solid rgba(31, 35, 41, 0.12);

@@ -81,7 +81,14 @@
         {{ errorMessage }}
       </span>
 
-      <span
+      <!--
+        FOCUS_MIND_MAP_RUNTIME_FIX_20260920_V2
+
+        Mind Elixir 5.15.1 的构造函数只接受
+        HTMLDivElement 或 CSS selector。
+        这里不能使用 span。
+      -->
+      <div
         ref="previewCanvas"
         class="focus-mind-map-preview-canvas"
         :aria-hidden="
@@ -90,7 +97,7 @@
             || Boolean(errorMessage)
           )
         "
-      ></span>
+      ></div>
     </button>
 
     <footer class="focus-mind-map-card-footer">
@@ -119,10 +126,12 @@
     <Teleport to="body">
       <div
         v-if="fullscreenVisible"
+        ref="fullscreenDialog"
         class="focus-mind-map-fullscreen"
         role="dialog"
         aria-modal="true"
         aria-labelledby="focus-mind-map-dialog-title"
+        tabindex="-1"
         @keydown.esc.stop.prevent="closeEditor"
       >
         <header class="focus-mind-map-fullscreen-header">
@@ -252,6 +261,9 @@ import {
   nodeViewProps,
 } from "@tiptap/vue-3";
 import MindElixir from "mind-elixir";
+import {
+  zh_CN,
+} from "mind-elixir/i18n";
 import "mind-elixir/style.css";
 
 import focusAssetRepository from "../../repositories/focusAssetRepository";
@@ -317,6 +329,186 @@ function dataSize(value) {
   return new Blob([
     JSON.stringify(value || {}),
   ]).size;
+}
+
+/*
+ * FOCUS_MIND_MAP_RUNTIME_FIX_20260920_V2
+ *
+ * Vue nextTick 只能保证 DOM 已写入，不能保证：
+ * - Teleport 已完成最终布局；
+ * - CSS Grid 已计算出画布高度；
+ * - Electron 已完成当前帧样式计算。
+ *
+ * Mind Elixir 的初始化和 scaleFit 都依赖非零尺寸。
+ */
+function nextAnimationFrame() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(resolve);
+  });
+}
+
+async function waitForUsableCanvas(
+  element,
+  label
+) {
+  if (
+    !element
+    || !(
+      element
+      instanceof HTMLDivElement
+    )
+  ) {
+    throw new TypeError(
+      `${label}必须是 HTMLDivElement`
+    );
+  }
+
+  for (
+    let attempt = 0;
+    attempt < 8;
+    attempt += 1
+  ) {
+    const rect =
+      element.getBoundingClientRect();
+
+    if (
+      rect.width >= 40
+      && rect.height >= 40
+    ) {
+      return rect;
+    }
+
+    await nextAnimationFrame();
+  }
+
+  const rect =
+    element.getBoundingClientRect();
+
+  throw new Error(
+    `${label}尺寸异常：`
+    + `${Math.round(rect.width)} × `
+    + `${Math.round(rect.height)}`
+  );
+}
+
+function normalizeMindMapData(
+  value,
+  title = "中心主题"
+) {
+  const data = clone(value);
+
+  if (
+    !data
+    || typeof data !== "object"
+    || !data.nodeData
+    || typeof data.nodeData !== "object"
+  ) {
+    return fallbackData(title);
+  }
+
+  const normalizeNode = (
+    node,
+    isRoot = false
+  ) => {
+    if (
+      !node
+      || typeof node !== "object"
+    ) {
+      return null;
+    }
+
+    const normalized = {
+      ...node,
+      id:
+        String(node.id || "").trim()
+        || (
+          globalThis.crypto
+            ?.randomUUID?.()
+          || `node-${Date.now()}-${Math.random()
+            .toString(16)
+            .slice(2)}`
+        ),
+      topic:
+        String(
+          node.topic
+          || (
+            isRoot
+              ? title
+              : "新主题"
+          )
+        ),
+    };
+
+    /*
+     * parent 是 Mind Elixir 运行时引用。
+     * 不能重新写回持久化 JSON，否则会产生循环引用。
+     */
+    delete normalized.parent;
+
+    if (isRoot) {
+      normalized.root = true;
+    }
+
+    normalized.children = Array.isArray(
+      node.children
+    )
+      ? node.children
+          .map((child) =>
+            normalizeNode(
+              child,
+              false
+            )
+          )
+          .filter(Boolean)
+      : [];
+
+    return normalized;
+  };
+
+  data.nodeData = normalizeNode(
+    data.nodeData,
+    true
+  );
+
+  data.arrows = Array.isArray(
+    data.arrows
+  )
+    ? data.arrows
+    : [];
+
+  data.summaries = Array.isArray(
+    data.summaries
+  )
+    ? data.summaries
+    : [];
+
+  data.direction = [
+    MindElixir.LEFT,
+    MindElixir.RIGHT,
+    MindElixir.SIDE,
+    MindElixir.DOWN,
+  ].includes(data.direction)
+    ? data.direction
+    : MindElixir.SIDE;
+
+  return data;
+}
+
+async function fitMindMap(
+  mind
+) {
+  await nextAnimationFrame();
+  await nextAnimationFrame();
+
+  /*
+   * scaleFit 先让整张脑图进入可视区域，
+   * toCenter 再把视觉中心对齐到画布中心。
+   */
+  mind?.scaleFit?.();
+
+  await nextAnimationFrame();
+
+  mind?.toCenter?.();
 }
 
 export default {
@@ -436,19 +628,42 @@ export default {
     },
 
     createMind(element, editable) {
+      if (
+        !(
+          element
+          instanceof HTMLDivElement
+        )
+      ) {
+        throw new TypeError(
+          "Mind Elixir 挂载点必须是 div"
+        );
+      }
+
       return new MindElixir({
         el: element,
         direction:
           MindElixir.SIDE,
         editable,
-        draggable: editable,
-        contextMenu: editable,
+
+        /*
+         * draggable 在 5.15.1 中已经废弃，
+         * 是否允许拖动由 editable 控制。
+         */
+        contextMenu: editable
+          ? {
+              locale: zh_CN,
+              focus: true,
+              link: true,
+            }
+          : false,
+
         toolBar: false,
         keypress: editable,
         allowUndo: editable,
         compact: false,
-        locale: "zh_CN",
-        overflowHidden: true,
+        overflowHidden: false,
+        handleWheel: true,
+        newTopicName: "新主题",
         scaleMin: 0.35,
         scaleMax: 2.2,
         scaleSensitivity: 0.08,
@@ -469,6 +684,11 @@ export default {
 
         if (!element) return;
 
+        await waitForUsableCanvas(
+          element,
+          "思维导图预览画布"
+        );
+
         this.previewMind =
           this.createMind(
             element,
@@ -477,11 +697,9 @@ export default {
 
         const error =
           this.previewMind.init(
-            clone(
-              this.node.attrs.data
-              || fallbackData(
-                this.mapTitle
-              )
+            normalizeMindMapData(
+              this.node.attrs.data,
+              this.mapTitle
             )
           );
 
@@ -489,18 +707,19 @@ export default {
           throw error;
         }
 
-        requestAnimationFrame(() => {
+        await fitMindMap(
           this.previewMind
-            ?.toCenter?.();
-        });
+        );
       } catch (error) {
         console.error(
           "[mind-map] 预览初始化失败",
           error
         );
 
+        this.destroyPreview();
+
         this.errorMessage =
-          "思维导图暂时无法显示，请进入全屏编辑后重试。";
+          "思维导图加载失败，请进入全屏编辑重试。";
       } finally {
         this.previewLoading = false;
       }
@@ -547,19 +766,25 @@ export default {
       await this.$nextTick();
 
       try {
+        const element =
+          this.$refs.editorCanvas;
+
+        await waitForUsableCanvas(
+          element,
+          "思维导图全屏画布"
+        );
+
         this.editingMind =
           this.createMind(
-            this.$refs.editorCanvas,
+            element,
             true
           );
 
         const error =
           this.editingMind.init(
-            clone(
-              this.node.attrs.data
-              || fallbackData(
-                this.mapTitle
-              )
+            normalizeMindMapData(
+              this.node.attrs.data,
+              this.mapTitle
             )
           );
 
@@ -575,18 +800,36 @@ export default {
           }
         );
 
-        requestAnimationFrame(() => {
-          this.centerMap();
-        });
+        await fitMindMap(
+          this.editingMind
+        );
+
+        this.scale =
+          Number(
+            this.editingMind.scaleVal
+          )
+          || 1;
+
+        this.$refs.fullscreenDialog
+          ?.focus?.();
+
+        this.editingMind.container
+          ?.focus?.();
       } catch (error) {
         console.error(
           "[mind-map] 编辑器初始化失败",
           error
         );
 
+        this.destroyEditor();
         this.saveState = "error";
+
         window.alert(
-          "思维导图编辑器初始化失败，请关闭后重试。"
+          "思维导图编辑器初始化失败："
+          + (
+            error?.message
+            || "未知错误"
+          )
         );
       }
     },
@@ -1055,6 +1298,18 @@ body.focus-mind-map-is-open {
   pointer-events: none;
 }
 
+/*
+ * Mind Elixir 内部以百分比尺寸挂载，
+ * 外层和内部容器都必须有确定高度。
+ */
+.focus-mind-map-preview-canvas
+  :deep(.map-container),
+.focus-mind-map-preview-canvas
+  :deep(.map-canvas) {
+  width: 100%;
+  height: 100%;
+}
+
 .focus-mind-map-loading,
 .focus-mind-map-error {
   position: absolute;
@@ -1261,6 +1516,8 @@ body.focus-mind-map-is-open {
 .focus-mind-map-editor-canvas {
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid #e0e4e9;
   border-radius: 14px;
@@ -1273,6 +1530,19 @@ body.focus-mind-map-is-open {
   background-color: #fff;
   background-size: 22px 22px;
   box-shadow: 0 12px 40px rgba(24, 32, 45, 0.06);
+}
+
+.focus-mind-map-editor-canvas
+  :deep(.map-container),
+.focus-mind-map-editor-canvas
+  :deep(.map-canvas) {
+  width: 100%;
+  height: 100%;
+}
+
+.focus-mind-map-editor-canvas
+  :deep(.map-container) {
+  border-radius: inherit;
 }
 
 .focus-mind-map-shortcuts {

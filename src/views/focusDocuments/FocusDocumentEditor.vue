@@ -552,8 +552,17 @@ export default {
               node?.firstChild?.textContent
               || "折叠块";
 
-            element.textContent =
-              isOpen ? "▼" : "→";
+            /*
+             * FOCUS_DETAILS_DISCLOSURE_20260920_V4
+             * 按钮本身不再写入 Unicode 箭头。
+             * 唯一 chevron 由 CSS 绘制，避免字体差异和双图标。
+             */
+            element.textContent = "";
+
+            element.dataset.state =
+              isOpen
+                ? "expanded"
+                : "collapsed";
 
             element.classList.toggle(
               "is-expanded",
@@ -4118,76 +4127,277 @@ export default {
 }
 
 
-/* FOCUS_DETAILS_TOGGLE_STYLE_20260920_V3 */
-.focus-prosemirror
-  [data-type="details"]
-  > button {
+
+/* FOCUS_DETAILS_DISCLOSURE_STYLE_20260920_V4
+ *
+ * 设计原则：
+ * 1. 只显示一个 chevron；
+ * 2. 箭头和摘要标题处于同一行、同一视觉基线；
+ * 3. 点击标题继续编辑，只有 24px 箭头热区负责折叠；
+ * 4. 内容与标题文字左边缘对齐；
+ * 5. 使用 :deep 命中 Tiptap 运行时生成的 DOM。
+ */
+
+/* 外层：第一列是箭头，第二列是摘要和内容。 */
+.focus-editor-content
+  :deep([data-type="details"]) {
+  display: grid;
+  grid-template-columns:
+    24px minmax(0, 1fr);
+  column-gap: 4px;
+  align-items: start;
+  margin: 7px 0;
+}
+
+/* Tiptap 创建的内容容器固定落在第二列。 */
+.focus-editor-content
+  :deep(
+    [data-type="details"]
+      > div
+  ) {
+  grid-column: 2;
+  min-width: 0;
+}
+
+/* 唯一的折叠按钮。 */
+.focus-editor-content
+  :deep(
+    [data-type="details"]
+      > button
+  ) {
+  appearance: none;
   display: inline-grid;
+  grid-column: 1;
+  grid-row: 1;
   width: 24px;
   height: 24px;
   place-items: center;
+  align-self: start;
+  margin: 0;
   padding: 0;
-  border-radius: 6px;
-  color: #7b838e;
-  font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    "SF Pro Text",
-    sans-serif;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #7c838d;
+
+  /*
+   * 隐藏旧版写入按钮的 Unicode 文本，
+   * 但不影响 ::before 使用 currentColor。
+   */
+  font-size: 0 !important;
+  line-height: 0;
   cursor: pointer;
+  user-select: none;
+
   transition:
-    color 0.15s ease,
-    background-color 0.15s ease,
-    box-shadow 0.15s ease;
+    background-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
 }
 
-.focus-prosemirror
-  [data-type="details"]
-  > button:hover {
-  background: #edf1fb;
-  color: #4263eb;
+/*
+ * 关闭 Tiptap 主题或历史样式可能注入的其他图标。
+ * 箭头必须只有 ::before 这一处来源。
+ */
+.focus-editor-content
+  :deep(
+    [data-type="details"]
+      > button
+      > svg
+  ) {
+  display: none !important;
 }
 
-.focus-prosemirror
-  [data-type="details"]
-  > button.is-expanded {
-  color: #4263eb;
+.focus-editor-content
+  :deep(
+    [data-type="details"]
+      > button::after
+  ) {
+  content: none !important;
+  display: none !important;
 }
 
-.focus-prosemirror
-  [data-type="details"]
-  > button:focus-visible {
+/*
+ * 用边框绘制 chevron，不依赖 →、▶、▼ 等系统字形。
+ * 默认向右，代表当前处于收起状态。
+ */
+.focus-editor-content
+  :deep(
+    [data-type="details"]
+      > button::before
+  ) {
+  content: "" !important;
+  display: block !important;
+  box-sizing: border-box;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+
+  transform:
+    translateX(-1px)
+    rotate(-45deg);
+
+  transform-origin: center;
+  transition:
+    transform 140ms ease;
+}
+
+/* 展开：同一个 chevron 旋转向下，不替换为另一种字符。 */
+.focus-editor-content
+  :deep(
+    [data-type="details"].is-open
+      > button::before
+  ),
+.focus-editor-content
+  :deep(
+    [data-type="details"]
+      > button.is-expanded::before
+  ),
+.focus-editor-content
+  :deep(
+    [data-type="details"]
+      > button[data-state="expanded"]::before
+  ) {
+  transform:
+    translateY(-1px)
+    rotate(45deg);
+}
+
+.focus-editor-content
+  :deep(
+    [data-type="details"]
+      > button:hover
+  ) {
+  background: rgba(
+    66,
+    99,
+    235,
+    0.08
+  );
+  color: #526bba;
+}
+
+.focus-editor-content
+  :deep(
+    [data-type="details"]
+      > button:active
+  ) {
+  background: rgba(
+    66,
+    99,
+    235,
+    0.13
+  );
+}
+
+.focus-editor-content
+  :deep(
+    [data-type="details"]
+      > button:focus-visible
+  ) {
   outline: none;
   box-shadow:
     0 0 0 2px
-    rgba(66, 99, 235, 0.24);
+    rgba(66, 99, 235, 0.22);
+}
+
+/* 摘要标题取消额外空隙，与箭头处于同一行。 */
+.focus-editor-content
+  :deep(
+    [data-type="details-summary"]
+  ) {
+  min-width: 0;
+  min-height: 24px;
+  padding: 1px 0 0;
+  cursor: text;
+}
+
+.focus-editor-content
+  :deep(
+    [data-type="details-summary"]
+      > p
+  ) {
+  margin-top: 0;
+  margin-bottom: 0;
+  line-height: 22px;
+}
+
+/*
+ * 内容位于摘要下方，并与摘要文字左边缘对齐。
+ * 不再额外缩进到箭头下面。
+ */
+.focus-editor-content
+  :deep(
+    [data-type="details-content"]
+  ) {
+  margin-top: 4px;
+  padding-left: 0;
+}
+
+/* 空标题仍保留可点击、可编辑的稳定高度。 */
+.focus-editor-content
+  :deep(
+    [data-type="details-summary"]
+      > p:only-child:empty::before
+  ) {
+  content: "折叠块标题";
+  color: #b0b5bd;
+  pointer-events: none;
+}
+
+/* 深色模式保持低干扰，不让箭头成为视觉焦点。 */
+.dark-theme
+  .focus-editor-content
+  :deep(
+    [data-type="details"]
+      > button
+  ) {
+  color: #929aa5;
 }
 
 .dark-theme
-  .focus-prosemirror
-  [data-type="details"]
-  > button {
-  color: #9ca5b1;
+  .focus-editor-content
+  :deep(
+    [data-type="details"]
+      > button:hover
+  ) {
+  background: rgba(
+    143,
+    165,
+    238,
+    0.11
+  );
+  color: #a7b7ed;
 }
 
 .dark-theme
-  .focus-prosemirror
-  [data-type="details"]
-  > button:hover {
-  background: #29344d;
-  color: #9eb0ef;
+  .focus-editor-content
+  :deep(
+    [data-type="details-summary"]
+      > p:only-child:empty::before
+  ) {
+  color: #69717c;
 }
 
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]
-  > button.is-expanded {
-  color: #9eb0ef;
+/* 减少动态效果偏好。 */
+@media (
+  prefers-reduced-motion:
+  reduce
+) {
+  .focus-editor-content
+    :deep(
+      [data-type="details"]
+        > button
+    ),
+  .focus-editor-content
+    :deep(
+      [data-type="details"]
+        > button::before
+    ) {
+    transition: none;
+  }
 }
-
 </style>
 
 

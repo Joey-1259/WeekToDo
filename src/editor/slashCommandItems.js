@@ -52,6 +52,28 @@ export function createSlashCommandItems(
         onImage?.();
       },
     },
+
+    /* FOCUS_MIND_MAP_SLASH_20260920_V1 */
+    {
+      id: "mind-map",
+      category: "进阶内容",
+      title: "思维导图",
+      description: "插入可全屏编辑的思维导图",
+      icon: "◇",
+      shortcut: "/swdt",
+      aliases: [
+        "mindmap",
+        "mind-map",
+        "map",
+        "思维导图",
+        "脑图",
+        "swdt",
+      ],
+      command: ({ editor, range }) =>
+        base(editor, range)
+          .insertFocusMindMap()
+          .run(),
+    },
     {
       id: "code-block",
       category: "进阶内容",

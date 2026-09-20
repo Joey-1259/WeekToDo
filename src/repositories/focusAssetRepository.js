@@ -27,9 +27,16 @@ function collectAssetIds(value, result = new Set()) {
     return result;
   }
 
+  /*
+   * FOCUS_MIND_MAP_ASSET_20260920_V1
+   * 图片与思维导图 PNG 快照共用 focus_assets。
+   */
   if (
-    value.type === "focusImage" &&
-    value.attrs?.assetId
+    (
+      value.type === "focusImage"
+      || value.type === "focusMindMap"
+    )
+    && value.attrs?.assetId
   ) {
     result.add(value.attrs.assetId);
   }

@@ -312,6 +312,8 @@ import { Markdown } from "@tiptap/markdown";
 import SlashCommands from "../../editor/extensions/SlashCommands";
 import LinkedTask from "../../editor/extensions/LinkedTask";
 import FocusImage from "../../editor/extensions/FocusImage";
+import FocusMindMap from "../../editor/extensions/FocusMindMap";
+/* FOCUS_MIND_MAP_PRODUCT_20260920_V1 */
 import focusAssetRepository from "../../repositories/focusAssetRepository";
 import SmartFormatting from "../../editor/extensions/SmartFormatting";
 import { createSlashCommandItems } from "../../editor/slashCommandItems";
@@ -534,6 +536,7 @@ export default {
           tabSize: 2,
         }),
         FocusImage,
+        FocusMindMap,
         Details.configure({
           persist: true,
 

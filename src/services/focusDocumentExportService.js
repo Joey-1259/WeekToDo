@@ -36,9 +36,67 @@ const FORMAT_META = Object.freeze({
 const DOCX_NUMBERING_REFERENCE =
   "weektodo-numbering";
 
+/*
+ * FOCUS_MIND_MAP_EXPORT_20260920_V2
+ *
+ * 思维导图在编辑状态下保存结构化 Mind Elixir 数据，
+ * 同时保存一张本地 PNG 快照。
+ *
+ * 导出时只修改深拷贝后的导出副本：
+ * focusMindMap -> focusImage。
+ *
+ * 这样 Word、PDF、Markdown 均复用现有图片水合、
+ * 尺寸计算和本地化导出链路，不修改原始文档，
+ * 也不需要在三个格式中分别维护脑图分支。
+ */
+function normalizeMindMapExportNodes(value) {
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach(
+      normalizeMindMapExportNodes
+    );
+
+    return value;
+  }
+
+  if (value.type === "focusMindMap") {
+    value.type = "focusImage";
+
+    value.attrs = {
+      ...(value.attrs || {}),
+      alt:
+        value.attrs?.alt
+        || (
+          "思维导图："
+          + (
+            value.attrs?.title
+            || "中心主题"
+          )
+        ),
+      title:
+        value.attrs?.title
+        || "思维导图",
+      width:
+        value.attrs?.width
+        || "100%",
+    };
+  }
+
+  Object.values(value).forEach(
+    normalizeMindMapExportNodes
+  );
+
+  return value;
+}
+
 function clone(value) {
-  return JSON.parse(
-    JSON.stringify(value || null)
+  return normalizeMindMapExportNodes(
+    JSON.parse(
+      JSON.stringify(value || null)
+    )
   );
 }
 

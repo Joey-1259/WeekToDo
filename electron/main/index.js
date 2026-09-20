@@ -271,11 +271,16 @@ const DOCUMENT_EXPORT_FORMATS =
     },
   });
 
+/*
+ * 图片转为 Data URL 后体积约增加三分之一。
+ * 与渲染进程的 64MB 原始图片上限配套，
+ * 预留 HTML、DOCX XML 和 Base64 开销。
+ */
 const MAX_EXPORT_TEXT_BYTES =
-  12 * 1024 * 1024;
+  96 * 1024 * 1024;
 
 const MAX_EXPORT_BINARY_BYTES =
-  48 * 1024 * 1024;
+  96 * 1024 * 1024;
 
 function sanitizeExportFilename(
   value,
@@ -384,7 +389,11 @@ async function renderDocumentPdf(html) {
         contextIsolation: true,
         sandbox: true,
         webSecurity: true,
-        javascript: false,
+        /*
+         * 页面 CSP 禁止脚本；这里仅允许主进程执行图片 decode
+         * 等待逻辑，不允许导出 HTML 自身运行脚本。
+         */
+        javascript: true,
       },
     });
 
@@ -396,12 +405,45 @@ async function renderDocumentPdf(html) {
     await printWindow.loadURL(dataUrl);
 
     /*
-     * did-finish-load 之后给图片解码与字体布局一个短暂帧间隔。
-     * HTML 不执行脚本，等待不会引入页面侧行为。
+     * FOCUS_EXPORT_IMAGES_20260920_V3
+     * did-finish-load 不代表所有图片都完成像素解码。
+     * 明确等待 document.images，避免大图在 PDF 中偶发空白。
      */
-    await new Promise((resolve) => {
-      setTimeout(resolve, 120);
-    });
+    await printWindow.webContents
+      .executeJavaScript(`
+        Promise.all(
+          Array.from(document.images).map(
+            async image => {
+              if (!image.complete) {
+                await new Promise(resolve => {
+                  image.addEventListener(
+                    "load",
+                    resolve,
+                    { once: true }
+                  );
+
+                  image.addEventListener(
+                    "error",
+                    resolve,
+                    { once: true }
+                  );
+                });
+              }
+
+              if (
+                typeof image.decode ===
+                "function"
+              ) {
+                try {
+                  await image.decode();
+                } catch (_) {
+                  // 缺失图片由导出 HTML 的占位结构表达。
+                }
+              }
+            }
+          )
+        ).then(() => true)
+      `);
 
     return await printWindow
       .webContents

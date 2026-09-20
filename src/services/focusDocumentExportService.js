@@ -4,12 +4,17 @@ import {
   Document,
   ExternalHyperlink,
   HeadingLevel,
+  ImageRun,
   LevelFormat,
   Packer,
   Paragraph,
   ShadingType,
   TextRun,
 } from "docx";
+
+import focusAssetRepository from "../repositories/focusAssetRepository";
+
+/* FOCUS_EXPORT_IMAGES_20260920_V3 */
 
 const FORMAT_META = Object.freeze({
   markdown: {
@@ -223,6 +228,15 @@ function nodeToMarkdown(node, depth = 0) {
         )}](${node.attrs?.src || ""})\n\n`
       );
 
+    case "focusImage":
+      return (
+        `[图片：${escapeMarkdown(
+          node.attrs?.alt ||
+          node.attrs?.title ||
+          "图片"
+        )}]\n\n`
+      );
+
     case "detailsSummary":
       return `**${children.trim()}**\n\n`;
 
@@ -420,17 +434,43 @@ function nodeToHtml(node) {
         + `</div>`
       );
 
-    case "image": {
+    case "image":
+    case "focusImage": {
+      const exportImage =
+        node.attrs?.exportImage;
+
       const source = escapeHtml(
-        node.attrs?.src || ""
+        exportImage?.dataUrl ||
+        node.attrs?.src ||
+        ""
       );
 
-      if (!source) return "";
+      const label =
+        node.attrs?.alt ||
+        node.attrs?.title ||
+        "图片";
+
+      if (!source) {
+        return (
+          `<figure class="export-image-missing">`
+          + `<div>图片无法导出：${escapeHtml(
+            label
+          )}</div>`
+          + (
+            exportImage?.error
+              ? `<figcaption>${escapeHtml(
+                  exportImage.error
+                )}</figcaption>`
+              : ""
+          )
+          + `</figure>`
+        );
+      }
 
       return (
         `<figure>`
         + `<img src="${source}" alt="${escapeHtml(
-          node.attrs?.alt || "图片"
+          label
         )}">`
         + (
           node.attrs?.title
@@ -745,6 +785,15 @@ function documentToPrintHtml(document) {
       font-size: 9pt;
     }
 
+    .export-image-missing {
+      padding: 18px;
+      border: 1px dashed #d8a3a3;
+      border-radius: 8px;
+      background: #fff8f8;
+      color: #9f5555;
+      font-size: 9.5pt;
+    }
+
     .details {
       margin: 12px 0;
       padding: 10px 13px;
@@ -792,6 +841,511 @@ function documentToPrintHtml(document) {
 </body>
 </html>`;
 }
+
+
+const EXPORT_IMAGE_TOTAL_LIMIT =
+  64 * 1024 * 1024;
+
+const EXPORT_IMAGE_RASTER_EDGE =
+  2400;
+
+const WORD_IMAGE_MAX_WIDTH = 560;
+const WORD_IMAGE_MAX_HEIGHT = 720;
+
+function walkContentNodes(
+  node,
+  callback
+) {
+  if (
+    !node ||
+    typeof node !== "object"
+  ) {
+    return;
+  }
+
+  callback(node);
+
+  if (Array.isArray(node.content)) {
+    node.content.forEach((child) => {
+      walkContentNodes(
+        child,
+        callback
+      );
+    });
+  }
+}
+
+function blobToDataUrl(blob) {
+  return new Promise(
+    (resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        resolve(String(reader.result || ""));
+      };
+
+      reader.onerror = () => {
+        reject(
+          reader.error ||
+          new Error("图片读取失败")
+        );
+      };
+
+      reader.readAsDataURL(blob);
+    }
+  );
+}
+
+function loadImageElement(blob) {
+  return new Promise(
+    (resolve, reject) => {
+      const url =
+        URL.createObjectURL(blob);
+
+      const image = new Image();
+
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+      };
+
+      image.onload = () => {
+        const result = {
+          image,
+          width:
+            image.naturalWidth || 1,
+          height:
+            image.naturalHeight || 1,
+          cleanup,
+        };
+
+        resolve(result);
+      };
+
+      image.onerror = () => {
+        cleanup();
+
+        reject(
+          new Error(
+            "无法解析图片尺寸"
+          )
+        );
+      };
+
+      image.src = url;
+    }
+  );
+}
+
+async function rasterizeToPng(blob) {
+  const loaded =
+    await loadImageElement(blob);
+
+  try {
+    const scale = Math.min(
+      1,
+      EXPORT_IMAGE_RASTER_EDGE /
+        Math.max(
+          loaded.width,
+          loaded.height,
+          1
+        )
+    );
+
+    const width = Math.max(
+      1,
+      Math.round(
+        loaded.width * scale
+      )
+    );
+
+    const height = Math.max(
+      1,
+      Math.round(
+        loaded.height * scale
+      )
+    );
+
+    const canvas =
+      window.document.createElement(
+        "canvas"
+      );
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const context =
+      canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error(
+        "无法创建图片转换画布"
+      );
+    }
+
+    context.drawImage(
+      loaded.image,
+      0,
+      0,
+      width,
+      height
+    );
+
+    const output = await new Promise(
+      (resolve, reject) => {
+        canvas.toBlob(
+          (result) => {
+            if (result) {
+              resolve(result);
+            } else {
+              reject(
+                new Error(
+                  "图片格式转换失败"
+                )
+              );
+            }
+          },
+          "image/png"
+        );
+      }
+    );
+
+    return {
+      blob: output,
+      type: "png",
+      width,
+      height,
+    };
+  } finally {
+    loaded.cleanup();
+  }
+}
+
+async function resolveImageDimensions(
+  blob,
+  attrs
+) {
+  const storedWidth = Number(
+    attrs?.originalWidth
+  );
+
+  const storedHeight = Number(
+    attrs?.originalHeight
+  );
+
+  if (
+    Number.isFinite(storedWidth) &&
+    storedWidth > 0 &&
+    Number.isFinite(storedHeight) &&
+    storedHeight > 0
+  ) {
+    return {
+      width: storedWidth,
+      height: storedHeight,
+    };
+  }
+
+  const loaded =
+    await loadImageElement(blob);
+
+  try {
+    return {
+      width: loaded.width,
+      height: loaded.height,
+    };
+  } finally {
+    loaded.cleanup();
+  }
+}
+
+function wordImageDimensions(
+  attrs,
+  naturalWidth,
+  naturalHeight
+) {
+  const sourceWidth = Math.max(
+    Number(naturalWidth) || 1,
+    1
+  );
+
+  const sourceHeight = Math.max(
+    Number(naturalHeight) || 1,
+    1
+  );
+
+  const requested =
+    String(attrs?.width || "100%")
+      .trim();
+
+  let targetWidth =
+    Math.min(
+      sourceWidth,
+      WORD_IMAGE_MAX_WIDTH
+    );
+
+  if (requested.endsWith("%")) {
+    const percentage =
+      Number.parseFloat(requested);
+
+    if (
+      Number.isFinite(percentage) &&
+      percentage > 0
+    ) {
+      targetWidth = Math.min(
+        targetWidth,
+        WORD_IMAGE_MAX_WIDTH *
+          Math.min(percentage, 100) /
+          100
+      );
+    }
+  } else {
+    const pixels =
+      Number.parseFloat(requested);
+
+    if (
+      Number.isFinite(pixels) &&
+      pixels > 0
+    ) {
+      targetWidth = Math.min(
+        targetWidth,
+        pixels
+      );
+    }
+  }
+
+  let targetHeight =
+    targetWidth *
+    sourceHeight /
+    sourceWidth;
+
+  if (
+    targetHeight >
+    WORD_IMAGE_MAX_HEIGHT
+  ) {
+    const scale =
+      WORD_IMAGE_MAX_HEIGHT /
+      targetHeight;
+
+    targetWidth *= scale;
+    targetHeight *= scale;
+  }
+
+  return {
+    width: Math.max(
+      1,
+      Math.round(targetWidth)
+    ),
+    height: Math.max(
+      1,
+      Math.round(targetHeight)
+    ),
+  };
+}
+
+function wordImageType(mime) {
+  const normalized =
+    String(mime || "")
+      .toLowerCase();
+
+  if (
+    normalized === "image/jpeg" ||
+    normalized === "image/jpg"
+  ) {
+    return "jpg";
+  }
+
+  if (normalized === "image/png") {
+    return "png";
+  }
+
+  if (normalized === "image/gif") {
+    return "gif";
+  }
+
+  if (normalized === "image/bmp") {
+    return "bmp";
+  }
+
+  return null;
+}
+
+async function prepareAssetForExport(
+  record,
+  attrs,
+  format
+) {
+  if (!(record?.blob instanceof Blob)) {
+    throw new Error(
+      "图片资源不存在或已损坏"
+    );
+  }
+
+  const dimensions =
+    await resolveImageDimensions(
+      record.blob,
+      attrs
+    );
+
+  if (format === "pdf") {
+    return {
+      dataUrl:
+        await blobToDataUrl(
+          record.blob
+        ),
+      naturalWidth:
+        dimensions.width,
+      naturalHeight:
+        dimensions.height,
+    };
+  }
+
+  let outputBlob = record.blob;
+  let outputType =
+    wordImageType(
+      record.type ||
+      record.blob.type
+    );
+
+  let outputWidth =
+    dimensions.width;
+
+  let outputHeight =
+    dimensions.height;
+
+  /*
+   * Word/Pages 对 WebP 的支持并不稳定；
+   * SVG 在 docx 中还需要额外 fallback。
+   * 统一转为 PNG，确保本地 Office 软件可以打开。
+   */
+  if (!outputType) {
+    const converted =
+      await rasterizeToPng(
+        record.blob
+      );
+
+    outputBlob = converted.blob;
+    outputType = converted.type;
+    outputWidth = converted.width;
+    outputHeight = converted.height;
+  }
+
+  return {
+    type: outputType,
+    data: new Uint8Array(
+      await outputBlob.arrayBuffer()
+    ),
+    naturalWidth: outputWidth,
+    naturalHeight: outputHeight,
+    transformation:
+      wordImageDimensions(
+        attrs,
+        outputWidth,
+        outputHeight
+      ),
+  };
+}
+
+async function hydrateExportImages(
+  document,
+  format
+) {
+  if (
+    format !== "word" &&
+    format !== "pdf"
+  ) {
+    return document;
+  }
+
+  const nodes = [];
+
+  walkContentNodes(
+    document?.content,
+    (node) => {
+      if (
+        node.type === "focusImage" &&
+        node.attrs?.assetId
+      ) {
+        nodes.push(node);
+      }
+    }
+  );
+
+  if (!nodes.length) {
+    return document;
+  }
+
+  const cache = new Map();
+  const countedAssets = new Set();
+  let totalBytes = 0;
+
+  for (const node of nodes) {
+    const assetId =
+      node.attrs.assetId;
+
+    try {
+      if (!cache.has(assetId)) {
+        const record =
+          await focusAssetRepository.get(
+            assetId
+          );
+
+        if (!record?.blob) {
+          throw new Error(
+            "图片文件不存在，可能已被清理"
+          );
+        }
+
+        if (!countedAssets.has(assetId)) {
+          totalBytes += Number(
+            record.size ||
+            record.blob.size ||
+            0
+          );
+
+          countedAssets.add(assetId);
+        }
+
+        if (
+          totalBytes >
+          EXPORT_IMAGE_TOTAL_LIMIT
+        ) {
+          throw new Error(
+            "文档图片总大小超过 64MB，"
+            + "请压缩图片后再导出"
+          );
+        }
+
+        cache.set(
+          assetId,
+          prepareAssetForExport(
+            record,
+            node.attrs,
+            format
+          )
+        );
+      }
+
+      const exportImage =
+        await cache.get(assetId);
+
+      node.attrs = {
+        ...node.attrs,
+        exportImage,
+      };
+    } catch (error) {
+      node.attrs = {
+        ...node.attrs,
+        exportImage: {
+          error:
+            error?.message ||
+            "图片加载失败",
+        },
+      };
+    }
+  }
+
+  return document;
+}
+
 
 function textNodeToDocx(node) {
   const marks = textMarks(node);
@@ -1235,19 +1789,84 @@ function nodeToDocxBlocks(
       ];
 
     case "image":
+    case "focusImage": {
+      const image =
+        node.attrs?.exportImage;
+
+      const label =
+        node.attrs?.alt ||
+        node.attrs?.title ||
+        "图片";
+
+      if (
+        image?.data &&
+        image?.type &&
+        image?.transformation
+      ) {
+        const blocks = [
+          new Paragraph({
+            children: [
+              new ImageRun({
+                type: image.type,
+                data: image.data,
+                transformation:
+                  image.transformation,
+                altText: {
+                  name: label,
+                  title: label,
+                  description: label,
+                },
+              }),
+            ],
+            alignment:
+              AlignmentType.CENTER,
+            spacing: {
+              before: 120,
+              after:
+                node.attrs?.title
+                  ? 45
+                  : 140,
+            },
+            keepLines: true,
+          }),
+        ];
+
+        if (node.attrs?.title) {
+          blocks.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text:
+                    node.attrs.title,
+                  color: "858C96",
+                  italics: true,
+                  size: 18,
+                }),
+              ],
+              alignment:
+                AlignmentType.CENTER,
+              spacing: {
+                after: 140,
+              },
+            })
+          );
+        }
+
+        return blocks;
+      }
+
       return [
         new Paragraph({
           children: [
             new TextRun({
               text:
-                `[图片] ${
-                  node.attrs?.alt ||
-                  node.attrs?.title ||
-                  ""
-                } ${
-                  node.attrs?.src || ""
-                }`.trim(),
-              color: "777F89",
+                `[图片无法导出] ${label}`
+                + (
+                  image?.error
+                    ? ` · ${image.error}`
+                    : ""
+                ),
+              color: "A05A5A",
               italics: true,
             }),
           ],
@@ -1259,6 +1878,7 @@ function nodeToDocxBlocks(
           },
         }),
       ];
+    }
 
     case "details":
     case "detailsContent":
@@ -1546,6 +2166,15 @@ const focusDocumentExportService = {
 
     const document =
       clone(sourceDocument) || {};
+
+    /*
+     * 图片 Blob 独立保存在 IndexedDB。
+     * 在生成 Word/PDF 前解析 assetId，构造自包含导出数据。
+     */
+    await hydrateExportImages(
+      document,
+      format
+    );
 
     const meta =
       FORMAT_META[format];

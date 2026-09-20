@@ -534,7 +534,52 @@ export default {
           tabSize: 2,
         }),
         FocusImage,
-        Details.configure({ persist: true }),
+        Details.configure({
+          persist: true,
+
+          /*
+           * FOCUS_DETAILS_TOGGLE_20260920_V3
+           * 收起：→；展开：▼。
+           * renderToggleButton 会在初始化、点击和节点更新时执行，
+           * 不依赖容易失效的静态伪元素。
+           */
+          renderToggleButton: ({
+            element,
+            isOpen,
+            node,
+          }) => {
+            const summary =
+              node?.firstChild?.textContent
+              || "折叠块";
+
+            element.textContent =
+              isOpen ? "▼" : "→";
+
+            element.classList.toggle(
+              "is-expanded",
+              isOpen
+            );
+
+            element.setAttribute(
+              "aria-expanded",
+              String(isOpen)
+            );
+
+            element.setAttribute(
+              "aria-label",
+              (
+                isOpen
+                  ? "收起折叠块："
+                  : "展开折叠块："
+              ) + summary
+            );
+
+            element.title =
+              isOpen
+                ? "收起折叠块"
+                : "展开折叠块";
+          },
+        }),
         DetailsSummary,
         DetailsContent,
         Markdown.configure({
@@ -4070,6 +4115,77 @@ export default {
       0 0 0 3px
       rgba(108, 143, 255, 0.12);
   }
+}
+
+
+/* FOCUS_DETAILS_TOGGLE_STYLE_20260920_V3 */
+.focus-prosemirror
+  [data-type="details"]
+  > button {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border-radius: 6px;
+  color: #7b838e;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  > button:hover {
+  background: #edf1fb;
+  color: #4263eb;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  > button.is-expanded {
+  color: #4263eb;
+}
+
+.focus-prosemirror
+  [data-type="details"]
+  > button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px
+    rgba(66, 99, 235, 0.24);
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]
+  > button {
+  color: #9ca5b1;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]
+  > button:hover {
+  background: #29344d;
+  color: #9eb0ef;
+}
+
+.dark-theme
+  .focus-prosemirror
+  [data-type="details"]
+  > button.is-expanded {
+  color: #9eb0ef;
 }
 
 </style>

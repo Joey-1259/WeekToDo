@@ -195,6 +195,7 @@ import focusDocumentService from "../../services/focusDocumentService";
 import focusFolderService from "../../services/focusFolderService";
 import focusLayoutService from "../../services/focusLayoutService";
 import focusTaskService from "../../services/focusTaskService";
+import focusDocumentExportService from "../../services/focusDocumentExportService";
 
 /* FOCUS_UI_SYSTEM_20260909_V4 */
 import ModuleHeader from "../../components/layout/ModuleHeader.vue";
@@ -213,101 +214,7 @@ function extractText(value) {
   ].join(" ");
 }
 
-function escapeMarkdown(value) {
-  return String(value || "").replace(/([\\`*_[\]<>])/g, "\\$1");
-}
-
-function contentToMarkdown(node) {
-  if (!node) return "";
-
-  if (node.type === "text") {
-    let text = escapeMarkdown(node.text || "");
-
-    (node.marks || []).forEach((mark) => {
-      if (mark.type === "bold") text = "**" + text + "**";
-      if (mark.type === "italic") text = "*" + text + "*";
-      if (mark.type === "strike") text = "~~" + text + "~~";
-      if (mark.type === "code") text = "`" + text + "`";
-      if (mark.type === "link") {
-        text =
-          "[" +
-          text +
-          "](" +
-          ((mark.attrs && mark.attrs.href) || "") +
-          ")";
-      }
-    });
-
-    return text;
-  }
-
-  const children = (node.content || [])
-    .map((item) => contentToMarkdown(item))
-    .join("");
-
-  const level = (node.attrs && node.attrs.level) || 1;
-  const checked = node.attrs && node.attrs.checked;
-
-  switch (node.type) {
-    case "doc":
-      return children.trim();
-    case "paragraph":
-      return children + "\n\n";
-    case "heading":
-      return "#".repeat(level) + " " + children + "\n\n";
-    case "blockquote":
-      return (
-        children
-          .trim()
-          .split("\n")
-          .map((line) => "> " + line)
-          .join("\n") + "\n\n"
-      );
-    case "bulletList":
-    case "orderedList":
-    case "taskList":
-      return children + "\n";
-    case "listItem":
-      return "- " + children.trim() + "\n";
-    case "taskItem":
-      return (
-        "- [" + (checked ? "x" : " ") + "] " + children.trim() + "\n"
-      );
-    case "codeBlock":
-      return (
-        "```" +
-        ((node.attrs && node.attrs.language) || "") +
-        "\n" +
-        children +
-        "\n```\n\n"
-      );
-    case "horizontalRule":
-      return "---\n\n";
-    case "hardBreak":
-      return "  \n";
-    case "linkedTask":
-      return (
-        "- [" +
-        (checked ? "x" : " ") +
-        "] " +
-        ((node.attrs && node.attrs.title) || "关联事项") +
-        "\n"
-      );
-    case "detailsSummary":
-      return "**" + children.trim() + "**\n\n";
-    default:
-      return children;
-  }
-}
-
-function safeFilename(value) {
-  return (
-    String(value || "未命名文档")
-      .replace(/[\\/:*?"<>|]/g, "-")
-      .trim()
-      .slice(0, 80) || "未命名文档"
-  );
-}
+/* FOCUS_DOCUMENT_EXPORT_20260920_V2：Markdown / Word / PDF 转换统一由 Service 负责。 */
 
 export default {
   /* FOCUS_UI_SYSTEM_20260912_V7：mixin 内部已注册 components。
@@ -734,30 +641,39 @@ export default {
         return;
       }
 
-      if (action === "export") {
-        const markdown = [
-          "# " + (document.title || "未命名文档"),
-          "",
-        ]
-          .concat(
-            (document.tags || []).length
-              ? ["标签：" + document.tags.join("、"), ""]
-              : []
-          )
-          .concat([contentToMarkdown(document.content)])
-          .join("\n");
+      if (
+        action === "export" ||
+        String(action).startsWith("export-")
+      ) {
+        const format =
+          action === "export"
+            ? "markdown"
+            : String(action).slice("export-".length);
 
-        const blob = new Blob([markdown], {
-          type: "text/markdown;charset=utf-8",
-        });
-        const url = URL.createObjectURL(blob);
-        const anchor = window.document.createElement("a");
+        try {
+          await focusDocumentExportService.exportDocument(
+            document,
+            format
+          );
+        } catch (error) {
+          console.error(
+            "[focus-export] 导出失败：",
+            error
+          );
 
-        anchor.href = url;
-        anchor.download = safeFilename(document.title) + ".md";
-        anchor.click();
+          const labels = {
+            markdown: "Markdown",
+            word: "Word",
+            pdf: "PDF",
+          };
 
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+          window.alert(
+            "导出 "
+            + (labels[format] || "文档")
+            + " 失败，请重试。"
+          );
+        }
+
         return;
       }
 

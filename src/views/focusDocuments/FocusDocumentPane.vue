@@ -109,15 +109,42 @@
                 <span>移动到目录</span>
               </button>
 
+              <!-- FOCUS_DOCUMENT_EXPORT_20260920_V2：三个格式保持同级，键盘和鼠标均可一次选择。 -->
+              <div
+                class="focus-export-label"
+                role="presentation"
+              >
+                导出文档
+              </div>
+
               <button
                 type="button"
                 role="menuitem"
-                @click="runAction('export')"
+                class="focus-export-format"
+                @click="runAction('export-markdown')"
               >
-                <svg viewBox="0 0 20 20" aria-hidden="true">
-                  <path d="M10 2v10M6 8l4 4 4-4M3 15v2h14v-2" />
-                </svg>
-                <span>导出 Markdown</span>
+                <span class="focus-export-badge">MD</span>
+                <span>Markdown</span>
+              </button>
+
+              <button
+                type="button"
+                role="menuitem"
+                class="focus-export-format"
+                @click="runAction('export-word')"
+              >
+                <span class="focus-export-badge is-word">W</span>
+                <span>Word 文档</span>
+              </button>
+
+              <button
+                type="button"
+                role="menuitem"
+                class="focus-export-format"
+                @click="runAction('export-pdf')"
+              >
+                <span class="focus-export-badge is-pdf">PDF</span>
+                <span>PDF 文档</span>
               </button>
 
               <div class="menu-divider" role="separator"></div>
@@ -359,7 +386,7 @@ export default {
       if (!rect) return;
 
       const width = 220;
-      const estimatedHeight = 188;
+      const estimatedHeight = 306;
       const viewportGap = 12;
 
       const left = Math.max(
@@ -401,11 +428,25 @@ export default {
       });
     },
 
-    runAction(action) {
+    async runAction(action) {
       this.menuVisible = false;
+
+      /*
+       * FOCUS_DOCUMENT_EXPORT_20260920_V2
+       * 用户可能在 debounce 尚未执行时立即导出。先完成保存，再用
+       * localTitle/localContent 生成快照，确保导出的是屏幕当前内容。
+       */
+      if (String(action).startsWith("export")) {
+        await this.flushSave();
+      }
+
       this.$emit("document-action", {
         action,
-        document: this.document,
+        document: {
+          ...this.document,
+          title: this.localTitle,
+          content: this.localContent,
+        },
       });
     },
 
@@ -1278,6 +1319,72 @@ export default {
 .dark-theme .focus-pane-manage:hover {
   background: #252c35;
   color: #8fa5ee;
+}
+
+
+/* FOCUS_DOCUMENT_EXPORT_20260920_V2 */
+.focus-document-menu-popover .focus-export-label {
+  padding: 8px 10px 5px;
+  color: #969da7;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.focus-document-menu-popover button.focus-export-format {
+  gap: 10px;
+}
+
+.focus-document-menu-popover .focus-export-badge {
+  display: inline-grid;
+  width: 29px;
+  height: 21px;
+  flex: 0 0 29px;
+  place-items: center;
+  border-radius: 5px;
+  background: #edf0f4;
+  color: #69717c;
+  font-size: 8.5px;
+  font-weight: 720;
+  letter-spacing: -0.02em;
+}
+
+.focus-document-menu-popover .focus-export-badge.is-word {
+  background: #eaf0ff;
+  color: #315bc5;
+}
+
+.focus-document-menu-popover .focus-export-badge.is-pdf {
+  background: #fff0f0;
+  color: #c84444;
+  font-size: 7.5px;
+}
+
+.dark-theme
+  .focus-document-menu-popover
+  .focus-export-label {
+  color: #858d98;
+}
+
+.dark-theme
+  .focus-document-menu-popover
+  .focus-export-badge {
+  background: #303844;
+  color: #c4cad1;
+}
+
+.dark-theme
+  .focus-document-menu-popover
+  .focus-export-badge.is-word {
+  background: #25365e;
+  color: #a9baf4;
+}
+
+.dark-theme
+  .focus-document-menu-popover
+  .focus-export-badge.is-pdf {
+  background: #4a292d;
+  color: #f0a0a0;
 }
 
 </style>

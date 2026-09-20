@@ -98,6 +98,17 @@ const desktopApi = Object.freeze({
       "get-data-location"
     );
   },
+
+  /*
+   * FOCUS_DOCUMENT_EXPORT_20260920_V2
+   * 渲染进程只提交受限的导出数据，不接触 fs、dialog 或任意路径。
+   */
+  saveDocumentExport(payload) {
+    return ipcRenderer.invoke(
+      "save-document-export",
+      payload
+    );
+  },
 });
 
 contextBridge.exposeInMainWorld(

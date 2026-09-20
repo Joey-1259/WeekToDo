@@ -153,12 +153,42 @@
         >
           移动到目录…
         </button>
+        <!-- FOCUS_DOCUMENT_EXPORT_20260920_V2：格式直接可见，避免嵌套菜单带来的焦点与定位问题。 -->
+        <div
+          class="focus-export-label"
+          role="presentation"
+        >
+          导出文档
+        </div>
+
         <button
           type="button"
           role="menuitem"
-          @click="emitAction('export')"
+          class="focus-export-format"
+          @click="emitAction('export-markdown')"
         >
-          导出 Markdown
+          <span class="focus-export-badge">MD</span>
+          <span>Markdown</span>
+        </button>
+
+        <button
+          type="button"
+          role="menuitem"
+          class="focus-export-format"
+          @click="emitAction('export-word')"
+        >
+          <span class="focus-export-badge is-word">W</span>
+          <span>Word 文档</span>
+        </button>
+
+        <button
+          type="button"
+          role="menuitem"
+          class="focus-export-format"
+          @click="emitAction('export-pdf')"
+        >
+          <span class="focus-export-badge is-pdf">PDF</span>
+          <span>PDF 文档</span>
         </button>
 
         <div class="menu-divider" role="separator"></div>
@@ -314,11 +344,11 @@ export default {
       this.timer = setTimeout(() => this.persist(), 650);
     },
 
-    flush() {
-      if (!this.dirty) return;
+    async flush() {
+      if (!this.dirty) return null;
 
       clearTimeout(this.timer);
-      this.persist();
+      return this.persist();
     },
 
     async persist() {
@@ -338,9 +368,11 @@ export default {
         this.dirty = false;
         this.saveState = "saved";
         this.$emit("saved", saved);
+        return saved;
       } catch (error) {
         console.error(error);
         this.saveState = "failed";
+        return null;
       }
     },
 
@@ -370,7 +402,7 @@ export default {
 
       if (rect) {
         const width = 190;
-        const height = 218;
+        const height = 332;
 
         const left = Math.max(
           12,
@@ -408,13 +440,30 @@ export default {
       this.menuVisible = false;
     },
 
-    emitAction(action) {
+    async emitAction(action) {
       this.menuVisible = false;
-      this.flush();
+
+      /*
+       * FOCUS_DOCUMENT_EXPORT_20260920_V2
+       * 导出必须等待 debounce 中的修改完成。即使保存失败，也使用
+       * localTitle/localContent 组成当前界面快照，不能退回旧 props。
+       */
+      if (String(action).startsWith("export")) {
+        await this.flush();
+      } else {
+        void this.flush();
+      }
 
       this.$emit("action", {
         action,
-        document: this.document,
+        document: {
+          ...this.document,
+          title: this.localTitle,
+          titleStyle: {
+            ...this.localTitleStyle,
+          },
+          content: this.localContent,
+        },
       });
     },
   },
@@ -759,4 +808,64 @@ export default {
   background: #20262e;
   color: #9aa1ab;
 }
+
+/* FOCUS_DOCUMENT_EXPORT_20260920_V2 */
+.focus-column-menu .focus-export-label {
+  padding: 7px 10px 4px;
+  color: #9aa1aa;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.focus-column-menu button.focus-export-format {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.focus-column-menu .focus-export-badge {
+  display: inline-grid;
+  width: 27px;
+  height: 20px;
+  flex: 0 0 27px;
+  place-items: center;
+  border-radius: 5px;
+  background: #edf0f4;
+  color: #69717c;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.focus-column-menu .focus-export-badge.is-word {
+  background: #eaf0ff;
+  color: #315bc5;
+}
+
+.focus-column-menu .focus-export-badge.is-pdf {
+  background: #fff0f0;
+  color: #c84444;
+  font-size: 7.5px;
+}
+
+.dark-theme .focus-column-menu .focus-export-label {
+  color: #858d98;
+}
+
+.dark-theme .focus-column-menu .focus-export-badge {
+  background: #303844;
+  color: #c4cad1;
+}
+
+.dark-theme .focus-column-menu .focus-export-badge.is-word {
+  background: #25365e;
+  color: #a9baf4;
+}
+
+.dark-theme .focus-column-menu .focus-export-badge.is-pdf {
+  background: #4a292d;
+  color: #f0a0a0;
+}
+
 </style>

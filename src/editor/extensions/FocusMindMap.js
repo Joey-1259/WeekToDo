@@ -26,7 +26,13 @@ export function createFocusMindMapData(
     },
     arrows: [],
     summaries: [],
-    direction: 2,
+    direction: 1,
+    compact: false,
+    meta: {
+      skeletonId: "right-logic",
+      themeId: "minimal",
+      compact: false,
+    },
   };
 }
 

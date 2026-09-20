@@ -380,6 +380,22 @@
             </section>
           </div>
 
+          <button
+            type="button"
+            class="focus-mind-map-format-trigger"
+            :class="{ active: inspectorVisible }"
+            title="打开节点与画布格式面板"
+            @click="inspectorVisible = !inspectorVisible"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M3 5h14M6 10h8M8 15h4" />
+              <circle cx="7" cy="5" r="1.5" />
+              <circle cx="12" cy="10" r="1.5" />
+              <circle cx="10" cy="15" r="1.5" />
+            </svg>
+            <span class="tool-label">格式</span>
+          </button>
+
           <span class="focus-mind-map-toolbar-spacer"></span>
 
           <div
@@ -421,11 +437,37 @@
           </div>
         </nav>
 
-        <main class="focus-mind-map-stage">
+        <main
+          class="focus-mind-map-stage"
+          :class="{
+            'has-inspector': inspectorVisible,
+          }"
+        >
           <div
             ref="editorCanvas"
             class="focus-mind-map-editor-canvas"
           ></div>
+
+          <FocusMindMapInspector
+            v-if="inspectorVisible"
+            :selection-count="selectedCount"
+            :node-style="selectedNodeStyle"
+            :branch-color="selectedBranchColor"
+            :themes="themeChoices"
+            :active-theme-id="activeThemeId"
+            :skeletons="skeletonChoices"
+            :active-skeleton-id="activeSkeletonId"
+            :compact="mapCompact"
+            @close="inspectorVisible = false"
+            @update-style="applyNodeStyle"
+            @toggle-format="toggleNodeFormat"
+            @change-branch-color="applyBranchColor"
+            @quick-style="applyQuickStyle"
+            @reset-style="resetNodeStyle"
+            @change-theme="applyTheme"
+            @change-skeleton="applySkeleton"
+            @toggle-compact="toggleCompactMode"
+          />
         </main>
 
         <footer class="focus-mind-map-shortcuts">
@@ -465,6 +507,7 @@ import {
 import "mind-elixir/style.css";
 
 import focusAssetRepository from "../../repositories/focusAssetRepository";
+import FocusMindMapInspector from "./FocusMindMapInspector.vue";
 
 const SAVE_DELAY = 550;
 const SNAPSHOT_DELAY = 950;
@@ -727,6 +770,241 @@ function getTheme(themeId) {
   );
 }
 
+
+const MIND_MAP_SKELETONS = Object.freeze([
+  {
+    id: "right-logic",
+    label: "右向逻辑图",
+    description: "从左到右展开，直角括号连接",
+    direction: MindElixir.RIGHT,
+    compact: false,
+    lineStyle: "bracket",
+    preview: "right",
+  },
+  {
+    id: "right-compact",
+    label: "紧凑逻辑图",
+    description: "右向直角结构，减少节点间距",
+    direction: MindElixir.RIGHT,
+    compact: true,
+    lineStyle: "bracket",
+    preview: "right",
+  },
+  {
+    id: "balanced-map",
+    label: "双向思维图",
+    description: "围绕中心主题向左右发散",
+    direction: MindElixir.SIDE,
+    compact: false,
+    lineStyle: "rounded",
+    preview: "balanced",
+  },
+  {
+    id: "org-down",
+    label: "向下组织图",
+    description: "自上而下展示层级与组织关系",
+    direction: MindElixir.DOWN,
+    compact: false,
+    lineStyle: "bracket",
+    preview: "down",
+  },
+]);
+
+function getSkeleton(id) {
+  return (
+    MIND_MAP_SKELETONS.find(
+      (item) => item.id === id
+    )
+    || MIND_MAP_SKELETONS[0]
+  );
+}
+
+function resolveSkeletonId(data) {
+  const id =
+    data?.meta?.skeletonId;
+
+  return getSkeleton(id).id;
+}
+
+function horizontalBracketBranch({
+  pT,
+  pL,
+  pW,
+  pH,
+  cT,
+  cL,
+  cW,
+  cH,
+  direction,
+}) {
+  const leftFacing =
+    direction === "lhs";
+
+  const x1 =
+    leftFacing
+      ? pL
+      : pL + pW;
+
+  const x2 =
+    leftFacing
+      ? cL + cW
+      : cL;
+
+  const y1 = pT + pH / 2;
+  const y2 = cT + cH / 2;
+
+  const distance =
+    Math.abs(x2 - x1);
+
+  const elbow =
+    Math.max(
+      18,
+      Math.min(
+        42,
+        distance * 0.42
+      )
+    );
+
+  const middleX =
+    leftFacing
+      ? x1 - elbow
+      : x1 + elbow;
+
+  return [
+    `M ${x1} ${y1}`,
+    `H ${middleX}`,
+    `V ${y2}`,
+    `H ${x2}`,
+  ].join(" ");
+}
+
+function verticalBracketBranch({
+  pT,
+  pL,
+  pW,
+  pH,
+  cT,
+  cL,
+  cW,
+}) {
+  const x1 = pL + pW / 2;
+  const y1 = pT + pH;
+  const x2 = cL + cW / 2;
+  const y2 = cT;
+
+  const distance =
+    Math.abs(y2 - y1);
+
+  const middleY =
+    y1
+    + Math.max(
+        18,
+        Math.min(
+          42,
+          distance * 0.42
+        )
+      );
+
+  return [
+    `M ${x1} ${y1}`,
+    `V ${middleY}`,
+    `H ${x2}`,
+    `V ${y2}`,
+  ].join(" ");
+}
+
+function bracketBranch(params) {
+  if (
+    params.direction === "down"
+  ) {
+    return verticalBracketBranch(
+      params
+    );
+  }
+
+  return horizontalBracketBranch(
+    params
+  );
+}
+
+function roundedBranch({
+  pT,
+  pL,
+  pW,
+  pH,
+  cT,
+  cL,
+  cW,
+  cH,
+  direction,
+}) {
+  const leftFacing =
+    direction === "lhs";
+
+  const x1 =
+    leftFacing
+      ? pL
+      : pL + pW;
+
+  const x2 =
+    leftFacing
+      ? cL + cW
+      : cL;
+
+  const y1 = pT + pH / 2;
+  const y2 = cT + cH / 2;
+  const middle = (x1 + x2) / 2;
+
+  return [
+    `M ${x1} ${y1}`,
+    `C ${middle} ${y1}`,
+    `${middle} ${y2}`,
+    `${x2} ${y2}`,
+  ].join(" ");
+}
+
+function getBranchGenerators(
+  skeletonId
+) {
+  const skeleton =
+    getSkeleton(skeletonId);
+
+  const generator =
+    skeleton.lineStyle === "rounded"
+      ? roundedBranch
+      : bracketBranch;
+
+  return {
+    generateMainBranch: generator,
+    generateSubBranch: generator,
+  };
+}
+
+function normalizeStylePatch(
+  current,
+  patch
+) {
+  const next = {
+    ...(current || {}),
+  };
+
+  Object.entries(
+    patch || {}
+  ).forEach(([key, value]) => {
+    if (
+      value === null
+      || value === undefined
+      || value === ""
+    ) {
+      delete next[key];
+    } else {
+      next[key] = value;
+    }
+  });
+
+  return next;
+}
+
 const EXPORT_CSS = `
   me-tpc {
     font-family:
@@ -970,6 +1248,7 @@ export default {
 
   components: {
     NodeViewWrapper,
+    FocusMindMapInspector,
   },
 
   props: nodeViewProps,
@@ -1001,6 +1280,20 @@ export default {
       selectedHasChildren: false,
       selectedExpanded: true,
       actionMessage: "",
+      inspectorVisible: false,
+      activeSkeletonId:
+        resolveSkeletonId(
+          this.node.attrs.data
+        ),
+      mapCompact:
+        Boolean(
+          this.node.attrs.data
+            ?.meta?.compact
+          ?? this.node.attrs.data
+            ?.compact
+        ),
+      selectedNodeStyle: {},
+      selectedBranchColor: "",
     };
   },
 
@@ -1030,6 +1323,16 @@ export default {
     themeChoices() {
       return Object.values(
         MIND_MAP_THEMES
+      );
+    },
+
+    skeletonChoices() {
+      return MIND_MAP_SKELETONS;
+    },
+
+    activeSkeleton() {
+      return getSkeleton(
+        this.activeSkeletonId
       );
     },
 
@@ -1116,14 +1419,26 @@ export default {
 
       const data = clone(raw);
 
+      const skeleton =
+        getSkeleton(
+          this.activeSkeletonId
+        );
+
       data.meta = {
         ...(data.meta || {}),
         themeId: this.activeThemeId,
+        skeletonId:
+          this.activeSkeletonId,
+        compact: this.mapCompact,
       };
 
       data.theme = getTheme(
         this.activeThemeId
       );
+      data.direction =
+        skeleton.direction;
+      data.compact =
+        this.mapCompact;
 
       return data;
     },
@@ -1135,14 +1450,26 @@ export default {
           title
         );
 
+      const skeleton =
+        getSkeleton(
+          this.activeSkeletonId
+        );
+
       data.meta = {
         ...(data.meta || {}),
         themeId: this.activeThemeId,
+        skeletonId:
+          this.activeSkeletonId,
+        compact: this.mapCompact,
       };
 
       data.theme = getTheme(
         this.activeThemeId
       );
+      data.direction =
+        skeleton.direction;
+      data.compact =
+        this.mapCompact;
 
       return data;
     },
@@ -1159,14 +1486,30 @@ export default {
         );
       }
 
+      const skeleton =
+        getSkeleton(
+          this.activeSkeletonId
+        );
+
+      const branchGenerators =
+        getBranchGenerators(
+          this.activeSkeletonId
+        );
+
       return new MindElixir({
         el: element,
         direction:
-          MindElixir.SIDE,
+          skeleton.direction,
         editable,
         theme: getTheme(
           this.activeThemeId
         ),
+        generateMainBranch:
+          branchGenerators
+            .generateMainBranch,
+        generateSubBranch:
+          branchGenerators
+            .generateSubBranch,
 
         /*
          * draggable 在 5.15.1 中已经废弃，
@@ -1183,7 +1526,8 @@ export default {
         toolBar: false,
         keypress: editable,
         allowUndo: editable,
-        compact: false,
+        compact:
+          this.mapCompact,
         overflowHidden: false,
         handleWheel: true,
         newTopicName: "新主题",
@@ -1594,11 +1938,297 @@ export default {
       this.selectedIsRoot = false;
       this.selectedHasChildren = false;
       this.selectedExpanded = true;
+      this.selectedNodeStyle = {};
+      this.selectedBranchColor = "";
+      this.inspectorVisible = false;
 
       if (this.$refs.editorCanvas) {
         this.$refs.editorCanvas
           .replaceChildren();
       }
+    },
+
+    async applySkeleton(
+      skeletonId
+    ) {
+      const skeleton =
+        getSkeleton(skeletonId);
+
+      if (
+        skeleton.id
+        === this.activeSkeletonId
+      ) {
+        return;
+      }
+
+      try {
+        const data =
+          this.currentData();
+
+        this.activeSkeletonId =
+          skeleton.id;
+
+        if (
+          skeleton.id
+          === "right-compact"
+        ) {
+          this.mapCompact = true;
+        }
+
+        data.meta = {
+          ...(data.meta || {}),
+          skeletonId:
+            skeleton.id,
+          compact:
+            this.mapCompact,
+        };
+
+        data.direction =
+          skeleton.direction;
+        data.compact =
+          this.mapCompact;
+
+        const generators =
+          getBranchGenerators(
+            skeleton.id
+          );
+
+        this.editingMind.direction =
+          skeleton.direction;
+        this.editingMind.compact =
+          this.mapCompact;
+        this.editingMind
+          .generateMainBranch =
+            generators
+              .generateMainBranch;
+        this.editingMind
+          .generateSubBranch =
+            generators
+              .generateSubBranch;
+
+        this.editingMind.refresh(
+          data
+        );
+
+        this.editingMind
+          .clearHistory?.();
+
+        this.saveState = "saving";
+        this.queueSave();
+
+        await fitMindMap(
+          this.editingMind
+        );
+
+        this.scale =
+          Number(
+            this.editingMind.scaleVal
+          )
+          || 1;
+
+        this.syncSelectionState();
+      } catch (error) {
+        console.error(
+          "[mind-map] 骨架切换失败",
+          error
+        );
+
+        this.saveState = "error";
+
+        window.alert(
+          error?.message
+          || "切换思维导图骨架失败。"
+        );
+      }
+    },
+
+    toggleCompactMode() {
+      if (!this.editingMind) return;
+
+      this.mapCompact =
+        !this.mapCompact;
+
+      this.editingMind
+        .changeCompact?.(
+          this.mapCompact
+        );
+
+      this.saveState = "saving";
+      this.queueSave();
+
+      window.setTimeout(
+        () => {
+          this.fitAndCenterMap();
+        },
+        80
+      );
+    },
+
+    async patchSelectedNodes(
+      createPatch
+    ) {
+      const selected =
+        this.selectedTopics();
+
+      if (!selected.length) return;
+
+      try {
+        await Promise.all(
+          selected.map((topic) => {
+            const patch =
+              createPatch(topic);
+
+            return this.editingMind
+              .reshapeNode(
+                topic,
+                patch
+              );
+          })
+        );
+
+        this.saveState = "saving";
+
+        await this.$nextTick();
+        this.syncSelectionState();
+        this.queueSave();
+      } catch (error) {
+        console.error(
+          "[mind-map] 节点格式更新失败",
+          error
+        );
+
+        this.saveState = "error";
+
+        window.alert(
+          error?.message
+          || "更新节点格式失败。"
+        );
+      }
+    },
+
+    applyNodeStyle(patch) {
+      this.patchSelectedNodes(
+        (topic) => ({
+          style:
+            normalizeStylePatch(
+              topic.nodeObj?.style,
+              patch
+            ),
+        })
+      );
+    },
+
+    applyBranchColor(color) {
+      this.patchSelectedNodes(
+        () => ({
+          branchColor:
+            color || undefined,
+        })
+      );
+    },
+
+    toggleNodeFormat(type) {
+      const current =
+        this.selectedNodeStyle || {};
+
+      if (type === "bold") {
+        const bold =
+          String(
+            current.fontWeight
+          ) === "700";
+
+        this.applyNodeStyle({
+          fontWeight:
+            bold ? null : "700",
+        });
+
+        return;
+      }
+
+      const tokens =
+        new Set(
+          String(
+            current.textDecoration
+            || ""
+          )
+            .split(/\s+/)
+            .filter(Boolean)
+        );
+
+      if (tokens.has(type)) {
+        tokens.delete(type);
+      } else {
+        tokens.add(type);
+      }
+
+      this.applyNodeStyle({
+        textDecoration:
+          [...tokens].join(" ")
+          || null,
+      });
+    },
+
+    applyQuickStyle(type) {
+      const presets = {
+        important: {
+          style: {
+            fontWeight: "700",
+            color: "#a33f3f",
+            background: "#fbecec",
+            border:
+              "1px solid #e8bcbc",
+          },
+          branchColor: "#c55252",
+        },
+
+        idea: {
+          style: {
+            fontWeight: "700",
+            color: "#72561f",
+            background: "#fbf2d9",
+            border:
+              "1px solid #e8d397",
+          },
+          branchColor: "#b88a32",
+        },
+
+        done: {
+          style: {
+            color: "#718078",
+            background: "#eef4f0",
+            border:
+              "1px solid #cbdccf",
+            textDecoration:
+              "line-through",
+          },
+          branchColor: "#789584",
+        },
+      };
+
+      const preset = presets[type];
+
+      if (!preset) return;
+
+      this.patchSelectedNodes(
+        (topic) => ({
+          style:
+            normalizeStylePatch(
+              topic.nodeObj?.style,
+              preset.style
+            ),
+          branchColor:
+            preset.branchColor,
+        })
+      );
+    },
+
+    resetNodeStyle() {
+      this.patchSelectedNodes(
+        () => ({
+          style: {},
+          branchColor: undefined,
+        })
+      );
     },
 
     selectedTopics() {
@@ -1641,6 +2271,13 @@ export default {
 
       this.selectedExpanded =
         first?.expanded !== false;
+
+      this.selectedNodeStyle = {
+        ...(first?.style || {}),
+      };
+
+      this.selectedBranchColor =
+        first?.branchColor || "";
     },
 
     async runNodeAction(action) {
@@ -2825,6 +3462,53 @@ body.focus-mind-map-is-open {
 
   .focus-mind-map-tool-group[aria-label="历史操作"] {
     display: none;
+  }
+}
+
+
+
+/* FOCUS_MIND_MAP_SKELETON_AND_FORMAT_V4 */
+
+.focus-mind-map-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  transition:
+    grid-template-columns 180ms ease;
+}
+
+.focus-mind-map-stage.has-inspector {
+  grid-template-columns:
+    minmax(0, 1fr) 296px;
+}
+
+.focus-mind-map-format-trigger {
+  flex: 0 0 auto;
+}
+
+.focus-mind-map-editor-canvas :deep(svg path) {
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+.focus-mind-map-editor-canvas :deep(me-tpc) {
+  min-height: 20px;
+}
+
+.focus-mind-map-editor-canvas
+  :deep(me-root > me-tpc) {
+  padding: 8px 13px;
+}
+
+.focus-mind-map-preview-canvas :deep(svg path) {
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+@media (max-width: 820px) {
+  .focus-mind-map-stage.has-inspector {
+    grid-template-columns:
+      minmax(0, 1fr);
   }
 }
 

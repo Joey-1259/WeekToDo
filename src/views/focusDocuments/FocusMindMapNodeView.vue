@@ -204,145 +204,179 @@
           <span class="focus-mind-map-toolbar-rule"></span>
 
           <div
-            class="focus-mind-map-tool-group"
-            aria-label="节点操作"
+            class="focus-mind-map-global-control"
           >
             <button
               type="button"
-              :disabled="!hasSelection"
-              title="添加子节点（Tab）"
-              @click="addChildNode"
+              class="focus-mind-map-global-trigger"
+              :class="{ active: skeletonMenuOpen }"
+              aria-haspopup="true"
+              :aria-expanded="String(skeletonMenuOpen)"
+              title="选择脑图骨架"
+              @click.stop="
+                skeletonMenuOpen = !skeletonMenuOpen;
+                themeMenuOpen = false
+              "
             >
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <circle cx="5" cy="10" r="2.5" />
-                <circle cx="15" cy="5" r="2.5" />
-                <circle cx="15" cy="15" r="2.5" />
-                <path d="M7.5 10h2.4c1.5 0 2.1-1 2.1-2.2V7.5M12 12.5v-.3c0-1.2-.6-2.2-2.1-2.2" />
+              <svg
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+              >
+                <rect
+                  x="2.5"
+                  y="7.5"
+                  width="5"
+                  height="5"
+                  rx="1"
+                />
+                <rect
+                  x="13"
+                  y="3"
+                  width="4.5"
+                  height="4"
+                  rx="1"
+                />
+                <rect
+                  x="13"
+                  y="13"
+                  width="4.5"
+                  height="4"
+                  rx="1"
+                />
+                <path
+                  d="M7.5 10h2.3V5h3.2M9.8 10v5H13"
+                />
               </svg>
-              <span class="tool-label">子节点</span>
+
+              <span class="tool-label">骨架</span>
+
+              <svg
+                class="focus-mind-map-trigger-chevron"
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+              >
+                <path d="m6 8 4 4 4-4" />
+              </svg>
             </button>
 
-            <button
-              type="button"
-              :disabled="!hasSelection || selectedIsRoot"
-              title="添加同级节点（Enter）"
-              @click="addSiblingNode"
+            <section
+              v-if="skeletonMenuOpen"
+              class="
+                focus-mind-map-global-menu
+                focus-mind-map-skeleton-menu
+              "
+              aria-label="选择思维导图骨架"
+              @click.stop
             >
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <circle cx="6" cy="6" r="2.4" />
-                <circle cx="6" cy="14" r="2.4" />
-                <path d="M10.5 10h6M13.5 7v6" />
-              </svg>
-              <span class="tool-label">同级节点</span>
-            </button>
+              <header>
+                <strong>骨架</strong>
+                <small>
+                  控制方向、密度与连接线
+                </small>
+              </header>
 
-            <button
-              type="button"
-              :disabled="!hasSelection"
-              title="编辑所选节点（F2）"
-              @click="editSelectedNode"
-            >
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <path d="m4 14.5-.5 2 2-.5L15 6.5 12.5 4 4 14.5Z" />
-                <path d="m11.5 5 2.5 2.5" />
-              </svg>
-              <span class="tool-label">编辑</span>
-            </button>
+              <div class="focus-mind-map-skeleton-options">
+                <button
+                  v-for="skeleton in skeletonChoices"
+                  :key="skeleton.id"
+                  type="button"
+                  class="focus-mind-map-skeleton-option"
+                  :class="{
+                    active:
+                      activeSkeletonId
+                      === skeleton.id,
+                  }"
+                  @click="
+                    applyStableSkeleton(
+                      skeleton.id
+                    )
+                  "
+                >
+                  <span
+                    class="focus-mind-map-skeleton-miniature"
+                    :class="`is-${skeleton.preview}`"
+                    aria-hidden="true"
+                  >
+                    <i class="root"></i>
+                    <i class="trunk"></i>
+                    <i class="branch one"></i>
+                    <i class="branch two"></i>
+                    <i class="branch three"></i>
+                  </span>
 
-            <button
-              type="button"
-              class="is-danger"
-              :disabled="!hasSelection || selectedIsRoot"
-              title="删除所选节点"
-              @click="deleteSelectedNodes"
-            >
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M4 6h12M8 3h4l1 2H7l1-2M6.5 6l.6 10h5.8l.6-10M8.5 9v4M11.5 9v4" />
-              </svg>
-              <span class="tool-label">删除</span>
-            </button>
+                  <span>
+                    <strong>
+                      {{ skeleton.label }}
+                    </strong>
+                    <small>
+                      {{ skeleton.description }}
+                    </small>
+                  </span>
+
+                  <b
+                    v-if="
+                      activeSkeletonId
+                      === skeleton.id
+                    "
+                  >
+                    ✓
+                  </b>
+                </button>
+              </div>
+            </section>
           </div>
-
-          <span class="focus-mind-map-toolbar-rule"></span>
 
           <div
-            class="focus-mind-map-tool-group"
-            aria-label="分支显示"
+            class="focus-mind-map-theme-control"
           >
             <button
               type="button"
-              :disabled="!canToggleBranch"
-              :title="
-                selectedExpanded
-                  ? '折叠当前节点的子分支'
-                  : '展开当前节点的子分支'
+              class="
+                focus-mind-map-global-trigger
+                focus-mind-map-theme-trigger
               "
-              @click="toggleSelectedBranch"
-            >
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <rect x="3" y="4" width="5" height="5" rx="1" />
-                <rect x="12" y="11" width="5" height="5" rx="1" />
-                <path d="M8 6.5h2a3 3 0 0 1 3 3V11M4.5 6.5h2M13.5 13.5h2" />
-              </svg>
-              <span class="tool-label">
-                {{ selectedExpanded ? "折叠分支" : "展开分支" }}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              title="折叠全部分支"
-              @click="collapseAllBranches"
-            >
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M4 6h12M6 10h8M8 14h4" />
-              </svg>
-              <span class="tool-label">全部折叠</span>
-            </button>
-
-            <button
-              type="button"
-              title="展开全部分支"
-              @click="expandAllBranches"
-            >
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M8 4h4M6 8h8M4 12h12M2 16h16" />
-              </svg>
-              <span class="tool-label">全部展开</span>
-            </button>
-          </div>
-
-          <span class="focus-mind-map-toolbar-rule"></span>
-
-          <div class="focus-mind-map-theme-control">
-            <button
-              type="button"
-              class="focus-mind-map-theme-trigger"
               :class="{ active: themeMenuOpen }"
               aria-haspopup="true"
               :aria-expanded="String(themeMenuOpen)"
-              title="切换思维导图主题"
-              @click.stop="themeMenuOpen = !themeMenuOpen"
+              title="选择思维导图配色"
+              @click.stop="
+                themeMenuOpen = !themeMenuOpen;
+                skeletonMenuOpen = false
+              "
             >
               <span
                 class="focus-mind-map-theme-dot"
-                :style="{ background: activeTheme.preview }"
+                :style="{
+                  background:
+                    activeTheme.preview
+                }"
               ></span>
-              <span class="tool-label">{{ activeTheme.label }}</span>
-              <svg viewBox="0 0 20 20" aria-hidden="true">
+
+              <span class="tool-label">配色</span>
+
+              <svg
+                class="focus-mind-map-trigger-chevron"
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+              >
                 <path d="m6 8 4 4 4-4" />
               </svg>
             </button>
 
             <section
               v-if="themeMenuOpen"
-              class="focus-mind-map-theme-menu"
-              aria-label="选择思维导图主题"
+              class="
+                focus-mind-map-theme-menu
+                focus-mind-map-global-menu
+              "
+              aria-label="选择思维导图配色"
               @click.stop
             >
               <header>
-                <strong>主题风格</strong>
-                <small>主题会同步到预览和导出图片</small>
+                <strong>配色</strong>
+                <small>
+                  同步应用到预览和导出图片
+                </small>
               </header>
 
               <div class="focus-mind-map-theme-grid">
@@ -352,7 +386,9 @@
                   type="button"
                   class="focus-mind-map-theme-option"
                   :class="{
-                    active: activeThemeId === theme.id,
+                    active:
+                      activeThemeId
+                      === theme.id,
                   }"
                   @click="applyTheme(theme.id)"
                 >
@@ -365,16 +401,29 @@
                     <i
                       v-for="color in theme.colors"
                       :key="color"
-                      :style="{ background: color }"
+                      :style="{
+                        background: color,
+                      }"
                     ></i>
                   </span>
 
                   <span>
-                    <strong>{{ theme.label }}</strong>
-                    <small>{{ theme.description }}</small>
+                    <strong>
+                      {{ theme.label }}
+                    </strong>
+                    <small>
+                      {{ theme.description }}
+                    </small>
                   </span>
 
-                  <b v-if="activeThemeId === theme.id">✓</b>
+                  <b
+                    v-if="
+                      activeThemeId
+                      === theme.id
+                    "
+                  >
+                    ✓
+                  </b>
                 </button>
               </div>
             </section>
@@ -382,18 +431,31 @@
 
           <button
             type="button"
-            class="focus-mind-map-format-trigger"
+            class="
+              focus-mind-map-global-trigger
+              focus-mind-map-style-trigger
+            "
             :class="{ active: inspectorVisible }"
-            title="打开节点与画布格式面板"
-            @click="inspectorVisible = !inspectorVisible"
+            title="设置节点与画布样式"
+            @click="
+              inspectorVisible = !inspectorVisible;
+              skeletonMenuOpen = false;
+              themeMenuOpen = false
+            "
           >
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M3 5h14M6 10h8M8 15h4" />
-              <circle cx="7" cy="5" r="1.5" />
-              <circle cx="12" cy="10" r="1.5" />
-              <circle cx="10" cy="15" r="1.5" />
+            <svg
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+            >
+              <path
+                d="M4 5h12M4 10h12M4 15h12"
+              />
+              <circle cx="7" cy="5" r="1.6" />
+              <circle cx="13" cy="10" r="1.6" />
+              <circle cx="9" cy="15" r="1.6" />
             </svg>
-            <span class="tool-label">格式</span>
+
+            <span class="tool-label">样式</span>
           </button>
 
           <span class="focus-mind-map-toolbar-spacer"></span>
@@ -465,7 +527,7 @@
             @quick-style="applyQuickStyle"
             @reset-style="resetNodeStyle"
             @change-theme="applyTheme"
-            @change-skeleton="applySkeleton"
+            @change-skeleton="applyStableSkeleton"
             @toggle-compact="toggleCompactMode"
           />
         </main>
@@ -826,7 +888,19 @@ function resolveSkeletonId(data) {
   return getSkeleton(id).id;
 }
 
-function horizontalBracketBranch({
+/*
+ * Mind Elixir 的主分支与子分支不是同一套坐标模型。
+ *
+ * 主分支：
+ *   根节点中心边缘 -> 一级节点中心边缘
+ *
+ * 子分支：
+ *   父节点底部支线 -> 子节点底部支线
+ *
+ * 不能复用同一个 center-to-center 生成器，否则新增节点、
+ * 字号变化或紧凑模式重排后会出现路径悬空和末端错位。
+ */
+function generateHorizontalMainBracket({
   pT,
   pL,
   pW,
@@ -854,31 +928,78 @@ function horizontalBracketBranch({
   const y2 = cT + cH / 2;
 
   const distance =
-    Math.abs(x2 - x1);
+    Math.max(1, Math.abs(x2 - x1));
 
-  const elbow =
+  const elbowDistance =
     Math.max(
-      18,
-      Math.min(
-        42,
-        distance * 0.42
-      )
+      20,
+      Math.min(48, distance * 0.46)
     );
 
-  const middleX =
+  const elbowX =
     leftFacing
-      ? x1 - elbow
-      : x1 + elbow;
+      ? x1 - elbowDistance
+      : x1 + elbowDistance;
 
   return [
     `M ${x1} ${y1}`,
-    `H ${middleX}`,
+    `H ${elbowX}`,
     `V ${y2}`,
     `H ${x2}`,
   ].join(" ");
 }
 
-function verticalBracketBranch({
+function generateHorizontalSubBracket({
+  pT,
+  pL,
+  pW,
+  pH,
+  cT,
+  cL,
+  cW,
+  cH,
+  direction,
+  isFirst,
+}) {
+  const GAP = 30;
+  const leftFacing =
+    direction === "lhs";
+
+  /*
+   * 与 Mind Elixir 官方 sub-branch 几何模型一致：
+   * 非一级子分支从父节点底边开始，子节点分支落在底边。
+   */
+  const y1 =
+    isFirst
+      ? pT + pH / 2
+      : pT + pH;
+
+  const y2 = cT + cH;
+
+  const x1 =
+    leftFacing
+      ? pL + GAP
+      : pL + pW - GAP;
+
+  const elbowX =
+    leftFacing
+      ? cL + cW
+      : cL;
+
+  const x2 =
+    leftFacing
+      ? cL
+      : cL + cW;
+
+  return [
+    `M ${x1} ${y1}`,
+    `H ${elbowX}`,
+    `V ${y2}`,
+    `H ${x2}`,
+  ].join(" ");
+}
+
+function generateVerticalMainBracket({
   pT,
   pL,
   pW,
@@ -893,17 +1014,39 @@ function verticalBracketBranch({
   const y2 = cT;
 
   const distance =
-    Math.abs(y2 - y1);
+    Math.max(1, Math.abs(y2 - y1));
 
-  const middleY =
+  const elbowY =
     y1
     + Math.max(
-        18,
-        Math.min(
-          42,
-          distance * 0.42
-        )
+        20,
+        Math.min(48, distance * 0.46)
       );
+
+  return [
+    `M ${x1} ${y1}`,
+    `V ${elbowY}`,
+    `H ${x2}`,
+    `V ${y2}`,
+  ].join(" ");
+}
+
+function generateVerticalSubBracket({
+  pT,
+  pL,
+  pW,
+  pH,
+  cT,
+  cL,
+  cW,
+}) {
+  const x1 = pL + pW / 2;
+  const y1 = pT + pH;
+  const x2 = cL + cW / 2;
+  const y2 = cT;
+
+  const middleY =
+    y1 + (y2 - y1) / 2;
 
   return [
     `M ${x1} ${y1}`,
@@ -913,71 +1056,115 @@ function verticalBracketBranch({
   ].join(" ");
 }
 
-function bracketBranch(params) {
-  if (
-    params.direction === "down"
-  ) {
-    return verticalBracketBranch(
-      params
-    );
-  }
-
-  return horizontalBracketBranch(
-    params
-  );
-}
-
-function roundedBranch({
-  pT,
-  pL,
-  pW,
-  pH,
-  cT,
-  cL,
-  cW,
-  cH,
-  direction,
-}) {
-  const leftFacing =
-    direction === "lhs";
-
-  const x1 =
-    leftFacing
-      ? pL
-      : pL + pW;
-
-  const x2 =
-    leftFacing
-      ? cL + cW
-      : cL;
-
-  const y1 = pT + pH / 2;
-  const y2 = cT + cH / 2;
-  const middle = (x1 + x2) / 2;
-
-  return [
-    `M ${x1} ${y1}`,
-    `C ${middle} ${y1}`,
-    `${middle} ${y2}`,
-    `${x2} ${y2}`,
-  ].join(" ");
-}
-
+/*
+ * 圆弧骨架不传入自定义生成器。
+ * 让 Mind Elixir 使用自身配套的主/子分支算法，
+ * 避免自定义曲线与运行时布局模型不一致。
+ */
 function getBranchGenerators(
   skeletonId
 ) {
   const skeleton =
     getSkeleton(skeletonId);
 
-  const generator =
-    skeleton.lineStyle === "rounded"
-      ? roundedBranch
-      : bracketBranch;
+  if (skeleton.lineStyle === "rounded") {
+    return {};
+  }
+
+  if (
+    skeleton.direction
+    === MindElixir.DOWN
+  ) {
+    return {
+      generateMainBranch:
+        generateVerticalMainBracket,
+      generateSubBranch:
+        generateVerticalSubBracket,
+    };
+  }
 
   return {
-    generateMainBranch: generator,
-    generateSubBranch: generator,
+    generateMainBranch:
+      generateHorizontalMainBracket,
+    generateSubBranch:
+      generateHorizontalSubBracket,
   };
+}
+
+/*
+ * 切换骨架前必须清理节点上遗留的方向信息。
+ *
+ * 例如：
+ * - 原骨架为 SIDE；
+ * - 一级节点分别保存 lhs/rhs；
+ * - 只修改根数据 direction 为 RIGHT；
+ * - 新节点使用 RIGHT，旧节点仍保持 lhs/rhs。
+ *
+ * 最终就会形成两套布局来源。
+ */
+function canonicalizeSkeletonData(
+  value,
+  skeleton
+) {
+  const data = clone(value);
+
+  const walk = (node) => {
+    if (!node || typeof node !== "object") {
+      return;
+    }
+
+    delete node.parent;
+    delete node.direction;
+
+    if (Array.isArray(node.children)) {
+      node.children.forEach(walk);
+    }
+  };
+
+  walk(data?.nodeData);
+
+  const mainChildren =
+    data?.nodeData?.children;
+
+  if (Array.isArray(mainChildren)) {
+    if (
+      skeleton.direction
+      === MindElixir.SIDE
+    ) {
+      mainChildren.forEach(
+        (node, index) => {
+          node.direction =
+            index % 2 === 0
+              ? MindElixir.RIGHT
+              : MindElixir.LEFT;
+        }
+      );
+    } else if (
+      skeleton.direction
+      === MindElixir.RIGHT
+    ) {
+      mainChildren.forEach((node) => {
+        node.direction =
+          MindElixir.RIGHT;
+      });
+    } else if (
+      skeleton.direction
+      === MindElixir.LEFT
+    ) {
+      mainChildren.forEach((node) => {
+        node.direction =
+          MindElixir.LEFT;
+      });
+    }
+  }
+
+  data.direction = skeleton.direction;
+  data.compact = Boolean(
+    data.meta?.compact
+    ?? skeleton.compact
+  );
+
+  return data;
 }
 
 function normalizeStylePatch(
@@ -1034,7 +1221,13 @@ function fallbackData(title = "中心主题") {
     },
     arrows: [],
     summaries: [],
-    direction: 2,
+    direction: MindElixir.RIGHT,
+    compact: false,
+    meta: {
+      skeletonId: "right-logic",
+      themeId: "minimal",
+      compact: false,
+    },
   };
 }
 
@@ -1221,7 +1414,7 @@ function normalizeMindMapData(
     MindElixir.DOWN,
   ].includes(data.direction)
     ? data.direction
-    : MindElixir.SIDE;
+    : MindElixir.RIGHT;
 
   return data;
 }
@@ -1275,6 +1468,7 @@ export default {
           this.node.attrs.data
         ),
       themeMenuOpen: false,
+      skeletonMenuOpen: false,
       selectedCount: 0,
       selectedIsRoot: false,
       selectedHasChildren: false,
@@ -1411,6 +1605,216 @@ export default {
   },
 
   methods: {
+    async applyStableSkeleton(
+      skeletonId
+    ) {
+      const nextSkeleton =
+        getSkeleton(skeletonId);
+
+      if (
+        !nextSkeleton
+        || this.closing
+      ) {
+        return;
+      }
+
+      this.skeletonMenuOpen = false;
+      this.themeMenuOpen = false;
+      this.skeletonMenuOpen = false;
+
+      /*
+       * 必须先从旧实例读取数据，再切换 activeSkeletonId。
+       * 否则 currentData 会把新方向写入仍包含旧节点方向的数据。
+       */
+      const rawData =
+        this.currentData();
+
+      this.activeSkeletonId =
+        nextSkeleton.id;
+
+      this.mapCompact =
+        Boolean(nextSkeleton.compact);
+
+      let nextData =
+        canonicalizeSkeletonData(
+          rawData,
+          nextSkeleton
+        );
+
+      nextData.meta = {
+        ...(nextData.meta || {}),
+        themeId: this.activeThemeId,
+        skeletonId: nextSkeleton.id,
+        compact: this.mapCompact,
+      };
+
+      nextData.theme =
+        getTheme(this.activeThemeId);
+
+      nextData.direction =
+        nextSkeleton.direction;
+
+      nextData.compact =
+        this.mapCompact;
+
+      try {
+        this.saveState = "saving";
+
+        /*
+         * 先写入 Tiptap，确保即使实例重建失败，
+         * 数据层仍然保留完整节点内容。
+         */
+        this.updateAttributes({
+          data: clone(nextData),
+          nodeCount:
+            walkNodeCount(
+              nextData.nodeData
+            ),
+          updatedAt:
+            new Date().toISOString(),
+        });
+
+        this.destroyEditor();
+
+        await this.$nextTick();
+        await nextAnimationFrame();
+
+        const element =
+          this.$refs.editorCanvas;
+
+        await waitForUsableCanvas(
+          element,
+          "思维导图编辑画布"
+        );
+
+        const nextMind =
+          this.createMind(
+            element,
+            true
+          );
+
+        this.editingMind = nextMind;
+
+        await Promise.resolve(
+          nextMind.init(
+            clone(nextData)
+          )
+        );
+
+        /*
+         * 重建实例后重新绑定必要事件。
+         * 不依赖旧实例上的 bus listener。
+         */
+        const refreshSelection = () => {
+          const candidates = [
+            "syncSelectionState",
+            "syncSelection",
+            "refreshSelectionState",
+          ];
+
+          for (const name of candidates) {
+            if (
+              typeof this[name]
+              === "function"
+            ) {
+              this[name]();
+              break;
+            }
+          }
+        };
+
+        nextMind.bus?.addListener?.(
+          "operation",
+          () => {
+            refreshSelection();
+            this.queueSave();
+          }
+        );
+
+        nextMind.bus?.addListener?.(
+          "selectNode",
+          refreshSelection
+        );
+
+        nextMind.bus?.addListener?.(
+          "unselectNode",
+          refreshSelection
+        );
+
+        nextMind.bus?.addListener?.(
+          "expandNode",
+          () => {
+            refreshSelection();
+            this.queueSave();
+          }
+        );
+
+        this.scale = 1;
+
+        await fitMindMap(nextMind);
+
+        refreshSelection();
+
+        this.saveState = "saved";
+        this.queueSave();
+        this.queueSnapshot();
+
+        this.actionMessage =
+          `已切换为${nextSkeleton.label}`;
+      } catch (error) {
+        console.error(
+          "[FocusMindMap] 骨架切换失败",
+          error
+        );
+
+        this.saveState = "error";
+        this.errorMessage =
+          "骨架切换失败，已保留脑图数据";
+
+        /*
+         * 数据已经写入 Tiptap。
+         * 尝试按当前状态重新打开编辑实例。
+         */
+        try {
+          await this.$nextTick();
+
+          const element =
+            this.$refs.editorCanvas;
+
+          if (
+            element
+            && !this.editingMind
+          ) {
+            await waitForUsableCanvas(
+              element,
+              "思维导图恢复画布"
+            );
+
+            this.editingMind =
+              this.createMind(
+                element,
+                true
+              );
+
+            await Promise.resolve(
+              this.editingMind.init(
+                clone(nextData)
+              )
+            );
+
+            await fitMindMap(
+              this.editingMind
+            );
+          }
+        } catch (restoreError) {
+          console.error(
+            "[FocusMindMap] 骨架切换恢复失败",
+            restoreError
+          );
+        }
+      }
+    },
+
     currentData() {
       const raw =
         this.editingMind?.getData?.()
@@ -1504,12 +1908,11 @@ export default {
         theme: getTheme(
           this.activeThemeId
         ),
-        generateMainBranch:
-          branchGenerators
-            .generateMainBranch,
-        generateSubBranch:
-          branchGenerators
-            .generateSubBranch,
+        /*
+         * rounded 骨架返回空对象，使用 Mind Elixir 原生生成器；
+         * bracket 骨架才注入匹配其坐标模型的主/子分支生成器。
+         */
+        ...branchGenerators,
 
         /*
          * draggable 在 5.15.1 中已经废弃，
@@ -2551,6 +2954,372 @@ export default {
 body.focus-mind-map-is-open {
   overflow: hidden !important;
 }
+
+/* ==========================================================
+ * 2026-09-20 · 最短路径工具栏
+ * ========================================================== */
+
+.focus-mind-map-global-control,
+.focus-mind-map-theme-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.focus-mind-map-global-trigger {
+  min-width: 64px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #555a64;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.focus-mind-map-global-trigger:hover {
+  color: #30343b;
+  background: #f2f3f6;
+}
+
+.focus-mind-map-global-trigger.active {
+  color: #5064bd;
+  background: #edf0fb;
+  border-color: #dce2f8;
+}
+
+.focus-mind-map-global-trigger > svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.45;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.focus-mind-map-global-trigger
+  .focus-mind-map-trigger-chevron {
+  width: 12px;
+  height: 12px;
+  margin-left: -2px;
+  opacity: 0.58;
+}
+
+.focus-mind-map-style-trigger {
+  margin-left: 2px;
+}
+
+.focus-mind-map-global-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  width: 310px;
+  max-height: min(540px, calc(100vh - 150px));
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid #e1e3e8;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow:
+    0 16px 42px rgba(36, 40, 51, 0.13),
+    0 2px 8px rgba(36, 40, 51, 0.06);
+  backdrop-filter: blur(16px);
+}
+
+.focus-mind-map-global-menu > header {
+  padding: 3px 4px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.focus-mind-map-global-menu > header strong {
+  color: #252830;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.focus-mind-map-global-menu > header small {
+  color: #8a8f99;
+  font-size: 11px;
+}
+
+.focus-mind-map-skeleton-options {
+  display: grid;
+  gap: 5px;
+}
+
+.focus-mind-map-skeleton-option {
+  width: 100%;
+  min-height: 62px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #353942;
+  display: grid;
+  grid-template-columns: 72px 1fr 18px;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.focus-mind-map-skeleton-option:hover {
+  background: #f5f6f8;
+}
+
+.focus-mind-map-skeleton-option.active {
+  border-color: #d8def5;
+  background: #f0f2fb;
+}
+
+.focus-mind-map-skeleton-option > span:nth-child(2) {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.focus-mind-map-skeleton-option strong {
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.focus-mind-map-skeleton-option small {
+  color: #8a8f99;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.focus-mind-map-skeleton-option > b {
+  color: #586ec7;
+  font-size: 12px;
+  text-align: center;
+}
+
+.focus-mind-map-skeleton-miniature {
+  position: relative;
+  width: 70px;
+  height: 42px;
+  border: 1px solid #e2e3e6;
+  border-radius: 6px;
+  background: #fbfbfa;
+  overflow: hidden;
+}
+
+.focus-mind-map-skeleton-miniature i {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+}
+
+.focus-mind-map-skeleton-miniature .root {
+  left: 7px;
+  top: 16px;
+  width: 18px;
+  height: 11px;
+  border: 1px solid #676b72;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.focus-mind-map-skeleton-miniature .trunk {
+  left: 25px;
+  top: 11px;
+  width: 12px;
+  height: 21px;
+  border-top: 1px solid #777b82;
+  border-right: 1px solid #777b82;
+  border-bottom: 1px solid #777b82;
+}
+
+.focus-mind-map-skeleton-miniature .branch {
+  left: 37px;
+  width: 12px;
+  height: 1px;
+  background: #777b82;
+}
+
+.focus-mind-map-skeleton-miniature .branch::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: -4px;
+  width: 13px;
+  height: 9px;
+  border: 1px solid #989ca3;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.focus-mind-map-skeleton-miniature .branch.one {
+  top: 11px;
+}
+
+.focus-mind-map-skeleton-miniature .branch.two {
+  top: 21px;
+}
+
+.focus-mind-map-skeleton-miniature .branch.three {
+  top: 32px;
+}
+
+.focus-mind-map-skeleton-miniature.is-balanced
+  .root {
+  left: 26px;
+}
+
+.focus-mind-map-skeleton-miniature.is-balanced
+  .trunk {
+  left: 18px;
+  width: 34px;
+  border-left: 1px solid #777b82;
+}
+
+.focus-mind-map-skeleton-miniature.is-down
+  .root {
+  left: 26px;
+  top: 5px;
+}
+
+.focus-mind-map-skeleton-miniature.is-down
+  .trunk {
+  left: 34px;
+  top: 16px;
+  width: 1px;
+  height: 11px;
+  border: 0;
+  background: #777b82;
+}
+
+.focus-mind-map-skeleton-miniature.is-down
+  .branch {
+  top: 27px;
+  left: 15px;
+  width: 39px;
+}
+
+.focus-mind-map-skeleton-miniature.is-down
+  .branch::after {
+  top: 0;
+  left: auto;
+  width: 11px;
+  height: 8px;
+}
+
+.focus-mind-map-skeleton-miniature.is-down
+  .branch.one::after {
+  left: -5px;
+}
+
+.focus-mind-map-skeleton-miniature.is-down
+  .branch.two::after {
+  left: 14px;
+}
+
+.focus-mind-map-skeleton-miniature.is-down
+  .branch.three::after {
+  right: -5px;
+}
+
+.focus-mind-map-theme-dot {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.focus-mind-map-fullscreen.is-theme-night
+  .focus-mind-map-global-trigger {
+  color: #c5cad5;
+}
+
+.focus-mind-map-fullscreen.is-theme-night
+  .focus-mind-map-global-trigger:hover {
+  color: #f2f4f8;
+  background: #303640;
+}
+
+.focus-mind-map-fullscreen.is-theme-night
+  .focus-mind-map-global-trigger.active {
+  color: #aebcff;
+  border-color: #46527a;
+  background: #303a58;
+}
+
+.focus-mind-map-fullscreen.is-theme-night
+  .focus-mind-map-global-menu {
+  border-color: #414955;
+  background: rgba(39, 44, 53, 0.98);
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.34);
+}
+
+.focus-mind-map-fullscreen.is-theme-night
+  .focus-mind-map-global-menu
+  > header
+  strong,
+.focus-mind-map-fullscreen.is-theme-night
+  .focus-mind-map-skeleton-option {
+  color: #e3e6ed;
+}
+
+.focus-mind-map-fullscreen.is-theme-night
+  .focus-mind-map-global-menu
+  > header
+  small,
+.focus-mind-map-fullscreen.is-theme-night
+  .focus-mind-map-skeleton-option
+  small {
+  color: #979eaa;
+}
+
+.focus-mind-map-fullscreen.is-theme-night
+  .focus-mind-map-skeleton-option:hover {
+  background: #303640;
+}
+
+.focus-mind-map-fullscreen.is-theme-night
+  .focus-mind-map-skeleton-option.active {
+  border-color: #46527a;
+  background: #303a58;
+}
+
+@media (max-width: 900px) {
+  .focus-mind-map-global-trigger {
+    min-width: 34px;
+    padding: 0 8px;
+  }
+
+  .focus-mind-map-global-trigger
+    .tool-label,
+  .focus-mind-map-global-trigger
+    .focus-mind-map-trigger-chevron {
+    display: none;
+  }
+
+  .focus-mind-map-global-menu {
+    width: min(310px, calc(100vw - 24px));
+  }
+}
+
+
 </style>
 
 <style scoped>

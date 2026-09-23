@@ -1,0 +1,180 @@
+/* FMM_ENHANCE_20260923_V3 · 骨架列表式选择器 */
+
+.focus-mind-map-fullscreen .focus-mind-map-global-menu.fmm-is-list {
+  display: flex;
+  width: 320px !important;
+  max-width: calc(100vw - 32px);
+  flex-direction: column;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.focus-mind-map-fullscreen .fmm-is-list > header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.fmm-skl-scroll {
+  max-height: min(460px, calc(100vh - 220px));
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.fmm-skl-group + .fmm-skl-group {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #f0f2f5;
+}
+
+.fmm-skl-group-title {
+  padding: 8px 10px 4px;
+  color: #9aa1ab;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.fmm-skl-row {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 64px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px 6px 6px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #3c434d;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.fmm-skl-row:hover {
+  background: #f4f6f9;
+}
+
+.fmm-skl-row:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(66, 99, 235, 0.28);
+}
+
+.fmm-skl-row.active {
+  background: #eef2ff;
+}
+
+.fmm-skl-thumb {
+  display: block;
+  width: 64px;
+  height: 40px;
+  overflow: hidden;
+  border: 1px solid #e3e6eb;
+  border-radius: 7px;
+  background: #fbfbfc;
+}
+
+.fmm-skl-thumb svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fmm-skl-thumb .sk-line {
+  fill: none;
+  stroke: #7b828d;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fmm-skl-thumb .sk-root {
+  fill: #fff;
+  stroke: #4a5059;
+  stroke-width: 1.1;
+}
+
+.fmm-skl-thumb .sk-leaf {
+  fill: #dfe3ea;
+}
+
+.fmm-skl-row.active .fmm-skl-thumb {
+  border-color: #b9c6f2;
+  background: #fff;
+}
+
+.fmm-skl-row.active .sk-line,
+.fmm-skl-row.active .sk-root {
+  stroke: #4263eb;
+}
+
+.fmm-skl-row.active .sk-leaf {
+  fill: #cdd7fa;
+}
+
+.fmm-skl-text {
+  min-width: 0;
+}
+
+.fmm-skl-text strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.fmm-skl-text small {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #959ca6;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fmm-skl-check {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #4263eb;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 深色专注 */
+.is-theme-night .fmm-is-list > header,
+.is-theme-night .fmm-skl-group + .fmm-skl-group {
+  border-color: #3a414c;
+}
+
+.is-theme-night .fmm-skl-row {
+  color: #d5dae3;
+}
+
+.is-theme-night .fmm-skl-row:hover {
+  background: #313844;
+}
+
+.is-theme-night .fmm-skl-row.active {
+  background: #333d57;
+}
+
+.is-theme-night .fmm-skl-thumb {
+  border-color: #474f5c;
+  background: #262b33;
+}
+
+.is-theme-night .fmm-skl-thumb .sk-root {
+  fill: #2d333d;
+  stroke: #c9cfda;
+}
+
+.is-theme-night .fmm-skl-thumb .sk-line {
+  stroke: #9aa3b1;
+}
+
+.is-theme-night .fmm-skl-thumb .sk-leaf {
+  fill: #454d5a;
+}

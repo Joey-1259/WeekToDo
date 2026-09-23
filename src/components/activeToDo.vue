@@ -19,6 +19,8 @@
         </span>
       </span>
       <i class="bi-three-dots todo-item-menu" type="button" @click="showToDoDetails"></i>
+      <!-- PATCH_20260923_V1 -->
+      <i class="bi-files todo-item-copy" title="复制事项" @click.stop="duplicateTodo"></i>
       <i class="bi-x todo-item-remove" @click="removeTodo"></i>
     </div>
 
@@ -47,6 +49,7 @@ import linkifyStr from 'linkify-string';
 import tasksHelper from "../helpers/tasksHelper";
 import defaultTaskTags from "../data/defaultTaskTags.js";
 import focusTaskService from "../services/focusTaskService.js";
+import { createId } from "../helpers/idHelper";
 import {
   clearMirrorsBySpanId,
   isSpanningTask,
@@ -204,6 +207,47 @@ export default {
 
       toast.show();
       this.hideToDoItem();
+    },
+    duplicateTodo: async function () {
+      const listId = this.activeTodo.toDoListId;
+      const list = this.$store.getters.todoLists[listId] || [];
+      const source = this.activeTodo.toDo;
+
+      let index = list.findIndex(
+        (task) => task === source || (source.id && task?.id === source.id)
+      );
+      if (index < 0) index = this.activeTodo.index;
+
+      const copy = JSON.parse(JSON.stringify(source));
+      ["_spanId", "_isSpanMirror", "_spanSourceId", "endDate"].forEach(
+        (key) => delete copy[key]
+      );
+      copy.id = createId("task");
+      copy.listId = listId;
+      copy.checked = false;
+      copy.repeatingEvent = null;
+
+      this.$store.commit("insertTodo", {
+        toDoListId: listId,
+        index: index + 1,
+        toDo: copy,
+      });
+
+      this.hideToDoItem();
+
+      try {
+        await toDoListRepository.update(
+          listId,
+          this.$store.getters.todoLists[listId]
+        );
+        notifications.refreshDayNotifications(this, listId);
+        window.dispatchEvent(new CustomEvent("weektodo:task-changed", {
+          detail: { action: "created", taskId: copy.id, listId },
+        }));
+      } catch (error) {
+        console.error(error);
+        window.alert(error?.message || "复制事项失败，请重试。");
+      }
     },
     showToDoDetails: function () {
       this.$store.commit("actionsSelectedTodoIdUpdate", {
@@ -452,6 +496,25 @@ export default {
   flex-grow: 0;
 }
 
+.todo-item-copy {
+  font-size: 0.82rem;
+  cursor: pointer;
+  margin-top: 4px;
+  margin-left: 7px;
+  color: grey;
+  height: 1rem;
+  flex-grow: 0;
+}
+
+.dark-theme .todo-item-copy {
+  color: #c9d1d9;
+}
+
+.dark-theme .todo-item-copy:hover {
+  color: white;
+}
+
+.todo-item-copy:hover,
 .todo-item-remove:hover,
 .todo-item-menu:hover {
   color: black;

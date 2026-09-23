@@ -112,6 +112,37 @@ const focusTaskService = {
     };
   },
 
+  /* PATCH_20260923_V1 */
+  async duplicateLinkedTask(documentId, { taskId, listId = null }) {
+    const task = await todoTaskRepository.duplicateTask(taskId, listId);
+    const blockId = createId("task-block");
+    const now = new Date().toISOString();
+
+    await focusDataRepository.put(FOCUS_STORES.taskLinks, {
+      id: createId("task-link"),
+      documentId,
+      taskId: task.id,
+      blockId,
+      listId: task.listId,
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    dispatchChange({ action: "created", taskId: task.id, listId: task.listId });
+
+    return {
+      blockId,
+      taskId: task.id,
+      listId: task.listId,
+      title: task.text,
+      checked: task.checked,
+      missing: false,
+      color: task.color || "none",
+      tags: Array.isArray(task.tags) ? task.tags : [],
+    };
+  },
+
   async resolveTask(taskId, listId = null) {
     const found = await todoTaskRepository.getTask(taskId, listId);
     return found?.task || null;

@@ -247,6 +247,8 @@ import focusDocumentsView from "./views/focusDocuments/FocusDocumentsView.vue";
 import todoTaskRepository from "./repositories/todoTaskRepository";
 /* FOCUS_UI_SYSTEM_20260909_V4 */
 import moduleHeader from "./components/layout/ModuleHeader.vue";
+/* PATCH_20260923_V1 */
+import installMacEditShortcuts from "./helpers/macEditShortcuts";
 
 export default {
   name: "App",
@@ -323,6 +325,7 @@ export default {
     this.ensureDefaultCustomList();
   },
   mounted() {
+    installMacEditShortcuts();
     this.focusTaskChangedHandler = (event) => {
       const listId = event?.detail?.listId;
 

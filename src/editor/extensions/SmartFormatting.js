@@ -147,6 +147,10 @@ function nextMarker(text) {
   return null;
 }
 
+/* PATCH_20260923_V1: 仅有序号、没有正文的行 */
+const MARKER_ONLY =
+  /^\s*(?:\d+(?:\.\d+)*[.．、]|[(（](?:\d+|[一二三四五六七八九十]|[A-Za-z])[)）]|\d+[)）]|[一二三四五六七八九十][、.．]|[A-Za-z][.．、)）]|[①-⑳])\s*$/;
+
 function activeTextBlock(editor) {
   return editor.isActive("heading")
     ? "heading"
@@ -283,7 +287,11 @@ export default Extension.create({
       },
 
       Enter: () => {
-        const { state } = this.editor;
+        const { state, view } = this.editor;
+
+        // 输入法组字中的回车交给系统
+        if (view.composing) return false;
+
         const { $from, empty } = state.selection;
 
         if (
@@ -297,12 +305,40 @@ export default Extension.create({
           return false;
         }
 
-        const marker = nextMarker($from.parent.textContent);
+        const text = $from.parent.textContent;
+
+        // 第二次回车（当前行只有序号）：去掉序号，保留行首空格与缩进，停在本行
+        if (MARKER_ONLY.test(text)) {
+          const lead = (text.match(/^\s*/) || [""])[0].length;
+          const start = $from.start();
+          const end = start + $from.parent.content.size;
+
+          return this.editor
+            .chain()
+            .command(({ tr }) => {
+              tr.delete(start + lead, end);
+              return true;
+            })
+            .run();
+        }
+
+        const marker = nextMarker(text);
         if (!marker) return false;
+
+        const indent = currentIndent(this.editor);
 
         return this.editor
           .chain()
           .splitBlock()
+          .command(({ tr }) => {
+            const { $from: next } = tr.selection;
+            const pos = next.before();
+            const node = tr.doc.nodeAt(pos);
+            if (node && "indent" in node.attrs) {
+              tr.setNodeMarkup(pos, undefined, { ...node.attrs, indent });
+            }
+            return true;
+          })
           .insertContent(marker)
           .run();
       },

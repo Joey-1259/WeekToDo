@@ -316,6 +316,8 @@ import FocusMindMap from "../../editor/extensions/FocusMindMap";
 /* FOCUS_MIND_MAP_PRODUCT_20260920_V1 */
 import focusAssetRepository from "../../repositories/focusAssetRepository";
 import SmartFormatting from "../../editor/extensions/SmartFormatting";
+/* PATCH_20260923_V1 */
+import MacKeymap from "../../editor/extensions/MacKeymap";
 import { createSlashCommandItems } from "../../editor/slashCommandItems";
 import focusTaskService from "../../services/focusTaskService";
 
@@ -520,6 +522,7 @@ export default {
         Color,
         FontSize,
         SmartFormatting,
+        MacKeymap.configure({ onLink: () => this.editLink() }),
         FormatPainter.configure({
           onChange: (sample) => {
             this.formatSample = sample;
@@ -683,6 +686,10 @@ export default {
       this.onTaskUnlink
     );
     window.addEventListener(
+      "focus-task-duplicate",
+      this.onTaskDuplicate
+    );
+    window.addEventListener(
       "weektodo:task-changed",
       this.onTaskChanged
     );
@@ -715,6 +722,10 @@ export default {
     window.removeEventListener(
       "focus-task-unlink",
       this.onTaskUnlink
+    );
+    window.removeEventListener(
+      "focus-task-duplicate",
+      this.onTaskDuplicate
     );
     window.removeEventListener(
       "weektodo:task-changed",
@@ -1299,6 +1310,36 @@ export default {
         );
       }
     },
+    /* PATCH_20260923_V1: 复制关联事项，副本插在原卡片正下方 */
+    async onTaskDuplicate(event) {
+      const detail = this.normalizeTaskEvent(event);
+      if (!detail?.taskId || !this.editor) return;
+
+      const { pos, nodeSize, ...attrs } = detail;
+
+      try {
+        const created = await focusTaskService.duplicateLinkedTask(
+          this.documentId,
+          attrs
+        );
+
+        const content = { type: "linkedTask", attrs: created };
+        const at =
+          Number.isInteger(pos) && Number.isInteger(nodeSize)
+            ? pos + nodeSize
+            : null;
+
+        if (at !== null && at <= this.editor.state.doc.content.size) {
+          this.editor.chain().insertContentAt(at, content).run();
+        } else {
+          this.editor.chain().focus().insertContent(content).run();
+        }
+      } catch (error) {
+        console.error(error);
+        window.alert(error?.message || "复制事项失败，请重试。");
+      }
+    },
+
     removeTaskNodes(taskId) {
       if (!this.editor || !taskId) return;
 

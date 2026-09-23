@@ -292,17 +292,7 @@
                     )
                   "
                 >
-                  <span
-                    class="focus-mind-map-skeleton-miniature"
-                    :class="`is-${skeleton.preview}`"
-                    aria-hidden="true"
-                  >
-                    <i class="root"></i>
-                    <i class="trunk"></i>
-                    <i class="branch one"></i>
-                    <i class="branch two"></i>
-                    <i class="branch three"></i>
-                  </span>
+                  <span class="focus-mind-map-skeleton-miniature is-svg" aria-hidden="true" v-html="skeleton.svg"></span>
 
                   <span>
                     <strong>
@@ -833,43 +823,89 @@ function getTheme(themeId) {
 }
 
 
+/* PATCH_20260923_V1: SVG 缩略图，坐标精确对齐，无旋转偏移 */
+const SK_LINE =
+  'fill="none" stroke="#7a808a" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"';
+
+const skRoot = (x, y, w = 14, h = 8) =>
+  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="#fff" stroke="#4a4f57" stroke-width="1.2"/>`;
+
+const skLeaf = (x, y, w = 14, h = 5) =>
+  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="#dfe3ea"/>`;
+
+function skeletonSvg(kind, compact = false) {
+  let body = "";
+  const [side, style] = kind.split("-");
+
+  if (side === "right" || side === "left") {
+    const ys = compact ? [13, 20, 27] : [8, 20, 32];
+    const d = ys.map((y) =>
+      style === "bracket"
+        ? `M28 ${y} H40`
+        : style === "curve"
+          ? `M18 20 C29 20 29 ${y} 40 ${y}`
+          : `M18 20 L40 ${y}`
+    );
+    if (style === "bracket") d.unshift(`M18 20 H28 M28 ${ys[0]} V${ys[2]}`);
+
+    body =
+      `<path ${SK_LINE} d="${d.join(" ")}"/>` +
+      skRoot(4, 16) +
+      ys.map((y) => skLeaf(40, y - 2.5, 18)).join("");
+
+    if (side === "left") {
+      body = `<g transform="translate(64 0) scale(-1 1)">${body}</g>`;
+    }
+  } else if (side === "side") {
+    const ys = compact ? [15, 25] : [10, 30];
+    const d = [];
+
+    if (style === "bracket") {
+      d.push(`M39 20 H43.5 M43.5 ${ys[0]} V${ys[1]}`);
+      d.push(`M25 20 H20.5 M20.5 ${ys[0]} V${ys[1]}`);
+      ys.forEach((y) => d.push(`M43.5 ${y} H48 M20.5 ${y} H16`));
+    } else {
+      ys.forEach((y) =>
+        d.push(`M39 20 C44 20 44 ${y} 48 ${y} M25 20 C20 20 20 ${y} 16 ${y}`)
+      );
+    }
+
+    body =
+      `<path ${SK_LINE} d="${d.join(" ")}"/>` +
+      skRoot(25, 16) +
+      ys.map((y) => skLeaf(48, y - 2.5, 13) + skLeaf(3, y - 2.5, 13)).join("");
+  } else {
+    const xs = compact ? [16, 32, 48] : [10, 32, 54];
+    const d = [`M32 12 V19 M${xs[0]} 19 H${xs[2]}`]
+      .concat(xs.map((x) => `M${x} 19 V27`));
+
+    body =
+      `<path ${SK_LINE} d="${d.join(" ")}"/>` +
+      skRoot(25, 4) +
+      xs.map((x) => skLeaf(x - 6, 27, 12, 6)).join("");
+  }
+
+  return `<svg viewBox="0 0 64 40" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+}
+
+const sk = (id, label, description, direction, lineStyle, kind, compact = false) => ({
+  id, label, description, direction, lineStyle, compact,
+  preview: kind,
+  svg: skeletonSvg(kind, compact),
+});
+
 const MIND_MAP_SKELETONS = Object.freeze([
-  {
-    id: "right-logic",
-    label: "右向逻辑图",
-    description: "从左到右展开，直角括号连接",
-    direction: MindElixir.RIGHT,
-    compact: false,
-    lineStyle: "bracket",
-    preview: "right",
-  },
-  {
-    id: "right-compact",
-    label: "紧凑逻辑图",
-    description: "右向直角结构，减少节点间距",
-    direction: MindElixir.RIGHT,
-    compact: true,
-    lineStyle: "bracket",
-    preview: "right",
-  },
-  {
-    id: "balanced-map",
-    label: "双向思维图",
-    description: "围绕中心主题向左右发散",
-    direction: MindElixir.SIDE,
-    compact: false,
-    lineStyle: "rounded",
-    preview: "balanced",
-  },
-  {
-    id: "org-down",
-    label: "向下组织图",
-    description: "自上而下展示层级与组织关系",
-    direction: MindElixir.DOWN,
-    compact: false,
-    lineStyle: "bracket",
-    preview: "down",
-  },
+  sk("right-logic", "右向逻辑图", "从左到右展开，直角括号连接", MindElixir.RIGHT, "bracket", "right-bracket"),
+  sk("right-compact", "紧凑逻辑图", "右向直角结构，减少节点间距", MindElixir.RIGHT, "bracket", "right-bracket", true),
+  sk("right-curve", "右向曲线图", "柔和曲线，适合头脑风暴", MindElixir.RIGHT, "rounded", "right-curve"),
+  sk("right-tree", "右向树状图", "直线放射，层级一目了然", MindElixir.RIGHT, "straight", "right-straight"),
+  sk("left-logic", "左向逻辑图", "从右到左展开，适合倒推目标", MindElixir.LEFT, "bracket", "left-bracket"),
+  sk("left-curve", "左向曲线图", "向左发散的柔和曲线", MindElixir.LEFT, "rounded", "left-curve"),
+  sk("balanced-map", "双向思维图", "围绕中心主题向左右发散", MindElixir.SIDE, "rounded", "side-curve"),
+  sk("balanced-bracket", "双向括号图", "左右对称的直角结构", MindElixir.SIDE, "bracket", "side-bracket"),
+  sk("balanced-compact", "紧凑双向图", "双向发散，适合大型脑图", MindElixir.SIDE, "rounded", "side-curve", true),
+  sk("org-down", "向下组织图", "自上而下展示层级与组织关系", MindElixir.DOWN, "bracket", "down-bracket"),
+  sk("org-down-compact", "紧凑组织图", "向下结构，节点更密集", MindElixir.DOWN, "bracket", "down-bracket", true),
 ]);
 
 function getSkeleton(id) {
@@ -1061,6 +1097,25 @@ function generateVerticalSubBracket({
  * 让 Mind Elixir 使用自身配套的主/子分支算法，
  * 避免自定义曲线与运行时布局模型不一致。
  */
+/* PATCH_20260923_V1: 直线骨架 */
+function generateHorizontalMainStraight({ pT, pL, pW, pH, cT, cL, cW, cH, direction }) {
+  const left = direction === "lhs";
+  const x1 = left ? pL : pL + pW;
+  const x2 = left ? cL + cW : cL;
+  return `M ${x1} ${pT + pH / 2} L ${x2} ${cT + cH / 2}`;
+}
+
+function generateHorizontalSubStraight({ pT, pL, pW, pH, cT, cL, cW, cH, direction, isFirst }) {
+  const GAP = 30;
+  const left = direction === "lhs";
+  const y1 = isFirst ? pT + pH / 2 : pT + pH;
+  const y2 = cT + cH;
+  const x1 = left ? pL + GAP : pL + pW - GAP;
+  const xm = left ? cL + cW : cL;
+  const x2 = left ? cL : cL + cW;
+  return `M ${x1} ${y1} L ${xm} ${y2} H ${x2}`;
+}
+
 function getBranchGenerators(
   skeletonId
 ) {
@@ -1069,6 +1124,13 @@ function getBranchGenerators(
 
   if (skeleton.lineStyle === "rounded") {
     return {};
+  }
+
+  if (skeleton.lineStyle === "straight") {
+    return {
+      generateMainBranch: generateHorizontalMainStraight,
+      generateSubBranch: generateHorizontalSubStraight,
+    };
   }
 
   if (
@@ -4281,4 +4343,36 @@ body.focus-mind-map-is-open {
   }
 }
 
+</style>
+
+<style>
+/* PATCH_20260923_V1: 骨架缩略图与菜单 */
+.focus-mind-map-skeleton-miniature.is-svg {
+  position: relative;
+  display: block;
+  width: 64px;
+  height: 40px;
+  flex: 0 0 64px;
+  overflow: hidden;
+  border: 1px solid #e0e3e8;
+  border-radius: 7px;
+  background: #fbfbfa;
+}
+
+.focus-mind-map-skeleton-miniature.is-svg svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.focus-mind-map-skeleton-option.active .focus-mind-map-skeleton-miniature.is-svg {
+  border-color: #b9c4ec;
+  background: #f5f7fe;
+}
+
+.focus-mind-map-skeleton-options {
+  max-height: min(62vh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 </style>

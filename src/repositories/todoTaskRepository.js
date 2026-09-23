@@ -284,6 +284,29 @@ const todoTaskRepository = {
     );
   },
 
+  /* PATCH_20260923_V1: 在原事项正下方插入副本 */
+  async duplicateTask(taskId, listHint = null) {
+    const found = await this.getTask(taskId, listHint);
+
+    if (!found) {
+      throw new Error("事项不存在或已被删除");
+    }
+
+    const copy = clone(found.task);
+    ["_spanId", "_isSpanMirror", "_spanSourceId", "endDate"].forEach(
+      (key) => delete copy[key]
+    );
+
+    const task = normalizeTask(
+      { ...copy, id: createId("task"), checked: false, repeatingEvent: null },
+      found.listId
+    );
+
+    found.list.splice(found.index + 1, 0, task);
+    await writeList(found.listId, found.list);
+    return task;
+  },
+
   async deleteTask(taskId, listHint = null) {
     const found = await this.getTask(taskId, listHint);
     if (!found) return false;

@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  Menu,
   dialog,
   ipcMain,
   net,
@@ -747,6 +748,41 @@ function registerIpcHandlers() {
   );
 }
 
+/*
+ * PATCH_20260923_V1
+ * macOS 默认菜单会把 ⌘Z 注册为全局加速键，抢在页面之前执行原生 undo，
+ * 绕过 ProseMirror 历史栈。这里改为：撤销/重做只显示快捷键，不注册，
+ * 按键交给页面处理；剪切/拷贝/粘贴/全选仍用系统原生行为。
+ */
+function installApplicationMenu() {
+  if (process.platform !== "darwin") return;
+
+  const template = [
+    { role: "appMenu" },
+    {
+      label: "编辑",
+      submenu: [
+        { role: "undo", label: "撤销", registerAccelerator: false },
+        { role: "redo", label: "重做", registerAccelerator: false },
+        { type: "separator" },
+        { role: "cut", label: "剪切" },
+        { role: "copy", label: "拷贝" },
+        { role: "paste", label: "粘贴" },
+        {
+          role: "pasteAndMatchStyle",
+          label: "粘贴并匹配样式",
+          registerAccelerator: false,
+        },
+        { role: "selectAll", label: "全选" },
+      ],
+    },
+    { role: "viewMenu" },
+    { role: "windowMenu" },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 async function createWindow() {
   if (
     mainWindow &&
@@ -1076,6 +1112,8 @@ if (!gotSingleInstanceLock) {
       if (!isDevelopment()) {
         registerProductionProtocol();
       }
+
+      installApplicationMenu();
 
       await createWindow();
 

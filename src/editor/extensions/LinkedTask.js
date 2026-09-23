@@ -5,6 +5,8 @@ import {
 
 import focusTaskService from
   "../../services/focusTaskService";
+/* PATCH_20260923_V2 */
+import "./linkedTaskActions.css"; // PATCH_20260923_V2
 
 /**
  * 关联事项节点交互：
@@ -216,58 +218,30 @@ export default Node.create({
             ></span>
           </div>
 
-          <button
-            class="
-              linked-task-jump
-              linked-task-more
-            "
-            type="button"
-            title="打开事项详情"
-            aria-label="打开事项详情"
-          >
-            <svg
-              viewBox="0 0 18 18"
-              aria-hidden="true"
-            >
-              <circle
-                cx="4"
-                cy="9"
-                r="1.3"
-              />
-              <circle
-                cx="9"
-                cy="9"
-                r="1.3"
-              />
-              <circle
-                cx="14"
-                cy="9"
-                r="1.3"
-              />
-            </svg>
-          </button>
-
-          <!-- PATCH_20260923_V1 -->
-          <button
-            class="linked-task-copy"
-            type="button"
-            title="复制事项"
-            aria-label="复制事项"
-          >
-            <svg viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round">
-              <rect x="6" y="6" width="8.5" height="8.5" rx="1.8"/>
-              <path d="M11.5 3.5H5.3A1.8 1.8 0 0 0 3.5 5.3v6.2"/>
-            </svg>
-          </button>
-
-          <button
-            class="linked-task-unlink\"
-            type="button"
-            title="删除事项"
-            aria-label="删除事项"
-          >
-            ×
-          </button>
+          <span class="linked-task-actions">
+            <button
+              class="linked-task-jump linked-task-more"
+              type="button"
+              title="打开事项详情"
+              aria-label="打开事项详情"
+            ><i class="bi-three-dots" aria-hidden="true"></i></button>
+            ${
+              attrs.missing
+                ? ""
+                : `<button
+              class="linked-task-copy"
+              type="button"
+              title="复制事项"
+              aria-label="复制事项"
+            ><i class="bi-files" aria-hidden="true"></i></button>`
+            }
+            <button
+              class="linked-task-unlink"
+              type="button"
+              title="删除事项"
+              aria-label="删除事项"
+            ><i class="bi-x" aria-hidden="true"></i></button>
+          </span>
         `;
 
         const title =

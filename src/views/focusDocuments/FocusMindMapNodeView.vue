@@ -275,43 +275,49 @@
                 </small>
               </header>
 
-              <div class="focus-mind-map-skeleton-options">
-                <button
-                  v-for="skeleton in skeletonChoices"
-                  :key="skeleton.id"
-                  type="button"
-                  class="focus-mind-map-skeleton-option"
-                  :class="{
-                    active:
-                      activeSkeletonId
-                      === skeleton.id,
-                  }"
-                  @click="
-                    applyStableSkeleton(
-                      skeleton.id
-                    )
-                  "
-                >
-                  <span class="focus-mind-map-skeleton-miniature is-svg" aria-hidden="true" v-html="skeleton.svg"></span>
-
-                  <span>
-                    <strong>
-                      {{ skeleton.label }}
-                    </strong>
-                    <small>
-                      {{ skeleton.description }}
-                    </small>
-                  </span>
-
-                  <b
-                    v-if="
-                      activeSkeletonId
-                      === skeleton.id
-                    "
+              <div
+                class="fmm-sk-panel"
+                @mouseleave="skeletonHoverId = ''"
+              >
+                <div class="fmm-sk-scroll">
+                  <section
+                    v-for="group in skeletonGroups"
+                    :key="group.id"
+                    class="fmm-sk-group"
                   >
-                    ✓
-                  </b>
-                </button>
+                    <div class="fmm-sk-group-title">
+                      {{ group.label }}
+                    </div>
+
+                    <div class="fmm-sk-grid">
+                      <button
+                        v-for="skeleton in group.items"
+                        :key="skeleton.id"
+                        type="button"
+                        class="fmm-sk-card"
+                        :class="{ active: activeSkeletonId === skeleton.id }"
+                        :title="skeleton.description"
+                        :aria-pressed="String(activeSkeletonId === skeleton.id)"
+                        @mouseenter="skeletonHoverId = skeleton.id"
+                        @focus="skeletonHoverId = skeleton.id"
+                        @click="applyStableSkeleton(skeleton.id)"
+                      >
+                        <span
+                          class="fmm-sk-thumb"
+                          aria-hidden="true"
+                          v-html="skeleton.svg"
+                        ></span>
+                        <span class="fmm-sk-label">
+                          {{ skeleton.label }}
+                        </span>
+                      </button>
+                    </div>
+                  </section>
+                </div>
+
+                <footer class="fmm-sk-hint">
+                  {{ skeletonHint }}
+                </footer>
               </div>
             </section>
           </div>
@@ -823,89 +829,93 @@ function getTheme(themeId) {
 }
 
 
-/* PATCH_20260923_V1: SVG 缩略图，坐标精确对齐，无旋转偏移 */
-const SK_LINE =
-  'fill="none" stroke="#7a808a" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"';
-
+/* PATCH_20260923_V2: 骨架缩略图（64×40 坐标系，线条随卡片状态着色） */
 const skRoot = (x, y, w = 14, h = 8) =>
-  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="#fff" stroke="#4a4f57" stroke-width="1.2"/>`;
-
-const skLeaf = (x, y, w = 14, h = 5) =>
-  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="#dfe3ea"/>`;
+  `<rect class="sk-root" x="${x}" y="${y}" width="${w}" height="${h}" rx="2"/>`;
+const skLeaf = (x, y, w, h = 5) =>
+  `<rect class="sk-leaf" x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5"/>`;
+const skPath = (d) => `<path class="sk-line" d="${d}"/>`;
 
 function skeletonSvg(kind, compact = false) {
-  let body = "";
   const [side, style] = kind.split("-");
+  let body = "";
 
   if (side === "right" || side === "left") {
     const ys = compact ? [13, 20, 27] : [8, 20, 32];
-    const d = ys.map((y) =>
-      style === "bracket"
-        ? `M28 ${y} H40`
-        : style === "curve"
-          ? `M18 20 C29 20 29 ${y} 40 ${y}`
-          : `M18 20 L40 ${y}`
-    );
-    if (style === "bracket") d.unshift(`M18 20 H28 M28 ${ys[0]} V${ys[2]}`);
-
-    body =
-      `<path ${SK_LINE} d="${d.join(" ")}"/>` +
-      skRoot(4, 16) +
+    let d;
+    if (style === "bracket") {
+      d = `M18 20 H28 M28 ${ys[0]} V${ys[2]} ` +
+        ys.map((y) => `M28 ${y} H40`).join(" ");
+    } else if (style === "curve") {
+      d = ys.map((y) => `M18 20 C29 20 29 ${y} 40 ${y}`).join(" ");
+    } else {
+      d = ys.map((y) => `M18 20 L40 ${y}`).join(" ");
+    }
+    body = skPath(d) + skRoot(4, 16) +
       ys.map((y) => skLeaf(40, y - 2.5, 18)).join("");
-
     if (side === "left") {
-      body = `<g transform="translate(64 0) scale(-1 1)">${body}</g>`;
+      body = `<g transform="matrix(-1 0 0 1 64 0)">${body}</g>`;
     }
   } else if (side === "side") {
     const ys = compact ? [15, 25] : [10, 30];
-    const d = [];
-
+    let d;
     if (style === "bracket") {
-      d.push(`M39 20 H43.5 M43.5 ${ys[0]} V${ys[1]}`);
-      d.push(`M25 20 H20.5 M20.5 ${ys[0]} V${ys[1]}`);
-      ys.forEach((y) => d.push(`M43.5 ${y} H48 M20.5 ${y} H16`));
+      d = `M39 20 H43.5 M43.5 ${ys[0]} V${ys[1]} ` +
+        `M25 20 H20.5 M20.5 ${ys[0]} V${ys[1]} ` +
+        ys.map((y) => `M43.5 ${y} H48 M20.5 ${y} H16`).join(" ");
     } else {
-      ys.forEach((y) =>
-        d.push(`M39 20 C44 20 44 ${y} 48 ${y} M25 20 C20 20 20 ${y} 16 ${y}`)
-      );
+      d = ys.map((y) =>
+        `M39 20 C44 20 44 ${y} 48 ${y} M25 20 C20 20 20 ${y} 16 ${y}`
+      ).join(" ");
     }
-
-    body =
-      `<path ${SK_LINE} d="${d.join(" ")}"/>` +
-      skRoot(25, 16) +
+    body = skPath(d) + skRoot(25, 16) +
       ys.map((y) => skLeaf(48, y - 2.5, 13) + skLeaf(3, y - 2.5, 13)).join("");
   } else {
-    const xs = compact ? [16, 32, 48] : [10, 32, 54];
-    const d = [`M32 12 V19 M${xs[0]} 19 H${xs[2]}`]
-      .concat(xs.map((x) => `M${x} 19 V27`));
-
-    body =
-      `<path ${SK_LINE} d="${d.join(" ")}"/>` +
-      skRoot(25, 4) +
+    const xs = compact ? [18, 32, 46] : [10, 32, 54];
+    let d;
+    if (style === "bracket") {
+      d = `M32 12 V19 M${xs[0]} 19 H${xs[2]} ` +
+        xs.map((x) => `M${x} 19 V27`).join(" ");
+    } else {
+      d = xs.map((x) => {
+        if (x === 32) return "M32 12 V27";
+        const dir = x > 32 ? 1 : -1;
+        return `M32 12 V16 Q32 19.5 ${32 + dir * 3.5} 19.5 ` +
+          `H${x - dir * 3.5} Q${x} 19.5 ${x} 23 V27`;
+      }).join(" ");
+    }
+    body = skPath(d) + skRoot(25, 4) +
       xs.map((x) => skLeaf(x - 6, 27, 12, 6)).join("");
   }
 
   return `<svg viewBox="0 0 64 40" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
 }
 
-const sk = (id, label, description, direction, lineStyle, kind, compact = false) => ({
-  id, label, description, direction, lineStyle, compact,
+const SKELETON_GROUPS = Object.freeze([
+  { id: "logic", label: "逻辑图" },
+  { id: "mind", label: "思维导图" },
+  { id: "org", label: "组织结构图" },
+]);
+
+const sk = (group, id, label, description, direction, lineStyle, kind, compact = false) => ({
+  group, id, label, description, direction, lineStyle, compact,
   preview: kind,
   svg: skeletonSvg(kind, compact),
 });
 
 const MIND_MAP_SKELETONS = Object.freeze([
-  sk("right-logic", "右向逻辑图", "从左到右展开，直角括号连接", MindElixir.RIGHT, "bracket", "right-bracket"),
-  sk("right-compact", "紧凑逻辑图", "右向直角结构，减少节点间距", MindElixir.RIGHT, "bracket", "right-bracket", true),
-  sk("right-curve", "右向曲线图", "柔和曲线，适合头脑风暴", MindElixir.RIGHT, "rounded", "right-curve"),
-  sk("right-tree", "右向树状图", "直线放射，层级一目了然", MindElixir.RIGHT, "straight", "right-straight"),
-  sk("left-logic", "左向逻辑图", "从右到左展开，适合倒推目标", MindElixir.LEFT, "bracket", "left-bracket"),
-  sk("left-curve", "左向曲线图", "向左发散的柔和曲线", MindElixir.LEFT, "rounded", "left-curve"),
-  sk("balanced-map", "双向思维图", "围绕中心主题向左右发散", MindElixir.SIDE, "rounded", "side-curve"),
-  sk("balanced-bracket", "双向括号图", "左右对称的直角结构", MindElixir.SIDE, "bracket", "side-bracket"),
-  sk("balanced-compact", "紧凑双向图", "双向发散，适合大型脑图", MindElixir.SIDE, "rounded", "side-curve", true),
-  sk("org-down", "向下组织图", "自上而下展示层级与组织关系", MindElixir.DOWN, "bracket", "down-bracket"),
-  sk("org-down-compact", "紧凑组织图", "向下结构，节点更密集", MindElixir.DOWN, "bracket", "down-bracket", true),
+  sk("logic", "right-logic", "右向逻辑图", "从左到右展开，直角折线连接", MindElixir.RIGHT, "bracket", "right-bracket"),
+  sk("logic", "right-compact", "紧凑逻辑图", "右向直角结构，节点更密集", MindElixir.RIGHT, "bracket", "right-bracket", true),
+  sk("logic", "right-curve", "右向曲线图", "柔和曲线，适合头脑风暴", MindElixir.RIGHT, "rounded", "right-curve"),
+  sk("logic", "right-tree", "右向直线图", "直线放射，层级一目了然", MindElixir.RIGHT, "straight", "right-straight"),
+  sk("logic", "left-logic", "左向逻辑图", "从右到左展开，适合倒推目标", MindElixir.LEFT, "bracket", "left-bracket"),
+  sk("logic", "left-curve", "左向曲线图", "向左发散的柔和曲线", MindElixir.LEFT, "rounded", "left-curve"),
+  sk("mind", "balanced-map", "双向思维图", "围绕中心主题向左右发散", MindElixir.SIDE, "rounded", "side-curve"),
+  sk("mind", "balanced-bracket", "双向直角图", "左右对称的直角折线结构", MindElixir.SIDE, "bracket", "side-bracket"),
+  sk("mind", "balanced-compact", "紧凑双向图", "双向发散，适合大型脑图", MindElixir.SIDE, "rounded", "side-curve", true),
+  sk("org", "org-down", "向下组织图", "自上而下，直角连线", MindElixir.DOWN, "bracket", "down-bracket"),
+  sk("org", "org-down-rounded", "圆角组织图", "自上而下，圆角折线更柔和", MindElixir.DOWN, "rounded", "down-rounded"),
+  sk("org", "org-down-compact", "紧凑组织图", "向下直角结构，节点更密集", MindElixir.DOWN, "bracket", "down-bracket", true),
 ]);
 
 function getSkeleton(id) {
@@ -936,168 +946,44 @@ function resolveSkeletonId(data) {
  * 不能复用同一个 center-to-center 生成器，否则新增节点、
  * 字号变化或紧凑模式重排后会出现路径悬空和末端错位。
  */
-function generateHorizontalMainBracket({
-  pT,
-  pL,
-  pW,
-  pH,
-  cT,
-  cL,
-  cW,
-  cH,
-  direction,
-}) {
-  const leftFacing =
-    direction === "lhs";
+/* PATCH_20260923_V2
+ * 与 mind-elixir 5.15.1 utils/generateBranch.ts 同一坐标模型：
+ * - 主分支：cL/cT 为一级节点 tpc 本身
+ * - 子分支：pL/cL 为 me-parent（左右各含 --node-gap-x 内边距）
+ *   → 父文字右缘 = pL + pW - GAP；子文字左缘 = cL + GAP；中缝 = cL
+ */
+function readGapX(mind) {
+  const value = parseInt(
+    mind?.container?.style?.getPropertyValue("--node-gap-x"),
+    10
+  );
+  return Number.isFinite(value) ? value : 30;
+}
 
-  const x1 =
-    leftFacing
-      ? pL
-      : pL + pW;
-
-  const x2 =
-    leftFacing
-      ? cL + cW
-      : cL;
-
+function generateHorizontalMainBracket({ pT, pL, pW, pH, cT, cL, cW, cH, direction }) {
+  const left = direction === "lhs";
+  const x1 = left ? pL : pL + pW;
+  const x2 = left ? cL + cW : cL;
   const y1 = pT + pH / 2;
   const y2 = cT + cH / 2;
+  const reach = Math.max(12, Math.min(40, Math.abs(x2 - x1) * 0.45));
+  const elbow = left ? x1 - reach : x1 + reach;
 
-  const distance =
-    Math.max(1, Math.abs(x2 - x1));
-
-  const elbowDistance =
-    Math.max(
-      20,
-      Math.min(48, distance * 0.46)
-    );
-
-  const elbowX =
-    leftFacing
-      ? x1 - elbowDistance
-      : x1 + elbowDistance;
-
-  return [
-    `M ${x1} ${y1}`,
-    `H ${elbowX}`,
-    `V ${y2}`,
-    `H ${x2}`,
-  ].join(" ");
+  if (Math.abs(y2 - y1) < 0.5) return `M ${x1} ${y1} H ${x2}`;
+  return `M ${x1} ${y1} H ${elbow} V ${y2} H ${x2}`;
 }
 
-function generateHorizontalSubBracket({
-  pT,
-  pL,
-  pW,
-  pH,
-  cT,
-  cL,
-  cW,
-  cH,
-  direction,
-  isFirst,
-}) {
-  const GAP = 30;
-  const leftFacing =
-    direction === "lhs";
-
-  /*
-   * 与 Mind Elixir 官方 sub-branch 几何模型一致：
-   * 非一级子分支从父节点底边开始，子节点分支落在底边。
-   */
-  const y1 =
-    isFirst
-      ? pT + pH / 2
-      : pT + pH;
-
+function generateHorizontalSubBracket({ pT, pL, pW, pH, cT, cL, cW, cH, direction, isFirst }) {
+  const GAP = readGapX(this);
+  const y1 = isFirst ? pT + pH / 2 : pT + pH;
   const y2 = cT + cH;
 
-  const x1 =
-    leftFacing
-      ? pL + GAP
-      : pL + pW - GAP;
-
-  const elbowX =
-    leftFacing
-      ? cL + cW
-      : cL;
-
-  const x2 =
-    leftFacing
-      ? cL
-      : cL + cW;
-
-  return [
-    `M ${x1} ${y1}`,
-    `H ${elbowX}`,
-    `V ${y2}`,
-    `H ${x2}`,
-  ].join(" ");
+  if (direction === "lhs") {
+    return `M ${pL + GAP} ${y1} H ${cL + cW} V ${y2} H ${cL + GAP}`;
+  }
+  return `M ${pL + pW - GAP} ${y1} H ${cL} V ${y2} H ${cL + cW - GAP}`;
 }
 
-function generateVerticalMainBracket({
-  pT,
-  pL,
-  pW,
-  pH,
-  cT,
-  cL,
-  cW,
-}) {
-  const x1 = pL + pW / 2;
-  const y1 = pT + pH;
-  const x2 = cL + cW / 2;
-  const y2 = cT;
-
-  const distance =
-    Math.max(1, Math.abs(y2 - y1));
-
-  const elbowY =
-    y1
-    + Math.max(
-        20,
-        Math.min(48, distance * 0.46)
-      );
-
-  return [
-    `M ${x1} ${y1}`,
-    `V ${elbowY}`,
-    `H ${x2}`,
-    `V ${y2}`,
-  ].join(" ");
-}
-
-function generateVerticalSubBracket({
-  pT,
-  pL,
-  pW,
-  pH,
-  cT,
-  cL,
-  cW,
-}) {
-  const x1 = pL + pW / 2;
-  const y1 = pT + pH;
-  const x2 = cL + cW / 2;
-  const y2 = cT;
-
-  const middleY =
-    y1 + (y2 - y1) / 2;
-
-  return [
-    `M ${x1} ${y1}`,
-    `V ${middleY}`,
-    `H ${x2}`,
-    `V ${y2}`,
-  ].join(" ");
-}
-
-/*
- * 圆弧骨架不传入自定义生成器。
- * 让 Mind Elixir 使用自身配套的主/子分支算法，
- * 避免自定义曲线与运行时布局模型不一致。
- */
-/* PATCH_20260923_V1: 直线骨架 */
 function generateHorizontalMainStraight({ pT, pL, pW, pH, cT, cL, cW, cH, direction }) {
   const left = direction === "lhs";
   const x1 = left ? pL : pL + pW;
@@ -1106,24 +992,41 @@ function generateHorizontalMainStraight({ pT, pL, pW, pH, cT, cL, cW, cH, direct
 }
 
 function generateHorizontalSubStraight({ pT, pL, pW, pH, cT, cL, cW, cH, direction, isFirst }) {
-  const GAP = 30;
-  const left = direction === "lhs";
+  const GAP = readGapX(this);
   const y1 = isFirst ? pT + pH / 2 : pT + pH;
   const y2 = cT + cH;
-  const x1 = left ? pL + GAP : pL + pW - GAP;
-  const xm = left ? cL + cW : cL;
-  const x2 = left ? cL : cL + cW;
-  return `M ${x1} ${y1} L ${xm} ${y2} H ${x2}`;
+
+  if (direction === "lhs") {
+    return `M ${pL + GAP} ${y1} L ${cL + cW - GAP} ${y2} H ${cL + GAP}`;
+  }
+  return `M ${pL + pW - GAP} ${y1} L ${cL + GAP} ${y2} H ${cL + cW - GAP}`;
 }
 
-function getBranchGenerators(
-  skeletonId
-) {
-  const skeleton =
-    getSkeleton(skeletonId);
+function generateVerticalBracket({ pT, pL, pW, pH, cT, cL, cW }) {
+  const x1 = pL + pW / 2;
+  const y1 = pT + pH;
+  const x2 = cL + cW / 2;
+  const y2 = cT;
 
-  if (skeleton.lineStyle === "rounded") {
-    return {};
+  if (Math.abs(x2 - x1) < 0.5) return `M ${x1} ${y1} V ${y2}`;
+  const mid = (y1 + y2) / 2;
+  return `M ${x1} ${y1} V ${mid} H ${x2} V ${y2}`;
+}
+
+const generateVerticalMainBracket = generateVerticalBracket;
+const generateVerticalSubBracket = generateVerticalBracket;
+
+/* rounded 骨架返回空对象 → 使用引擎原生曲线 / 圆角折线 */
+function getBranchGenerators(skeletonId) {
+  const skeleton = getSkeleton(skeletonId);
+
+  if (skeleton.lineStyle === "rounded") return {};
+
+  if (skeleton.direction === MindElixir.DOWN) {
+    return {
+      generateMainBranch: generateVerticalMainBracket,
+      generateSubBranch: generateVerticalSubBracket,
+    };
   }
 
   if (skeleton.lineStyle === "straight") {
@@ -1133,24 +1036,33 @@ function getBranchGenerators(
     };
   }
 
-  if (
-    skeleton.direction
-    === MindElixir.DOWN
-  ) {
-    return {
-      generateMainBranch:
-        generateVerticalMainBracket,
-      generateSubBranch:
-        generateVerticalSubBracket,
-    };
-  }
-
   return {
-    generateMainBranch:
-      generateHorizontalMainBracket,
-    generateSubBranch:
-      generateHorizontalSubBracket,
+    generateMainBranch: generateHorizontalMainBracket,
+    generateSubBranch: generateHorizontalSubBracket,
   };
+}
+
+/*
+ * 关键修复：mind-elixir 的 init() → changeTheme() 会执行
+ *   this.generateMainBranch = theme.generateMainBranch || main
+ * 构造参数里的生成器会被默认曲线覆盖（右向逻辑图显示为曲线的根因）。
+ * 这里接管实例的 changeTheme，把骨架生成器写进 theme，
+ * 初始化、切换配色、切换紧凑都不会再丢失。
+ */
+function bindSkeletonBranches(mind, skeletonId) {
+  const generators = getBranchGenerators(skeletonId);
+  const baseChangeTheme = mind.changeTheme;
+
+  mind.changeTheme = function (theme, shouldRefresh = true) {
+    const nextTheme = { ...(theme || {}) };
+    delete nextTheme.generateMainBranch;
+    delete nextTheme.generateSubBranch;
+    Object.assign(nextTheme, generators);
+    return baseChangeTheme.call(this, nextTheme, shouldRefresh);
+  };
+
+  Object.assign(mind, generators);
+  return mind;
 }
 
 /*
@@ -1221,10 +1133,8 @@ function canonicalizeSkeletonData(
   }
 
   data.direction = skeleton.direction;
-  data.compact = Boolean(
-    data.meta?.compact
-    ?? skeleton.compact
-  );
+  data.compact = Boolean(skeleton.compact);
+  data.meta = { ...(data.meta || {}), compact: data.compact };
 
   return data;
 }
@@ -1531,6 +1441,7 @@ export default {
         ),
       themeMenuOpen: false,
       skeletonMenuOpen: false,
+      skeletonHoverId: "",
       selectedCount: 0,
       selectedIsRoot: false,
       selectedHasChildren: false,
@@ -1541,13 +1452,11 @@ export default {
         resolveSkeletonId(
           this.node.attrs.data
         ),
-      mapCompact:
-        Boolean(
-          this.node.attrs.data
-            ?.meta?.compact
-          ?? this.node.attrs.data
-            ?.compact
-        ),
+      mapCompact: Boolean(
+        getSkeleton(
+          resolveSkeletonId(this.node.attrs.data)
+        ).compact
+      ),
       selectedNodeStyle: {},
       selectedBranchColor: "",
     };
@@ -1584,6 +1493,22 @@ export default {
 
     skeletonChoices() {
       return MIND_MAP_SKELETONS;
+    },
+
+    skeletonGroups() {
+      return SKELETON_GROUPS.map((group) => ({
+        ...group,
+        items: MIND_MAP_SKELETONS.filter(
+          (item) => item.group === group.id
+        ),
+      }));
+    },
+
+    skeletonHint() {
+      const item = getSkeleton(
+        this.skeletonHoverId || this.activeSkeletonId
+      );
+      return item ? `${item.label} · ${item.description}` : "";
     },
 
     activeSkeleton() {
@@ -1672,6 +1597,8 @@ export default {
     ) {
       const nextSkeleton =
         getSkeleton(skeletonId);
+
+      this.mapCompact = Boolean(nextSkeleton?.compact);
 
       if (
         !nextSkeleton
@@ -1962,7 +1889,7 @@ export default {
           this.activeSkeletonId
         );
 
-      return new MindElixir({
+      const mindInstance = new MindElixir({
         el: element,
         direction:
           skeleton.direction,
@@ -2000,6 +1927,9 @@ export default {
         scaleMax: 2.2,
         scaleSensitivity: 0.08,
       });
+
+      /* PATCH_20260923_V2 */
+      return bindSkeletonBranches(mindInstance, skeleton.id);
     },
 
     async buildPreview() {
@@ -4374,5 +4304,174 @@ body.focus-mind-map-is-open {
   max-height: min(62vh, 560px);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+</style>
+
+<style>
+/* PATCH_20260923_V2: 骨架结构选择器 */
+.focus-mind-map-fullscreen .focus-mind-map-global-control > .focus-mind-map-skeleton-menu {
+  width: 356px !important;
+  max-width: calc(100vw - 24px) !important;
+}
+
+.fmm-sk-panel {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+}
+
+.fmm-sk-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: min(64vh, 500px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 -4px;
+  padding: 0 4px 4px;
+}
+
+.fmm-sk-group-title {
+  margin: 0 0 6px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #8b919b;
+}
+
+.fmm-sk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.fmm-sk-card {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 4px 7px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #8a909b;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.fmm-sk-card:hover {
+  background: #f5f6f8;
+  color: #5f6570;
+}
+
+.fmm-sk-card:focus-visible {
+  outline: 2px solid rgba(101, 121, 200, 0.45);
+  outline-offset: 1px;
+}
+
+.fmm-sk-card.active {
+  border-color: #c9d1f4;
+  background: #f3f5fe;
+  color: #5566c8;
+}
+
+.fmm-sk-thumb {
+  display: block;
+  width: 76px;
+  height: 48px;
+  border-radius: 7px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #e4e6ea;
+}
+
+.fmm-sk-card.active .fmm-sk-thumb {
+  box-shadow: inset 0 0 0 1px #c9d1f4;
+}
+
+.fmm-sk-thumb svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fmm-sk-thumb .sk-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fmm-sk-thumb .sk-root {
+  fill: #ffffff;
+  stroke: currentColor;
+  stroke-width: 1.3;
+}
+
+.fmm-sk-thumb .sk-leaf {
+  fill: #dfe3ea;
+}
+
+.fmm-sk-card.active .sk-leaf {
+  fill: #d9def7;
+}
+
+.fmm-sk-label {
+  font-size: 12px;
+  line-height: 1.3;
+  color: #3b4049;
+  white-space: nowrap;
+}
+
+.fmm-sk-card.active .fmm-sk-label {
+  color: #4453b3;
+  font-weight: 600;
+}
+
+.fmm-sk-hint {
+  margin-top: 6px;
+  padding: 8px 2px 0;
+  border-top: 1px solid #eef0f3;
+  font-size: 11.5px;
+  color: #8b919b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.focus-mind-map-fullscreen.is-theme-night .fmm-sk-card:hover {
+  background: #2d333d;
+  color: #aab3c2;
+}
+
+.focus-mind-map-fullscreen.is-theme-night .fmm-sk-card.active {
+  border-color: #515b6a;
+  background: #343b47;
+  color: #8ca3ff;
+}
+
+.focus-mind-map-fullscreen.is-theme-night .fmm-sk-thumb {
+  background: #232830;
+  box-shadow: inset 0 0 0 1px #3d4550;
+}
+
+.focus-mind-map-fullscreen.is-theme-night .sk-root {
+  fill: #2b313b;
+}
+
+.focus-mind-map-fullscreen.is-theme-night .sk-leaf {
+  fill: #3e4652;
+}
+
+.focus-mind-map-fullscreen.is-theme-night .fmm-sk-label {
+  color: #d5dae4;
+}
+
+.focus-mind-map-fullscreen.is-theme-night .fmm-sk-hint {
+  border-top-color: #3a414c;
 }
 </style>

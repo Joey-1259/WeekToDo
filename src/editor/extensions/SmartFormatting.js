@@ -147,6 +147,17 @@ function nextMarker(text) {
   return null;
 }
 
+/* PATCH_20260923_V2: 续号沿用原行「序号与正文之间」的间隔 */
+const MARKER_HEAD =
+  /^(\s*(?:\d+(?:\.\d+)*[.．、]|[(（](?:\d+|[一二三四五六七八九十]|[A-Za-z])[)）]|\d+[)）]|[一二三四五六七八九十][、.．]|[A-Za-z][.．、)）]|[①-⑳]))([ \t\u3000]*)/;
+
+function withOriginalGap(marker, sourceText) {
+  if (!marker) return marker;
+  const match = String(sourceText || "").match(MARKER_HEAD);
+  const gap = match ? match[2] : "";
+  return marker.replace(/[ \t\u3000]+$/, "") + gap;
+}
+
 /* PATCH_20260923_V1: 仅有序号、没有正文的行 */
 const MARKER_ONLY =
   /^\s*(?:\d+(?:\.\d+)*[.．、]|[(（](?:\d+|[一二三四五六七八九十]|[A-Za-z])[)）]|\d+[)）]|[一二三四五六七八九十][、.．]|[A-Za-z][.．、)）]|[①-⑳])\s*$/;
@@ -322,7 +333,7 @@ export default Extension.create({
             .run();
         }
 
-        const marker = nextMarker(text);
+        const marker = withOriginalGap(nextMarker(text), text);
         if (!marker) return false;
 
         const indent = currentIndent(this.editor);

@@ -1,0 +1,92 @@
+/*
+ * LINKED_TASK_ACTIONS_20260923_V2
+ * 关联事项操作区：⋯ ⧉ ×
+ * 与「每周事项」一致——悬停才出现、灰色图标、悬停加深。
+ * 类名叠写（.a.a）用于稳定压过旧的 scoped 样式。
+ */
+.linked-task-block.linked-task-block {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.linked-task-block.linked-task-block .linked-task-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.linked-task-block.linked-task-block .linked-task-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1px;
+  margin-left: auto;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.linked-task-block.linked-task-block:hover .linked-task-actions,
+.linked-task-block.linked-task-block:focus-within .linked-task-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.linked-task-block.linked-task-block.is-inline-editing .linked-task-actions {
+  display: none;
+}
+
+.linked-task-block.linked-task-block .linked-task-actions > button {
+  all: unset;
+  box-sizing: border-box;
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  color: #8b9098;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: color 0.12s ease, background-color 0.12s ease;
+}
+
+.linked-task-block.linked-task-block .linked-task-actions > button:hover {
+  color: #1f2328;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.linked-task-block.linked-task-block .linked-task-actions > button:focus-visible {
+  outline: 2px solid rgba(101, 121, 200, 0.45);
+  outline-offset: 1px;
+}
+
+.linked-task-block .linked-task-actions > button > i {
+  pointer-events: none;
+}
+
+.linked-task-block .linked-task-actions .bi-three-dots {
+  font-size: 15px;
+}
+
+.linked-task-block .linked-task-actions .bi-files {
+  font-size: 12.5px;
+}
+
+.linked-task-block .linked-task-actions .bi-x {
+  font-size: 19px;
+}
+
+.dark-theme .linked-task-block.linked-task-block .linked-task-actions > button {
+  color: #aeb6c2;
+}
+
+.dark-theme .linked-task-block.linked-task-block .linked-task-actions > button:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}

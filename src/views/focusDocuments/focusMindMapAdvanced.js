@@ -542,6 +542,7 @@ export const focusMindMapAdvancedMixin = {
       fmmaOutlineRows: [],
       fmmaFormat: "md",
       fmmaExportOpen: false,
+      fmmaExportStyle: {},
       fmmaBusy: "",
       fmmaToast: "",
       fmmaCopied: false,
@@ -556,7 +557,7 @@ export const focusMindMapAdvancedMixin = {
     const onDown = (e) => {
       if (!this.fmmaExportOpen) return;
       const t = e.target;
-      if (t && t.closest && t.closest(".fmma-export")) return;
+      if (t && t.closest && t.closest(".fmma-export, .fmma-export-menu")) return;
       this.fmmaExportOpen = false;
     };
     const onKey = (e) => {
@@ -584,6 +585,38 @@ export const focusMindMapAdvancedMixin = {
       const m = typeof this.fmmxMind === "function" ? this.fmmxMind() : null;
       if (m) { m.__fmmaVm = this; this.fmmaMindRef = m; }
       return m;
+    },
+/* FMM_EXPORT_MENU_20260924_V6：定位与文档菜单一致（右对齐、下移 7px、宽 190） */
+    fmmaToggleExport(event) {
+      this.skeletonMenuOpen = false;
+      this.themeMenuOpen = false;
+      if (this.fmmaExportOpen) {
+        this.fmmaExportOpen = false;
+        return;
+      }
+      const el = event && event.currentTarget;
+      const rect = el && el.getBoundingClientRect
+        ? el.getBoundingClientRect()
+        : null;
+      const W = 190;
+      const EDGE = 12;
+      const left = rect
+        ? Math.max(EDGE, Math.min(window.innerWidth - W - EDGE, rect.right - W))
+        : EDGE;
+      const top = rect ? rect.bottom + 7 : EDGE;
+      this.fmmaExportStyle = {
+        position: "fixed",
+        zIndex: 30000,
+        width: W + "px",
+        left: left + "px",
+        top: top + "px",
+      };
+      this.fmmaExportOpen = true;
+      window.addEventListener("resize", this.fmmaCloseExport, { once: true });
+      window.addEventListener("blur", this.fmmaCloseExport, { once: true });
+    },
+    fmmaCloseExport() {
+      this.fmmaExportOpen = false;
     },
     fmmaNotify(message) {
       this.fmmaToast = message;

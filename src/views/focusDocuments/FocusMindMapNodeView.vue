@@ -507,7 +507,7 @@
               :aria-expanded="String(fmmaExportOpen)"
               :disabled="Boolean(fmmaBusy)"
               title="导出思维导图"
-              @click.stop="fmmaExportOpen = !fmmaExportOpen; skeletonMenuOpen = false; themeMenuOpen = false"
+              @click.stop="fmmaToggleExport($event)"
             >
               <svg viewBox="0 0 20 20" aria-hidden="true">
                 <path d="M10 3v9M6.5 8.5 10 12l3.5-3.5M4 14v2h12v-2" />
@@ -518,31 +518,44 @@
               </svg>
             </button>
 
-            <div v-if="fmmaExportOpen" class="fmma-menu" role="menu" @click.stop>
-              <div class="fmma-menu-title">图形</div>
-              <button type="button" role="menuitem" @click="fmmaExport('png')">
-                <b style="background:#5b8def">PNG</b>
-                <span><strong>图片</strong><small>2 倍高清，含概要与外框</small></span>
-              </button>
-              <button type="button" role="menuitem" @click="fmmaExport('pdf')">
-                <b style="background:#d9534f">PDF</b>
-                <span><strong>PDF 文档</strong><small>打印对话框中选择「存储为 PDF」</small></span>
-              </button>
-              <hr />
-              <div class="fmma-menu-title">文字大纲</div>
-              <button type="button" role="menuitem" @click="fmmaExport('md')">
-                <b style="background:#3f3f46">MD</b>
-                <span><strong>Markdown</strong><small>层级列表，可粘贴到文档</small></span>
-              </button>
-              <button type="button" role="menuitem" @click="fmmaExport('txt')">
-                <b style="background:#7b8494">TXT</b>
-                <span><strong>纯文本</strong><small>Tab 缩进，兼容性最好</small></span>
-              </button>
-              <button type="button" role="menuitem" @click="fmmaCopyOutline('md')">
-                <b style="background:#4f7d68">⧉</b>
-                <span><strong>复制大纲</strong><small>Markdown 格式到剪贴板</small></span>
-              </button>
-            </div>
+            <!-- FMM_EXPORT_MENU_20260924_V6：与文档「更多操作」菜单同一套样式 -->
+            <Teleport to="body">
+              <div
+                v-if="fmmaExportOpen"
+                class="focus-column-menu fmma-export-menu"
+                :style="fmmaExportStyle"
+                role="menu"
+                @click.stop
+              >
+                <button type="button" role="menuitem" @click="fmmaCopyOutline('md')">
+                  复制大纲
+                </button>
+
+                <div class="focus-export-label" role="presentation">导出图形</div>
+
+                <button type="button" role="menuitem" class="focus-export-format" @click="fmmaExport('png')">
+                  <span class="focus-export-badge is-png">PNG</span>
+                  <span>PNG 图片</span>
+                </button>
+
+                <button type="button" role="menuitem" class="focus-export-format" @click="fmmaExport('pdf')">
+                  <span class="focus-export-badge is-pdf">PDF</span>
+                  <span>PDF 文档</span>
+                </button>
+
+                <div class="focus-export-label" role="presentation">导出大纲</div>
+
+                <button type="button" role="menuitem" class="focus-export-format" @click="fmmaExport('md')">
+                  <span class="focus-export-badge">MD</span>
+                  <span>Markdown</span>
+                </button>
+
+                <button type="button" role="menuitem" class="focus-export-format" @click="fmmaExport('txt')">
+                  <span class="focus-export-badge is-txt">TXT</span>
+                  <span>纯文本</span>
+                </button>
+              </div>
+            </Teleport>
           </div>
 
           <span class="focus-mind-map-toolbar-spacer"></span>

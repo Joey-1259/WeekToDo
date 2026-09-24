@@ -411,6 +411,32 @@ const focusLayoutService = {
     };
   },
 
+  /* FMM_ENHANCE_20260923_V3 · 与相邻分栏交换位置
+   * 只交换文档，槽位宽度（flex）留在原地：交换后版面不跳动；
+   * 版面跟随被移动的文档，跨版面交换时自动翻页。 */
+  swap(state, index, delta) {
+    const normalized = normalizeState(state);
+    const columns = normalized.columns.map((column) => ({ ...column }));
+    const from = Number(index);
+    const to = from + (Number(delta) || 0);
+
+    if (!columns[from] || !columns[to] || from === to) {
+      return normalized;
+    }
+
+    const moved = columns[from];
+    const other = columns[to];
+
+    columns[from] = { ...other, flex: moved.flex };
+    columns[to] = { ...moved, flex: other.flex };
+
+    return normalizeState({
+      pageSize: normalized.pageSize,
+      page: Math.floor(to / normalized.pageSize),
+      columns,
+    });
+  },
+
   equalize(state) {
     const normalized = normalizeState(state);
 

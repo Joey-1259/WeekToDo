@@ -41,42 +41,39 @@
         </header>
 
         <div class="mind-map-quick-styles">
+          <!-- FMM_ENHANCE_20260923_V3：快速样式是开关，再点已选中项即取消 -->
           <button
+            v-for="item in quickStyles"
+            :key="item.id"
             type="button"
             :disabled="!selectionCount"
-            @click="$emit('quick-style', 'important')"
+            :class="{ active: activeQuickStyle === item.id }"
+            :aria-pressed="String(activeQuickStyle === item.id)"
+            :title="
+              activeQuickStyle === item.id
+                ? `再次点击取消「${item.label}」`
+                : `标记为「${item.label}」`
+            "
+            @click="$emit('quick-style', item.id)"
           >
-            <i class="is-important">!</i>
-            重要
+            <i :class="`is-${item.id}`">{{ item.glyph }}</i>
+            {{ item.label }}
           </button>
 
           <button
             type="button"
-            :disabled="!selectionCount"
-            @click="$emit('quick-style', 'idea')"
-          >
-            <i class="is-idea">✦</i>
-            灵感
-          </button>
-
-          <button
-            type="button"
-            :disabled="!selectionCount"
-            @click="$emit('quick-style', 'done')"
-          >
-            <i class="is-done">✓</i>
-            已完成
-          </button>
-
-          <button
-            type="button"
-            :disabled="!selectionCount"
+            :disabled="!selectionCount || !hasCustomStyle"
+            title="清除所选节点的全部自定义样式"
             @click="$emit('reset-style')"
           >
             <i class="is-reset">↺</i>
-            默认
+            清除
           </button>
         </div>
+
+        <p class="mind-map-inspector-tip">
+          所有样式项均可再次点击取消，恢复为跟随主题
+        </p>
       </section>
 
       <section
@@ -377,10 +374,7 @@
                 ) === color.value,
             }"
             @click="
-              $emit(
-                'change-branch-color',
-                color.value || null
-              )
+              emitBranch(color.value || null)
             "
           >
             <i
@@ -398,6 +392,11 @@
 </template>
 
 <script>
+import {
+  FMM_QUICK_STYLE_LIST,
+  matchQuickStyle,
+} from "./focusMindMapEnhancer.js";
+
 const palette = (
   defaultLabel,
   values
@@ -561,14 +560,41 @@ export default {
     };
   },
 
-  methods: {
-    emitStyle(key, value) {
-      this.$emit(
-        "update-style",
-        {
-          [key]: value,
-        }
+  computed: {
+    quickStyles() {
+      return FMM_QUICK_STYLE_LIST;
+    },
+
+    activeQuickStyle() {
+      return matchQuickStyle(this.nodeStyle);
+    },
+
+    hasCustomStyle() {
+      return (
+        Boolean(this.branchColor)
+        || Object.keys(this.nodeStyle || {}).length > 0
       );
+    },
+  },
+
+  methods: {
+    /* FMM_ENHANCE_20260923_V3：再次点击已生效的取值 = 恢复跟随主题 */
+    emitStyle(key, value) {
+      const current = this.nodeStyle ? this.nodeStyle[key] : "";
+      const same =
+        Boolean(value)
+        && String(current || "").trim() === String(value).trim();
+
+      this.$emit("update-style", {
+        [key]: same ? null : value,
+      });
+    },
+
+    emitBranch(value) {
+      const same =
+        Boolean(value) && (this.branchColor || "") === value;
+
+      this.$emit("change-branch-color", same ? null : value);
     },
 
     hasDecoration(value) {
@@ -1181,5 +1207,51 @@ select:disabled {
     bottom: 8px;
     width: min(310px, calc(100vw - 16px));
   }
+}
+</style>
+
+
+<style scoped>
+/* FMM_ENHANCE_20260923_V3 */
+.mind-map-quick-styles button {
+  transition:
+    border-color 0.14s ease,
+    background-color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.mind-map-quick-styles button.active {
+  border-color: #9fb0ea;
+  background: #f0f3fd;
+  color: #3f56b0;
+  box-shadow: inset 0 0 0 1px #9fb0ea;
+}
+
+.mind-map-quick-styles button:disabled:hover {
+  border-color: #e2e5e9;
+  background: #fff;
+}
+
+.mind-map-inspector-tip {
+  margin: 9px 0 0;
+  color: #a3a9b2;
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
+.mind-map-color-row button.active {
+  box-shadow: inset 0 0 0 1px #9fb0ea;
+}
+
+:global(.is-theme-night) .mind-map-quick-styles button {
+  border-color: #48505d;
+  background: #2d333d;
+  color: #cfd5de;
+}
+
+:global(.is-theme-night) .mind-map-quick-styles button.active {
+  border-color: #7186d8;
+  background: #343d52;
+  color: #dfe5ff;
 }
 </style>

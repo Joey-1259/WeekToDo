@@ -54,6 +54,32 @@
 
         <div class="focus-dialog-status">
           <span :class="`is-${saveState}`">{{ statusLabel }}</span>
+          <!-- FMM_ENHANCE_20260923_V3：全屏态保留「更多操作」，与分栏卡片一致 -->
+          <button
+            ref="moreButton"
+            type="button"
+            class="focus-dialog-more"
+            :class="{ active: actionMenuVisible }"
+            title="更多操作"
+            aria-label="更多操作"
+            aria-haspopup="menu"
+            :aria-expanded="String(actionMenuVisible)"
+            @click.stop="actionMenuVisible = !actionMenuVisible"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <circle cx="4.5" cy="10" r="1.35" />
+              <circle cx="10" cy="10" r="1.35" />
+              <circle cx="15.5" cy="10" r="1.35" />
+            </svg>
+          </button>
+
+          <FocusDocumentActionMenu
+            v-if="actionMenuVisible"
+            :anchor="$refs.moreButton"
+            @select="onActionSelect"
+            @dismiss="actionMenuVisible = false"
+          />
+
           <button
             type="button"
             title="关闭（内容已自动保存）"
@@ -144,6 +170,7 @@ import FocusDocumentTitle, {
   DEFAULT_TITLE_STYLE,
 } from "./FocusDocumentTitle.vue";
 import FocusFolderPicker from "./FocusFolderPicker.vue";
+import FocusDocumentActionMenu from "./FocusDocumentActionMenu.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 import focusFolderService from "../../services/focusFolderService";
 
@@ -160,6 +187,7 @@ export default {
     FocusDocumentEditor,
     FocusDocumentTitle,
     FocusFolderPicker,
+    FocusDocumentActionMenu,
   },
 
   props: {
@@ -173,6 +201,7 @@ export default {
     "open-task",
     "jump-task",
     "create-task",
+    "action",
   ],
 
   data() {
@@ -194,11 +223,15 @@ export default {
       timer: null,
       tagEditing: false,
       tagInput: "",
+      actionMenuVisible: false,
+      notice: "",
+      noticeTimer: null,
     };
   },
 
   computed: {
     statusLabel() {
+      if (this.notice) return this.notice;
       if (this.saveState === "saving") return "保存中…";
       if (this.saveState === "failed") return "保存失败";
       return "已自动保存";
@@ -251,6 +284,47 @@ export default {
   },
 
   methods: {
+    /* FMM_ENHANCE_20260923_V3 · 全屏态「更多操作」 */
+    async onActionSelect(action) {
+      this.actionMenuVisible = false;
+
+      // 移动：复用底部目录面板，避免新弹层被全屏遮罩覆盖。
+      if (action === "move") {
+        this.folderId = this.draft.folderId || "__root__";
+        this.folderPanel = true;
+        return;
+      }
+
+      try {
+        await this.flush();
+      } catch (error) {
+        if (action === "duplicate") {
+          window.alert("当前内容保存失败，暂时无法复制文档。");
+          return;
+        }
+      }
+
+      this.$emit("action", {
+        action,
+        document: {
+          ...this.draft,
+          titleStyle: { ...(this.draft.titleStyle || {}) },
+        },
+      });
+
+      if (action === "duplicate") {
+        this.flashNotice("已复制，副本在分栏末尾");
+      }
+    },
+
+    flashNotice(text) {
+      clearTimeout(this.noticeTimer);
+      this.notice = text;
+      this.noticeTimer = setTimeout(() => {
+        this.notice = "";
+      }, 2400);
+    },
+
     onPointerDown(event) {
       if (
         event.target.closest(".focus-dialog-folder-panel") ||
@@ -732,5 +806,31 @@ export default {
   border-color: #39414c;
   background: #20262e;
   color: #9aa1ab;
+}
+</style>
+
+
+<style scoped lang="scss">
+/* FMM_ENHANCE_20260923_V3 */
+.focus-dialog-status .focus-dialog-more {
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.focus-dialog-status .focus-dialog-more svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.focus-dialog-status .focus-dialog-more.active {
+  background: #eef1f5;
+  color: #4263eb;
+}
+
+.dark-theme .focus-dialog-status .focus-dialog-more.active {
+  background: #252c35;
+  color: #93a8f5;
 }
 </style>

@@ -263,7 +263,7 @@
               v-if="skeletonMenuOpen"
               class="
                 focus-mind-map-global-menu
-                focus-mind-map-skeleton-menu
+                focus-mind-map-skeleton-menu fmm-is-list
               "
               aria-label="选择思维导图骨架"
               @click.stop
@@ -275,49 +275,50 @@
                 </small>
               </header>
 
-              <div
-                class="fmm-sk-panel"
-                @mouseleave="skeletonHoverId = ''"
-              >
-                <div class="fmm-sk-scroll">
+              <!-- FMM_ENHANCE_20260923_V3：列表式骨架选择，一行一个 -->
+              <div class="fmm-skl-panel" role="listbox" aria-label="骨架">
+                <div class="fmm-skl-scroll">
                   <section
                     v-for="group in skeletonGroups"
                     :key="group.id"
-                    class="fmm-sk-group"
+                    class="fmm-skl-group"
                   >
-                    <div class="fmm-sk-group-title">
+                    <div class="fmm-skl-group-title">
                       {{ group.label }}
                     </div>
 
-                    <div class="fmm-sk-grid">
-                      <button
-                        v-for="skeleton in group.items"
-                        :key="skeleton.id"
-                        type="button"
-                        class="fmm-sk-card"
-                        :class="{ active: activeSkeletonId === skeleton.id }"
-                        :title="skeleton.description"
-                        :aria-pressed="String(activeSkeletonId === skeleton.id)"
-                        @mouseenter="skeletonHoverId = skeleton.id"
-                        @focus="skeletonHoverId = skeleton.id"
-                        @click="applyStableSkeleton(skeleton.id)"
+                    <button
+                      v-for="skeleton in group.items"
+                      :key="skeleton.id"
+                      type="button"
+                      role="option"
+                      class="fmm-skl-row"
+                      :class="{ active: activeSkeletonId === skeleton.id }"
+                      :aria-selected="String(activeSkeletonId === skeleton.id)"
+                      @click="fmmxPickSkeleton(skeleton.id)"
+                    >
+                      <span
+                        class="fmm-skl-thumb"
+                        aria-hidden="true"
+                        v-html="skeleton.svg"
+                      ></span>
+
+                      <span class="fmm-skl-text">
+                        <strong>{{ skeleton.label }}</strong>
+                        <small>{{ skeleton.description }}</small>
+                      </span>
+
+                      <svg
+                        v-if="activeSkeletonId === skeleton.id"
+                        class="fmm-skl-check"
+                        viewBox="0 0 20 20"
+                        aria-hidden="true"
                       >
-                        <span
-                          class="fmm-sk-thumb"
-                          aria-hidden="true"
-                          v-html="skeleton.svg"
-                        ></span>
-                        <span class="fmm-sk-label">
-                          {{ skeleton.label }}
-                        </span>
-                      </button>
-                    </div>
+                        <path d="m5 10.5 3.2 3L15 6.5" />
+                      </svg>
+                    </button>
                   </section>
                 </div>
-
-                <footer class="fmm-sk-hint">
-                  {{ skeletonHint }}
-                </footer>
               </div>
             </section>
           </div>
@@ -520,7 +521,7 @@
             @update-style="applyNodeStyle"
             @toggle-format="toggleNodeFormat"
             @change-branch-color="applyBranchColor"
-            @quick-style="applyQuickStyle"
+            @quick-style="fmmxToggleQuickStyle"
             @reset-style="resetNodeStyle"
             @change-theme="applyTheme"
             @change-skeleton="applyStableSkeleton"
@@ -566,6 +567,11 @@ import "mind-elixir/style.css";
 
 import focusAssetRepository from "../../repositories/focusAssetRepository";
 import FocusMindMapInspector from "./FocusMindMapInspector.vue";
+import {
+  focusMindMapEnhancerMixin,
+  createBranchGenerators,
+  skeletonThumb,
+} from "./focusMindMapEnhancer.js";
 
 const SAVE_DELAY = 550;
 const SNAPSHOT_DELAY = 950;
@@ -900,20 +906,20 @@ const SKELETON_GROUPS = Object.freeze([
 const sk = (group, id, label, description, direction, lineStyle, kind, compact = false) => ({
   group, id, label, description, direction, lineStyle, compact,
   preview: kind,
-  svg: skeletonSvg(kind, compact),
+  svg: skeletonThumb(kind, compact),
 });
 
 const MIND_MAP_SKELETONS = Object.freeze([
-  sk("logic", "right-logic", "右向逻辑图", "从左到右展开，直角折线连接", MindElixir.RIGHT, "bracket", "right-bracket"),
-  sk("logic", "right-compact", "紧凑逻辑图", "右向直角结构，节点更密集", MindElixir.RIGHT, "bracket", "right-bracket", true),
+  sk("logic", "right-logic", "右向逻辑图", "从左到右展开，括号式折线，连线对齐节点中心", MindElixir.RIGHT, "bracket", "right-bracket"),
+  sk("logic", "right-compact", "紧凑逻辑图", "右向括号结构，行距更紧凑", MindElixir.RIGHT, "bracket", "right-bracket", true),
   sk("logic", "right-curve", "右向曲线图", "柔和曲线，适合头脑风暴", MindElixir.RIGHT, "rounded", "right-curve"),
-  sk("logic", "right-tree", "右向直线图", "直线放射，层级一目了然", MindElixir.RIGHT, "straight", "right-straight"),
+  sk("logic", "right-tree", "右向直线图", "父节点以直线放射连接子节点", MindElixir.RIGHT, "straight", "right-straight"),
   sk("logic", "left-logic", "左向逻辑图", "从右到左展开，适合倒推目标", MindElixir.LEFT, "bracket", "left-bracket"),
   sk("logic", "left-curve", "左向曲线图", "向左发散的柔和曲线", MindElixir.LEFT, "rounded", "left-curve"),
   sk("mind", "balanced-map", "双向思维图", "围绕中心主题向左右发散", MindElixir.SIDE, "rounded", "side-curve"),
-  sk("mind", "balanced-bracket", "双向直角图", "左右对称的直角折线结构", MindElixir.SIDE, "bracket", "side-bracket"),
+  sk("mind", "balanced-bracket", "双向直角图", "左右对称的括号式折线", MindElixir.SIDE, "bracket", "side-bracket"),
   sk("mind", "balanced-compact", "紧凑双向图", "双向发散，适合大型脑图", MindElixir.SIDE, "rounded", "side-curve", true),
-  sk("org", "org-down", "向下组织图", "自上而下，直角连线", MindElixir.DOWN, "bracket", "down-bracket"),
+  sk("org", "org-down", "向下组织图", "自上而下，直角连线（组织架构）", MindElixir.DOWN, "bracket", "down-bracket"),
   sk("org", "org-down-rounded", "圆角组织图", "自上而下，圆角折线更柔和", MindElixir.DOWN, "rounded", "down-rounded"),
   sk("org", "org-down-compact", "紧凑组织图", "向下直角结构，节点更密集", MindElixir.DOWN, "bracket", "down-bracket", true),
 ]);
@@ -1016,30 +1022,11 @@ function generateVerticalBracket({ pT, pL, pW, pH, cT, cL, cW }) {
 const generateVerticalMainBracket = generateVerticalBracket;
 const generateVerticalSubBracket = generateVerticalBracket;
 
-/* rounded 骨架返回空对象 → 使用引擎原生曲线 / 圆角折线 */
+/* 所有骨架均返回自定义生成器，不再回落到引擎默认连线 */
 function getBranchGenerators(skeletonId) {
+  /* FMM_ENHANCE_20260923_V3：XMind 式中心对齐连线，覆盖全部骨架 */
   const skeleton = getSkeleton(skeletonId);
-
-  if (skeleton.lineStyle === "rounded") return {};
-
-  if (skeleton.direction === MindElixir.DOWN) {
-    return {
-      generateMainBranch: generateVerticalMainBracket,
-      generateSubBranch: generateVerticalSubBracket,
-    };
-  }
-
-  if (skeleton.lineStyle === "straight") {
-    return {
-      generateMainBranch: generateHorizontalMainStraight,
-      generateSubBranch: generateHorizontalSubStraight,
-    };
-  }
-
-  return {
-    generateMainBranch: generateHorizontalMainBracket,
-    generateSubBranch: generateHorizontalSubBracket,
-  };
+  return createBranchGenerators(skeleton, MindElixir) || {};
 }
 
 /*
@@ -1409,6 +1396,7 @@ async function fitMindMap(
 }
 
 export default {
+  mixins: [focusMindMapEnhancerMixin],
   name: "FocusMindMapNodeView",
 
   components: {

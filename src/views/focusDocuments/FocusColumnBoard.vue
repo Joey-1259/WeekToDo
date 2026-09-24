@@ -68,6 +68,10 @@
             @expand="$emit('expand', entry.column.documentId)"
             @action="$emit('action', $event)"
             @close="closeColumn(entry.index)"
+            :column-index="entry.index"
+            :column-total="(layout.columns || []).length"
+            :just-moved="movedColumnId === entry.column.id"
+            @shift="shiftColumn(entry.index, $event)"
             @open-task="$emit('open-task', $event)"
             @jump-task="$emit('jump-task', $event)"
             @create-task="$emit('create-task', $event)"
@@ -269,6 +273,8 @@ export default {
       edgeTimer: null,
       wheelAccum: 0,
       wheelLock: false,
+      movedColumnId: null,
+      movedTimer: null,
     };
   },
 
@@ -398,6 +404,22 @@ export default {
         return;
       }
 
+      /* FMM_ENHANCE_20260923_V3：⌘⌥⇧ ← / → 与相邻分栏交换 */
+      if (
+        event.shiftKey &&
+        (event.key === "ArrowLeft" || event.key === "ArrowRight")
+      ) {
+        const index = (this.layout.columns || []).findIndex(
+          (column) => column.id === this.activeColumnId
+        );
+
+        if (index >= 0) {
+          event.preventDefault();
+          this.shiftColumn(index, event.key === "ArrowLeft" ? -1 : 1);
+        }
+        return;
+      }
+
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         this.stepPage(-1);
@@ -460,6 +482,26 @@ export default {
       this.inserter = null;
 
       this.$emit("create-document", { ...payload, index });
+    },
+
+    /* FMM_ENHANCE_20260923_V3 · 分栏左右交换 */
+    shiftColumn(index, delta) {
+      const columns = this.layout.columns || [];
+      const step = delta < 0 ? -1 : 1;
+      const target = index + step;
+
+      if (!columns[index] || !columns[target]) return;
+
+      const movedId = columns[index].id;
+
+      this.activeColumnId = movedId;
+      this.emitLayout(focusLayoutService.swap(this.layout, index, step));
+
+      clearTimeout(this.movedTimer);
+      this.movedColumnId = movedId;
+      this.movedTimer = setTimeout(() => {
+        this.movedColumnId = null;
+      }, 900);
     },
 
     closeColumn(index) {

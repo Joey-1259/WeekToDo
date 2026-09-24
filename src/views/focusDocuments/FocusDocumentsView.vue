@@ -156,6 +156,7 @@
       :document="dialogDocument"
       :folder-paths="folderPaths"
       @close="closeDialog"
+      @action="handleDocumentAction"
       @saved="replaceDocument"
       @open-task="openTask"
       @jump-task="jumpTask"

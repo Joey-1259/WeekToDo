@@ -1,7 +1,7 @@
 <template>
   <article
     class="focus-column-card"
-    :class="{ 'is-active': active, 'is-dragging': dragging }"
+    :class="{ 'is-active': active, 'is-dragging': dragging, 'is-just-moved': justMoved }"
     @mousedown="$emit('activate')"
   >
     <header class="focus-column-head">
@@ -126,90 +126,55 @@
         <kbd>/</kbd>
         <span>插入进阶内容</span>
       </button>
-    </footer>
 
-    <Teleport to="body">
+      <!-- FMM_ENHANCE_20260923_V3 · 分栏顺序：与左 / 右相邻分栏交换 -->
       <div
-        v-if="menuVisible"
-        ref="menu"
-        class="focus-column-menu"
-        :style="menuStyle"
-        role="menu"
-        tabindex="-1"
-        @mousedown.stop
-        @keydown.esc.stop="closeMenu"
+        v-if="columnTotal > 1"
+        class="focus-column-order"
+        role="group"
+        aria-label="调整分栏顺序"
       >
         <button
           type="button"
-          role="menuitem"
-          @click="emitAction('duplicate')"
+          :disabled="columnIndex <= 0"
+          title="与左侧分栏交换（⌘⌥⇧←）"
+          aria-label="与左侧分栏交换"
+          @click.stop="$emit('shift', -1)"
         >
-          复制文档
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M12 5 7 10l5 5" />
+          </svg>
         </button>
-        <button
-          type="button"
-          role="menuitem"
-          @click="emitAction('move')"
+
+        <span
+          class="focus-column-order-index"
+          :title="`第 ${columnIndex + 1} 栏，共 ${columnTotal} 栏`"
         >
-          移动到目录…
-        </button>
-        <!-- FOCUS_DOCUMENT_EXPORT_20260920_V2：格式直接可见，避免嵌套菜单带来的焦点与定位问题。 -->
-        <div
-          class="focus-export-label"
-          role="presentation"
-        >
-          导出文档
-        </div>
+          {{ columnIndex + 1 }}/{{ columnTotal }}
+        </span>
 
         <button
           type="button"
-          role="menuitem"
-          class="focus-export-format"
-          @click="emitAction('export-markdown')"
+          :disabled="columnIndex >= columnTotal - 1"
+          title="与右侧分栏交换（⌘⌥⇧→）"
+          aria-label="与右侧分栏交换"
+          @click.stop="$emit('shift', 1)"
         >
-          <span class="focus-export-badge">MD</span>
-          <span>Markdown</span>
-        </button>
-
-        <button
-          type="button"
-          role="menuitem"
-          class="focus-export-format"
-          @click="emitAction('export-word')"
-        >
-          <span class="focus-export-badge is-word">W</span>
-          <span>Word 文档</span>
-        </button>
-
-        <button
-          type="button"
-          role="menuitem"
-          class="focus-export-format"
-          @click="emitAction('export-pdf')"
-        >
-          <span class="focus-export-badge is-pdf">PDF</span>
-          <span>PDF 文档</span>
-        </button>
-
-        <div class="menu-divider" role="separator"></div>
-
-        <button
-          type="button"
-          role="menuitem"
-          @click="closeMenu(); $emit('close')"
-        >
-          关闭此分栏
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          class="danger"
-          @click="emitAction('delete')"
-        >
-          删除文档
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="m8 5 5 5-5 5" />
+          </svg>
         </button>
       </div>
-    </Teleport>
+    </footer>
+
+    <!-- FMM_ENHANCE_20260923_V3：与全屏编辑共用同一个菜单组件 -->
+    <FocusDocumentActionMenu
+      v-if="menuVisible"
+      :anchor="$refs.menuButton"
+      show-close-column
+      @select="onMenuSelect"
+      @dismiss="menuVisible = false"
+    />
   </article>
 </template>
 
@@ -220,6 +185,7 @@ import FocusDocumentTitle, {
   DEFAULT_TITLE_STYLE,
 } from "./FocusDocumentTitle.vue";
 import focusDocumentService from "../../services/focusDocumentService";
+import FocusDocumentActionMenu from "./FocusDocumentActionMenu.vue";
 
 function countWords(node) {
   if (!node) return 0;
@@ -234,13 +200,20 @@ function countWords(node) {
 export default {
   name: "FocusColumnCard",
 
-  components: { FocusDocumentEditor, FocusDocumentTitle },
+  components: {
+    FocusDocumentEditor,
+    FocusDocumentTitle,
+    FocusDocumentActionMenu,
+  },
 
   props: {
     document: { type: Object, required: true },
     folderPath: { type: String, default: "未分类" },
     active: { type: Boolean, default: false },
     dragging: { type: Boolean, default: false },
+    columnIndex: { type: Number, default: 0 },
+    columnTotal: { type: Number, default: 1 },
+    justMoved: { type: Boolean, default: false },
   },
 
   emits: [
@@ -254,6 +227,7 @@ export default {
     "create-task",
     "drag-start",
     "drag-end",
+    "shift",
   ],
 
   data() {
@@ -389,6 +363,17 @@ export default {
           this.$nextTick(() => this.persist());
         },
       });
+    },
+
+    /* FMM_ENHANCE_20260923_V3 */
+    onMenuSelect(action) {
+      if (action === "close-column") {
+        this.menuVisible = false;
+        this.$emit("close");
+        return;
+      }
+
+      this.emitAction(action);
     },
 
     toggleMenu() {
@@ -868,4 +853,95 @@ export default {
   color: #f0a0a0;
 }
 
+</style>
+
+
+<style scoped lang="scss">
+/* FMM_ENHANCE_20260923_V3 · 分栏顺序控件 */
+.focus-column-foot .focus-column-hint {
+  margin-left: auto;
+}
+
+.focus-column-order {
+  display: inline-flex;
+  height: 24px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1px;
+  margin-left: 2px;
+  padding-left: 6px;
+  border-left: 1px solid #eef0f3;
+  opacity: 0.72;
+  transition: opacity 0.14s ease;
+}
+
+.focus-column-card:hover .focus-column-order,
+.focus-column-card.is-active .focus-column-order {
+  opacity: 1;
+}
+
+.focus-column-order button {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9aa1ab;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.focus-column-order button:hover:not(:disabled) {
+  background: #eef1f5;
+  color: #4263eb;
+}
+
+.focus-column-order button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.focus-column-order svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.focus-column-order-index {
+  min-width: 26px;
+  color: #b0b6be;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.focus-column-card.is-just-moved {
+  animation: focus-column-moved 0.9s ease-out;
+}
+
+@keyframes focus-column-moved {
+  0% {
+    border-color: #8fa4ef;
+    box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.26);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(66, 99, 235, 0);
+  }
+}
+
+.dark-theme .focus-column-order {
+  border-color: #262d36;
+}
+
+.dark-theme .focus-column-order button:hover:not(:disabled) {
+  background: #252c35;
+  color: #93a8f5;
+}
 </style>

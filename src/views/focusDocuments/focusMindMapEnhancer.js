@@ -1,10 +1,14 @@
-/* FMM_ENHANCE_20260923_V3
+/* FMM_ENHANCE_20260924_V4
  * 思维导图增强模块
- * 1. XMind 式「中心对齐」连线：12 类骨架统一坐标模型
+ * 1. XMind 式中心对齐连线（单子节点 / 居中子节点吸附为直线）
  * 2. 骨架缩略图（与真实连线同形）
- * 3. 快速样式：开关语义（再点取消）
- * 4. 骨架 / 配色浮层：外部点击、Esc、窗口失焦自动收起
+ * 3. 样式「删除语义」修复：取消 / 清除真正恢复默认
+ *    根因：mind-elixir reshapeNode 使用 Object.assign 合并样式，
+ *    shapeTpc 只写入存在的键，从不清除旧的内联样式。
+ * 4. 快速样式开关
+ * 5. 骨架 / 配色浮层：外部点击、Esc、窗口失焦自动收起
  */
+import MindElixir from "mind-elixir";
 import "./focusMindMapEnhancer.css";
 
 /* ================= 快速样式 ================= */
@@ -37,28 +41,23 @@ export const FMM_QUICK_STYLE_LIST = Object.freeze([
 
 const QUICK_KEYS = Array.from(
   new Set(
-    Object.values(FMM_QUICK_STYLES).flatMap((preset) =>
-      Object.keys(preset)
-    )
+    Object.values(FMM_QUICK_STYLES).flatMap((preset) => Object.keys(preset))
   )
 );
 
+const EMPTY = (value) =>
+  value === null || value === undefined || value === "";
+
 const norm = (value) =>
-  String(value ?? "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+  String(value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 
 export function matchQuickStyle(style) {
   const current = style || {};
-
-  const hit = Object.entries(FMM_QUICK_STYLES).find(
-    ([, preset]) =>
-      Object.entries(preset).every(
-        ([key, value]) => norm(current[key]) === norm(value)
-      )
+  const hit = Object.entries(FMM_QUICK_STYLES).find(([, preset]) =>
+    Object.entries(preset).every(
+      ([key, value]) => norm(current[key]) === norm(value)
+    )
   );
-
   return hit ? hit[0] : "";
 }
 
@@ -73,9 +72,135 @@ export function buildQuickStylePatch(type, currentStyle) {
   });
 
   if (matchQuickStyle(currentStyle) === type) return patch;
-
   return Object.assign(patch, preset);
 }
+
+/* ================= 样式删除语义修复 ================= */
+
+const PATCH_FLAG = "__fmmStyleFixV4";
+let pending = null;
+
+function armPending(keys, all) {
+  pending = {
+    keys: new Set(keys || []),
+    all: Boolean(all),
+    expires: Date.now() + 400,
+  };
+}
+
+function takePending() {
+  if (!pending || Date.now() > pending.expires) {
+    return { keys: new Set(), all: false };
+  }
+  return { keys: new Set(pending.keys), all: pending.all };
+}
+
+function stripStyle(tpc, keys, withBranch) {
+  const obj = tpc && tpc.nodeObj;
+  if (!obj) return false;
+
+  let changed = false;
+  const style = { ...(obj.style || {}) };
+
+  keys.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(style, key)) {
+      delete style[key];
+      changed = true;
+    }
+    try {
+      if (tpc.style && tpc.style[key]) {
+        tpc.style[key] = "";
+        changed = true;
+      }
+    } catch (error) {
+      /* 非法 CSS 键忽略 */
+    }
+  });
+
+  if (changed) {
+    if (Object.keys(style).length) obj.style = style;
+    else delete obj.style;
+  }
+
+  if (withBranch && obj.branchColor) {
+    delete obj.branchColor;
+    changed = true;
+  }
+
+  return changed;
+}
+
+function refreshSelection(mind) {
+  try {
+    const nodes = (mind && mind.currentNodes) || [];
+    if (mind && mind.bus && nodes.length) {
+      mind.bus.fire(
+        "selectNodes",
+        nodes.map((tpc) => tpc.nodeObj)
+      );
+    }
+  } catch (error) {
+    console.warn("[FocusMindMap] refreshSelection", error);
+  }
+}
+
+function installStyleFix() {
+  const proto = MindElixir && MindElixir.prototype;
+  if (!proto || proto[PATCH_FLAG]) return;
+
+  const baseLink = proto.linkDiv;
+  if (typeof baseLink === "function") {
+    proto.linkDiv = function (...args) {
+      if (this && this.container) this.container.__fmmMind = this;
+      return baseLink.apply(this, args);
+    };
+  }
+
+  const baseReshape = proto.reshapeNode;
+  if (typeof baseReshape === "function") {
+    proto.reshapeNode = async function (tpc, patchData) {
+      const touches =
+        Boolean(patchData)
+        && Object.prototype.hasOwnProperty.call(patchData, "style");
+      const prev =
+        touches && tpc && tpc.nodeObj
+          ? { ...(tpc.nodeObj.style || {}) }
+          : null;
+      const intended =
+        touches && patchData.style ? { ...patchData.style } : null;
+      const armed = touches ? takePending() : null;
+
+      const result = await baseReshape.call(this, tpc, patchData);
+      if (!touches) return result;
+
+      const keys = new Set(armed.keys);
+      if (intended) {
+        Object.keys(intended).forEach((key) => {
+          if (EMPTY(intended[key])) keys.add(key);
+        });
+      }
+      if (!intended || armed.all) {
+        Object.keys(prev || {}).forEach((key) => {
+          if (!intended || EMPTY(intended[key])) keys.add(key);
+        });
+      }
+
+      if (stripStyle(tpc, keys, false)) {
+        try {
+          this.linkDiv();
+        } catch (error) {
+          console.warn("[FocusMindMap] relink after style", error);
+        }
+        refreshSelection(this);
+      }
+      return result;
+    };
+  }
+
+  proto[PATCH_FLAG] = true;
+}
+
+installStyleFix();
 
 /* ================= 连线几何 ================= */
 
@@ -89,8 +214,6 @@ function readGap(mind, name, fallback) {
 
 /* 括号式：分叉处保持 T 形，只在外侧拐角做圆角（XMind 逻辑图） */
 function elbowH(x1, y1, xs, x2, y2, radius) {
-  if (Math.abs(y2 - y1) < 0.75) return `M ${x1} ${y1} H ${x2}`;
-
   const sy = y2 > y1 ? 1 : -1;
   const sx = x2 >= xs ? 1 : -1;
   const r = Math.max(
@@ -120,8 +243,8 @@ function straightH(x1, y1, x2, y2) {
   );
 }
 
-function elbowV(x1, y1, x2, y2, radius) {
-  if (Math.abs(x2 - x1) < 0.75) return `M ${x1} ${y1} V ${y2}`;
+function elbowV(x1, y1, x2, y2, radius, snap) {
+  if (Math.abs(x2 - x1) <= snap) return `M ${x1} ${y1} V ${y2}`;
 
   const mid = y1 + (y2 - y1) / 2;
   const sx = x2 > x1 ? 1 : -1;
@@ -138,7 +261,9 @@ function elbowV(x1, y1, x2, y2, radius) {
   );
 }
 
-/* 主分支：根节点边缘中心 → 一级节点边缘中心 */
+/* 吸附阈值：中心偏差小于较矮节点高度的 1/3 → 视为同一水平线 */
+const snapOf = (a, b) => Math.max(2, Math.min(a, b) / 3);
+
 function mainPoints({ pT, pL, pW, pH, cT, cL, cW, cH, direction }) {
   const left = direction === "lhs";
   return {
@@ -146,11 +271,11 @@ function mainPoints({ pT, pL, pW, pH, cT, cL, cW, cH, direction }) {
     y1: pT + pH / 2,
     x2: left ? cL + cW : cL,
     y2: cT + cH / 2,
+    snap: snapOf(pH, cH),
   };
 }
 
-/* 子分支：me-parent 左右各含 --node-gap-x 内边距，
-   文字边缘 = 外框 ± GAP；统一连到垂直中心，不再画下划线。 */
+/* 子分支：me-parent 左右各含 --node-gap-x 内边距 */
 function subPoints(mind, { pT, pL, pW, pH, cT, cL, cW, cH, direction }) {
   const GAP = readGap(mind, "--node-gap-x", 30);
   const left = direction === "lhs";
@@ -159,11 +284,14 @@ function subPoints(mind, { pT, pL, pW, pH, cT, cL, cW, cH, direction }) {
     y1: pT + pH / 2,
     x2: left ? cL + cW - GAP : cL + GAP,
     y2: cT + cH / 2,
+    snap: snapOf(pH, cH),
   };
 }
 
 function horizontal(style, radius, p) {
-  const { x1, y1, x2, y2 } = p;
+  const { x1, y1, x2, y2, snap } = p;
+
+  if (Math.abs(y2 - y1) <= snap) return `M ${x1} ${y1} H ${x2}`;
   if (style === "rounded") return curveH(x1, y1, x2, y2);
   if (style === "straight") return straightH(x1, y1, x2, y2);
   return elbowH(x1, y1, x1 + (x2 - x1) / 2, x2, y2, radius);
@@ -172,13 +300,19 @@ function horizontal(style, radius, p) {
 export function createBranchGenerators(skeleton, ME) {
   try {
     if (!skeleton) return null;
-
     const style = skeleton.lineStyle || "bracket";
 
     if (ME && skeleton.direction === ME.DOWN) {
       const radius = style === "rounded" ? 10 : 0;
       const vertical = function ({ pT, pL, pW, pH, cT, cL, cW }) {
-        return elbowV(pL + pW / 2, pT + pH, cL + cW / 2, cT, radius);
+        return elbowV(
+          pL + pW / 2,
+          pT + pH,
+          cL + cW / 2,
+          cT,
+          radius,
+          Math.max(2, Math.min(pW, cW) / 4)
+        );
       };
       return {
         generateMainBranch: vertical,
@@ -226,11 +360,19 @@ function hThumb(style, compact) {
       `M${xs} 20 V${ys[2] - 3} Q${xs} ${ys[2]} ${xs + 3} ${ys[2]} H${x2}`;
   } else if (style === "curve") {
     d = ys
-      .map((y) => `M${x0} 20 C${xs} 20 ${xs} ${y} ${x2} ${y}`)
+      .map((y) =>
+        y === 20
+          ? `M${x0} 20 H${x2}`
+          : `M${x0} 20 C${xs} 20 ${xs} ${y} ${x2} ${y}`
+      )
       .join(" ");
   } else {
     d = ys
-      .map((y) => `M${x0} 20 H${x0 + 3} L${x2 - 3} ${y} H${x2}`)
+      .map((y) =>
+        y === 20
+          ? `M${x0} 20 H${x2}`
+          : `M${x0} 20 H${x0 + 3} L${x2 - 3} ${y} H${x2}`
+      )
       .join(" ");
   }
 
@@ -288,8 +430,6 @@ function downThumb(style, compact) {
   );
 }
 
-/** kind: right-bracket | right-curve | right-straight | left-* |
- *        side-curve | side-bracket | down-bracket | down-rounded */
 export function skeletonThumb(kind, compact = false) {
   const [side, style] = String(kind || "right-bracket").split("-");
 
@@ -339,6 +479,7 @@ export const focusMindMapEnhancerMixin = {
   },
 
   beforeUnmount() {
+    clearTimeout(this.fmmxSettleTimer);
     if (typeof this.fmmxDispose === "function") this.fmmxDispose();
   },
 
@@ -353,10 +494,72 @@ export const focusMindMapEnhancerMixin = {
       this.fmmxCloseMenus();
     },
 
+    fmmxSelectedTopics() {
+      const canvas = this.$refs && this.$refs.editorCanvas;
+      return canvas
+        ? Array.from(canvas.querySelectorAll("me-tpc.selected"))
+        : [];
+    },
+
+    fmmxMind() {
+      const canvas = this.$refs && this.$refs.editorCanvas;
+      const container = canvas && canvas.querySelector(".map-container");
+      return (container && container.__fmmMind) || null;
+    },
+
+    /* 所有样式写入统一入口：记录要删除的键，交给引擎层修复 */
+    fmmxApplyStyle(patch) {
+      const keys = Object.keys(patch || {}).filter((key) =>
+        EMPTY(patch[key])
+      );
+      armPending(keys, false);
+      this.applyNodeStyle(patch);
+      this.fmmxSettle(keys, false);
+    },
+
+    fmmxResetStyle() {
+      armPending([], true);
+      this.resetNodeStyle();
+      this.fmmxSettle([], true);
+    },
+
     fmmxToggleQuickStyle(type) {
       if (!this.selectedCount) return;
       const patch = buildQuickStylePatch(type, this.selectedNodeStyle || {});
-      if (patch) this.applyNodeStyle(patch);
+      if (patch) this.fmmxApplyStyle(patch);
+    },
+
+    /* 兜底：宿主若未走 reshapeNode，直接在 DOM 节点上完成清理 */
+    fmmxSettle(keys, all) {
+      clearTimeout(this.fmmxSettleTimer);
+      this.fmmxSettleTimer = setTimeout(() => {
+        const tpcs = this.fmmxSelectedTopics();
+        let changed = false;
+
+        tpcs.forEach((tpc) => {
+          const set = all
+            ? new Set(Object.keys((tpc.nodeObj && tpc.nodeObj.style) || {}))
+            : new Set(keys);
+          if (stripStyle(tpc, set, all)) changed = true;
+        });
+
+        const mind = this.fmmxMind();
+        if (!changed || !mind) return;
+
+        try {
+          mind.linkDiv();
+          tpcs.forEach((tpc) => {
+            mind.bus.fire("operation", {
+              name: "reshapeNode",
+              obj: tpc.nodeObj,
+              origin: tpc.nodeObj,
+            });
+          });
+        } catch (error) {
+          console.warn("[FocusMindMap] settle style", error);
+        }
+        refreshSelection(mind);
+      }, 120);
     },
   },
 };

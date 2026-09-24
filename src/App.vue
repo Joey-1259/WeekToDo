@@ -450,9 +450,7 @@ export default {
       });
 
       this.$nextTick(() => {
-        const modal = new Modal(
-          document.getElementById("toDoModal")
-        );
+        const modal = Modal.getOrCreateInstance(document.getElementById("toDoModal"));
         modal.show();
       });
     },

@@ -15,7 +15,6 @@
             <div class="d-flex align-items-center">
               <div v-show="showingCalendar" class="align-items-center date-range-row">
                 <div class="date-range-picker d-flex align-items-center">
-                  <i class="bi-calendar-event date-range-icon"></i>
                   <input type="date" class="date-range-input" v-model="startDateStr" @change="onStartDateChange" />
                   <span class="date-range-separator">—</span>
                   <input type="date" class="date-range-input" v-model="endDateStr" @change="onEndDateChange" />
@@ -838,7 +837,7 @@ export default {
       toast.show();
     },
     removeAllCanceled() {
-      let modal = new Modal(document.getElementById("toDoModal"));
+      let modal = Modal.getOrCreateInstance(document.getElementById("toDoModal"));
       modal.show();
     },
     duplicateTodo: function () {
@@ -1092,10 +1091,6 @@ export default {
 .date-range-picker {
   background-color: #f4f5f7; border-radius: 8px; padding: 4px 10px; gap: 4px;
   .dark-theme & { background-color: #1a1e24; }
-}
-.date-range-icon {
-  font-size: 0.9rem; color: #6b7280; margin-right: 4px;
-  .dark-theme & { color: #9aa0a8; }
 }
 .date-range-input {
   border: none; background: transparent; font-size: 13px; color: #374151;
@@ -1647,5 +1642,66 @@ export default {
 
 #toDoModal .task-detail-section {
   margin-top: 18px;
+}
+</style>
+
+
+<style scoped lang="scss">
+/* OVERLAY_STACK_20260924_V1 · 日期区间胶囊
+   去掉前导日历图标后，两枚原生选择器图标成为唯一入口：
+   一个控件只保留一种"点这里选日期"的暗示。 */
+.date-range-picker {
+  height: 32px;
+  padding: 0 6px 0 10px;
+  gap: 2px;
+  border: 1px solid transparent;
+  transition:
+    border-color 0.14s ease,
+    background-color 0.14s ease,
+    box-shadow 0.14s ease;
+
+  &:hover {
+    background-color: #eef0f3;
+  }
+
+  &:focus-within {
+    border-color: rgba(66, 99, 235, 0.35);
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.08);
+  }
+
+  .dark-theme &:hover {
+    background-color: #20262e;
+  }
+
+  .dark-theme &:focus-within {
+    border-color: rgba(108, 143, 255, 0.45);
+    background-color: #161b22;
+    box-shadow: 0 0 0 3px rgba(108, 143, 255, 0.12);
+  }
+}
+
+.date-range-input {
+  font-variant-numeric: tabular-nums;
+
+  &::-webkit-calendar-picker-indicator {
+    margin-left: 2px;
+    padding: 3px;
+    border-radius: 5px;
+    opacity: 0.45;
+    transition:
+      opacity 0.14s ease,
+      background-color 0.14s ease;
+  }
+
+  &:hover::-webkit-calendar-picker-indicator {
+    opacity: 0.85;
+    background-color: rgba(66, 99, 235, 0.08);
+  }
+}
+
+.date-range-separator {
+  margin: 0 4px;
+  color: #b3b9c2;
 }
 </style>

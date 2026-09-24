@@ -2,6 +2,8 @@
   <Teleport to="body">
     <div
       class="tnc-layer"
+      data-overlay-layer="notes"
+      :style="layerStyle"
       role="presentation"
       @mousedown.self="requestClose"
     >
@@ -145,6 +147,9 @@
  *     modal 不会跟着一起关掉（否则用户按一次 esc 会连退两层）。
  */
 
+/* OVERLAY_STACK_20260924_V1 */
+import { zAbove, cssVarNumber } from "../../helpers/overlayStack";
+
 const SAVE_DEBOUNCE = 380;
 
 export default {
@@ -175,10 +180,15 @@ export default {
       strikes: 0,
       strikeTimer: null,
       closing: false,
+      layerZ: null,
     };
   },
 
   computed: {
+    layerStyle() {
+      return this.layerZ ? { zIndex: this.layerZ } : null;
+    },
+
     statusLabel() {
       if (this.state === "dirty") return "编辑中…";
       return "已保存";
@@ -210,6 +220,15 @@ export default {
       const next = value || "";
       if (next !== this.draft) this.draft = next;
     },
+  },
+
+  /* OVERLAY_STACK_20260924_V1
+     本层可能从任意层之上被唤起：每周事项的 Bootstrap 弹窗（1055）、
+     重点事项里被抬高的关联事项弹窗……静态台账只能保证"高于已登记
+     的层"，保证不了"高于唤起我的那一层"。挂载前量一次当前最高的
+     可见浮层，站在它之上；台账值作为下限保留。 */
+  beforeMount() {
+    this.layerZ = zAbove(cssVarNumber("--z-overlay-notes", 1230));
   },
 
   mounted() {

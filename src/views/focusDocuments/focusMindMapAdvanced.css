@@ -1,0 +1,166 @@
+/* FMM_ADV_20260924_V5 */
+
+/* ---------- 1. 单子节点 / 子节点组居中对齐（根因修复） ---------- */
+:is(.focus-mind-map-editor-canvas, .focus-mind-map-preview-canvas)
+  .map-container me-nodes:not(.down) me-children > me-wrapper > me-parent {
+  margin-top: 0;
+}
+:is(.focus-mind-map-editor-canvas, .focus-mind-map-preview-canvas)
+  .map-container me-nodes:not(.down) me-children > me-wrapper + me-wrapper {
+  margin-top: var(--node-gap-y);
+}
+
+/* ---------- 2. 外框 ---------- */
+.map-container svg.fmma-bd-layer {
+  position: absolute; top: 0; left: 0;
+  overflow: visible; pointer-events: none; z-index: 1;
+}
+.map-container .fmma-bd-rect {
+  fill-opacity: .05; stroke-opacity: .55; stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+  transition: fill-opacity .15s, stroke-opacity .15s;
+}
+.map-container .fmma-bd-rect.is-selected {
+  fill-opacity: .1; stroke-opacity: .95; stroke-width: 1.6; stroke-dasharray: none;
+}
+.map-container .fmma-bd-labels {
+  position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 25;
+}
+.map-container .fmma-bd-label {
+  position: absolute; transform: translateY(-50%);
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 1px 9px; border-radius: 999px;
+  font-size: 12px; line-height: 18px; font-weight: 600;
+  color: var(--fmma-accent); background: var(--bgcolor, #fff);
+  border: 1px solid color-mix(in srgb, var(--fmma-accent) 45%, transparent);
+  pointer-events: auto; cursor: pointer; user-select: none;
+  transition: box-shadow .15s, background .15s;
+}
+.map-container .fmma-bd-label:hover {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fmma-accent) 14%, transparent);
+}
+.map-container .fmma-bd-label.is-selected {
+  color: #fff; background: var(--fmma-accent); border-color: var(--fmma-accent);
+}
+.map-container .fmma-bd-label.is-editing {
+  cursor: text; user-select: text; text-overflow: clip; outline: none;
+  color: var(--fmma-accent); background: var(--bgcolor, #fff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fmma-accent) 22%, transparent);
+}
+
+/* ---------- 3. 工具栏 ---------- */
+.focus-mind-map-toolbar button:disabled { opacity: .38; cursor: not-allowed; }
+.fmma-export { position: relative; }
+.fmma-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
+  width: 248px; padding: 6px;
+  border-radius: 12px; background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  box-shadow: 0 12px 32px rgba(20,24,32,.14), 0 2px 6px rgba(20,24,32,.06);
+  animation: fmma-pop .14s ease-out;
+}
+@keyframes fmma-pop { from { opacity: 0; transform: translateY(-4px); } }
+.fmma-menu-title {
+  padding: 6px 10px 4px; font-size: 11px; letter-spacing: .04em; color: #9a9a9a;
+}
+.fmma-menu button {
+  display: grid; grid-template-columns: 28px 1fr; align-items: center; gap: 8px;
+  width: 100%; padding: 7px 10px; border: 0; border-radius: 8px;
+  background: transparent; text-align: left; cursor: pointer; color: #2b2b2b;
+}
+.fmma-menu button:hover { background: rgba(0,0,0,.045); }
+.fmma-menu button b {
+  display: grid; place-items: center; height: 22px; border-radius: 6px;
+  font-size: 10px; font-weight: 700; color: #fff; background: #7b8494;
+}
+.fmma-menu button span { display: flex; flex-direction: column; min-width: 0; }
+.fmma-menu button strong { font-size: 13px; font-weight: 600; }
+.fmma-menu button small { font-size: 11px; color: #9a9a9a; }
+.fmma-menu hr { margin: 5px 4px; border: 0; border-top: 1px solid rgba(0,0,0,.07); }
+
+/* ---------- 4. 大纲抽屉 ---------- */
+.focus-mind-map-stage { position: relative; }
+.fmma-outline {
+  position: absolute; top: 12px; left: 12px; bottom: 12px; z-index: 40;
+  width: 320px; display: flex; flex-direction: column;
+  border-radius: 14px; background: rgba(255,255,255,.97);
+  border: 1px solid rgba(0,0,0,.07);
+  box-shadow: 0 16px 40px rgba(20,24,32,.12);
+  backdrop-filter: blur(8px);
+  animation: fmma-slide .18s ease-out;
+}
+@keyframes fmma-slide { from { opacity: 0; transform: translateX(-8px); } }
+.fmma-outline header {
+  display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.fmma-outline header > div:first-child { flex: 1; display: flex; flex-direction: column; }
+.fmma-outline header strong { font-size: 14px; }
+.fmma-outline header small { font-size: 11px; color: #9a9a9a; }
+.fmma-seg { display: flex; padding: 2px; border-radius: 8px; background: rgba(0,0,0,.05); }
+.fmma-seg button {
+  padding: 3px 8px; border: 0; border-radius: 6px; font-size: 11px;
+  background: transparent; color: #777; cursor: pointer;
+}
+.fmma-seg button.active { background: #fff; color: #222; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+.fmma-x {
+  width: 24px; height: 24px; border: 0; border-radius: 6px;
+  background: transparent; color: #888; font-size: 16px; cursor: pointer;
+}
+.fmma-x:hover { background: rgba(0,0,0,.06); }
+.fmma-rows { flex: 1; overflow: auto; margin: 0; padding: 8px 6px; list-style: none; }
+.fmma-rows li {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 4px 8px 4px calc(8px + var(--d) * 16px);
+  border-radius: 7px; font-size: 13px; line-height: 1.55; color: #333; cursor: pointer;
+}
+.fmma-rows li:hover { background: rgba(0,0,0,.04); }
+.fmma-rows li .fmma-bullet {
+  flex: none; width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor; opacity: .45; transform: translateY(-2px);
+}
+.fmma-rows li.is-root { font-size: 15px; font-weight: 700; padding-bottom: 8px; }
+.fmma-rows li.is-root .fmma-bullet { display: none; }
+.fmma-rows li.is-summary { color: #8a6d3b; cursor: default; font-style: italic; }
+.fmma-rows li.is-summary .fmma-bullet { border-radius: 1px; transform: translateY(-2px) rotate(45deg); }
+.fmma-rows li span { min-width: 0; overflow-wrap: anywhere; }
+.fmma-rows li em {
+  flex: none; margin-left: auto; padding: 0 6px; border-radius: 999px;
+  font-size: 10px; font-style: normal; color: #6579c8; background: rgba(101,121,200,.1);
+}
+.fmma-outline footer {
+  display: flex; gap: 8px; padding: 10px 14px 14px; border-top: 1px solid rgba(0,0,0,.06);
+}
+.fmma-outline footer button {
+  flex: 1; height: 32px; border-radius: 8px; font-size: 13px; cursor: pointer;
+  border: 1px solid rgba(0,0,0,.1); background: #fff; color: #333;
+}
+.fmma-outline footer .fmma-primary { border-color: #2f2f2f; background: #2f2f2f; color: #fff; }
+
+/* ---------- 5. Toast ---------- */
+.fmma-toast {
+  position: absolute; left: 50%; bottom: 18px; z-index: 70; transform: translateX(-50%);
+  padding: 7px 14px; border-radius: 999px; font-size: 12px;
+  color: #fff; background: rgba(30,32,38,.9);
+  box-shadow: 0 6px 18px rgba(0,0,0,.18); pointer-events: none;
+  animation: fmma-pop .16s ease-out;
+}
+
+/* ---------- 6. 深色主题 ---------- */
+.focus-mind-map-fullscreen.is-theme-night .fmma-menu,
+.focus-mind-map-fullscreen.is-theme-night .fmma-outline {
+  background: rgba(41,47,57,.98); border-color: #444c59; color: #e3e7ef;
+}
+.focus-mind-map-fullscreen.is-theme-night .fmma-menu button,
+.focus-mind-map-fullscreen.is-theme-night .fmma-rows li { color: #d5dae4; }
+.focus-mind-map-fullscreen.is-theme-night .fmma-menu button:hover,
+.focus-mind-map-fullscreen.is-theme-night .fmma-rows li:hover { background: rgba(255,255,255,.06); }
+.focus-mind-map-fullscreen.is-theme-night .fmma-seg { background: rgba(255,255,255,.08); }
+.focus-mind-map-fullscreen.is-theme-night .fmma-seg button.active { background: #3a4250; color: #fff; }
+.focus-mind-map-fullscreen.is-theme-night .fmma-outline footer button {
+  background: #2f3642; border-color: #4a5363; color: #e3e7ef;
+}
+.focus-mind-map-fullscreen.is-theme-night .fmma-outline footer .fmma-primary {
+  background: #8ca3ff; border-color: #8ca3ff; color: #1e222a;
+}
+.focus-mind-map-fullscreen.is-theme-night .fmma-rows li.is-summary { color: #d9b77a; }

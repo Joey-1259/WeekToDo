@@ -10,6 +10,7 @@
  */
 import MindElixir from "mind-elixir";
 import "./focusMindMapEnhancer.css";
+import { focusMindMapAdvancedMixin } from "./focusMindMapAdvanced.js";
 
 /* ================= 快速样式 ================= */
 
@@ -449,6 +450,8 @@ const MENU_SCOPE =
   ".focus-mind-map-global-control, .focus-mind-map-theme-control";
 
 export const focusMindMapEnhancerMixin = {
+  /* FMM_ADV_20260924_V5 */
+  mixins: [focusMindMapAdvancedMixin],
   mounted() {
     const onPointerDown = (event) => {
       if (!this.skeletonMenuOpen && !this.themeMenuOpen) return;

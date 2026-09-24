@@ -455,6 +455,96 @@
             <span class="tool-label">样式</span>
           </button>
 
+          <!-- FMM_ADV_20260924_V5：插入 / 大纲 / 导出 -->
+          <span class="focus-mind-map-toolbar-rule"></span>
+
+          <div class="focus-mind-map-tool-group" aria-label="插入">
+            <button
+              type="button"
+              :disabled="!selectedCount"
+              title="概要：为选中的同级节点添加总结"
+              @click="fmmaAddSummary"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M4 4h6M4 10h6M4 16h6M12 4c2 0 2 1.5 2 3v1.5c0 .8.6 1.5 1.5 1.5-.9 0-1.5.7-1.5 1.5V13c0 1.5 0 3-2 3" />
+              </svg>
+              <span class="tool-label">概要</span>
+            </button>
+
+            <button
+              type="button"
+              :disabled="!selectedCount"
+              title="外框（Ctrl/⌘ B）"
+              @click="fmmaAddBoundary"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <rect x="3" y="4" width="14" height="12" rx="3" stroke-dasharray="2.4 2" />
+                <path d="M7 8.5h6M7 11.5h4" />
+              </svg>
+              <span class="tool-label">外框</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            class="focus-mind-map-global-trigger"
+            :class="{ active: fmmaOutlineOpen }"
+            title="查看文字大纲"
+            @click="fmmaToggleOutline"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M4 5h1M8 5h8M6 10h1M10 10h6M6 15h1M10 15h6" />
+            </svg>
+            <span class="tool-label">大纲</span>
+          </button>
+
+          <div class="fmma-export">
+            <button
+              type="button"
+              class="focus-mind-map-global-trigger"
+              :class="{ active: fmmaExportOpen }"
+              aria-haspopup="menu"
+              :aria-expanded="String(fmmaExportOpen)"
+              :disabled="Boolean(fmmaBusy)"
+              title="导出思维导图"
+              @click.stop="fmmaExportOpen = !fmmaExportOpen; skeletonMenuOpen = false; themeMenuOpen = false"
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M10 3v9M6.5 8.5 10 12l3.5-3.5M4 14v2h12v-2" />
+              </svg>
+              <span class="tool-label">{{ fmmaBusy ? "导出中…" : "导出" }}</span>
+              <svg class="focus-mind-map-trigger-chevron" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="m6 8 4 4 4-4" />
+              </svg>
+            </button>
+
+            <div v-if="fmmaExportOpen" class="fmma-menu" role="menu" @click.stop>
+              <div class="fmma-menu-title">图形</div>
+              <button type="button" role="menuitem" @click="fmmaExport('png')">
+                <b style="background:#5b8def">PNG</b>
+                <span><strong>图片</strong><small>2 倍高清，含概要与外框</small></span>
+              </button>
+              <button type="button" role="menuitem" @click="fmmaExport('pdf')">
+                <b style="background:#d9534f">PDF</b>
+                <span><strong>PDF 文档</strong><small>打印对话框中选择「存储为 PDF」</small></span>
+              </button>
+              <hr />
+              <div class="fmma-menu-title">文字大纲</div>
+              <button type="button" role="menuitem" @click="fmmaExport('md')">
+                <b style="background:#3f3f46">MD</b>
+                <span><strong>Markdown</strong><small>层级列表，可粘贴到文档</small></span>
+              </button>
+              <button type="button" role="menuitem" @click="fmmaExport('txt')">
+                <b style="background:#7b8494">TXT</b>
+                <span><strong>纯文本</strong><small>Tab 缩进，兼容性最好</small></span>
+              </button>
+              <button type="button" role="menuitem" @click="fmmaCopyOutline('md')">
+                <b style="background:#4f7d68">⧉</b>
+                <span><strong>复制大纲</strong><small>Markdown 格式到剪贴板</small></span>
+              </button>
+            </div>
+          </div>
+
           <span class="focus-mind-map-toolbar-spacer"></span>
 
           <div
@@ -506,6 +596,42 @@
             ref="editorCanvas"
             class="focus-mind-map-editor-canvas"
           ></div>
+
+          <!-- FMM_ADV_20260924_V5：文字大纲抽屉 -->
+          <aside v-if="fmmaOutlineOpen" class="fmma-outline" aria-label="文字大纲">
+            <header>
+              <div>
+                <strong>大纲</strong>
+                <small>{{ fmmaOutlineCount }} 个主题 · 点击定位节点</small>
+              </div>
+              <div class="fmma-seg">
+                <button type="button" :class="{ active: fmmaFormat === 'md' }" @click="fmmaFormat = 'md'">Markdown</button>
+                <button type="button" :class="{ active: fmmaFormat === 'txt' }" @click="fmmaFormat = 'txt'">纯文本</button>
+              </div>
+              <button type="button" class="fmma-x" aria-label="关闭大纲" @click="fmmaOutlineOpen = false">×</button>
+            </header>
+            <ol class="fmma-rows">
+              <li
+                v-for="row in fmmaOutlineRows"
+                :key="row.key"
+                :class="'is-' + row.kind"
+                :style="{ '--d': row.depth }"
+                @click="fmmaSelectRow(row.id)"
+              >
+                <i class="fmma-bullet"></i>
+                <span>{{ row.kind === 'summary' ? '概要：' + row.text : row.text }}</span>
+                <em v-if="row.boundary">{{ row.boundary }}</em>
+              </li>
+            </ol>
+            <footer>
+              <button type="button" class="fmma-primary" @click="fmmaCopyOutline()">
+                {{ fmmaCopied ? "已复制 ✓" : "复制大纲" }}
+              </button>
+              <button type="button" @click="fmmaExport(fmmaFormat)">导出文件</button>
+            </footer>
+          </aside>
+
+          <div v-if="fmmaToast" class="fmma-toast" role="status">{{ fmmaToast }}</div>
 
           <FocusMindMapInspector
             v-if="inspectorVisible"

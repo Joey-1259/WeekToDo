@@ -713,6 +713,8 @@ import {
 } from "./focusMindMapEnhancer.js";
 /* FOCUS_DOCUMENT_UPGRADE_20261005_V1 */
 import "./focusMindMapPreviewFit.js";
+/* FOCUS_EXPERIENCE_20261005_V2 */
+import { focusMindMapViewportMixin } from "./focusMindMapViewportController.js";
 
 const SAVE_DELAY = 550;
 const SNAPSHOT_DELAY = 950;
@@ -1537,7 +1539,7 @@ async function fitMindMap(
 }
 
 export default {
-  mixins: [focusMindMapEnhancerMixin],
+  mixins: [focusMindMapEnhancerMixin, focusMindMapViewportMixin],
   name: "FocusMindMapNodeView",
 
   components: {
@@ -2992,18 +2994,8 @@ export default {
       );
     },
 
-    async fitAndCenterMap() {
-      if (!this.editingMind) return;
-
-      await fitMindMap(
-        this.editingMind
-      );
-
-      this.scale =
-        Number(
-          this.editingMind.scaleVal
-        )
-        || 1;
+    fitAndCenterMap() {
+      return this.fwFitRequested();
     },
 
     undo() {

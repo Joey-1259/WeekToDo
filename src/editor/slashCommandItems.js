@@ -1,3 +1,4 @@
+/* FOCUS_EXPERIENCE_20261005_V2 */
 function base(editor, range) {
   return editor.chain().focus().deleteRange(range);
 }
@@ -21,7 +22,7 @@ export function createSlashCommandItems(
       icon: "!",
       shortcut: "/glk",
       aliases: [
-        "callout", "提示块", "高亮块", "提示", "注意", "glk"
+        "callout", "提示块", "高亮块", "高亮", "提示", "注意", "glk"
       ],
       command: ({ editor, range }) =>
         base(editor, range).insertFocusCallout().run(),

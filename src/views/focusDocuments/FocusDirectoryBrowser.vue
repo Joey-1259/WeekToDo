@@ -15,7 +15,7 @@
         </span>
 
         <div class="dir-header-text">
-          <strong id="dir-title">{{ isPick ? (pickPurpose === "import" ? "选择导入目录" : "移动到目录") : "文件目录" }}</strong>
+          <strong id="dir-title">{{ isDocumentPick ? "添加分栏" : (isPick ? (pickPurpose === "import" ? "选择导入目录" : "移动到目录") : "文件目录") }}</strong>
           <small>{{ subtitle }}</small>
         </div>
 
@@ -41,6 +41,18 @@
         </label>
 
         <button
+          v-if="isDocumentPick"
+          type="button"
+          class="dir-icon-btn"
+          title="在当前目录新建文档"
+          aria-label="在当前目录新建文档"
+          @click="createSelectedDocument"
+        >
+          <AppIcon name="plus" />
+        </button>
+
+        <button
+          v-if="!isDocumentPick"
           type="button"
           class="dir-icon-btn"
           v-tip="{ label: '新建根目录' }"
@@ -72,11 +84,11 @@
         <!-- 根目录在选择模式下是一个真实可选项。
              "移出所有目录"是高频意图，不该只能靠拖到空白处完成。 -->
         <div
-          v-if="isPick"
+          v-if="isPick || isDocumentPick"
           class="dir-row is-folder is-root-row"
           :class="{ 'is-active': activeKey === '__root__' }"
           @click="activeKey = '__root__'"
-          @dblclick="confirmPick"
+          @dblclick="isPick && confirmPick()"
         >
           <span class="dir-twisty-spacer"></span>
           <span class="dir-row-icon"><AppIcon name="folder" /></span>
@@ -93,6 +105,7 @@
             'is-active': activeKey === row.key,
             'is-open-doc': row.type === 'doc' && openIds.includes(row.id),
             'is-self': isPick && row.type === 'doc',
+            'is-unavailable': isDocumentPick && row.type === 'doc' && excludeIds.includes(row.id),
             'drop-into': dropTarget.key === row.key && dropTarget.zone === 'into',
             'drop-before': dropTarget.key === row.key && dropTarget.zone === 'before',
             'drop-after': dropTarget.key === row.key && dropTarget.zone === 'after',
@@ -159,7 +172,7 @@
             已并列
           </span>
 
-          <span v-if="!isPick" class="dir-row-actions">
+          <span v-if="canManage" class="dir-row-actions">
             <button
               v-if="row.type === 'folder'"
               type="button"
@@ -221,7 +234,7 @@
 
         <span class="dir-footer-spacer"></span>
 
-        <span v-if="!isPick" class="dir-tips">
+        <span v-if="canManage" class="dir-tips">
           <kbd>↑↓</kbd> 移动 · <kbd>→</kbd> 展开 · <kbd>F2</kbd> 重命名 ·
           <kbd>拖拽</kbd> 排序
         </span>
@@ -241,7 +254,7 @@
           :disabled="isPick ? !pickChanged : !activeDoc"
           @click="isPick ? confirmPick() : openActiveDoc()"
         >
-          {{ isPick ? pickLabel : "在新分栏打开" }}
+          {{ isPick ? pickLabel : (isDocumentPick ? "添加到此分栏" : "在新分栏打开") }}
         </button>
       </footer>
     </section>
@@ -333,6 +346,8 @@ export default {
     /** manage = 完整管理；pick = 只选目录，用于"移动到…" */
     /* FOCUS_DOCUMENT_UPGRADE_20261005_V1 */
     pickPurpose: { type: String, default: "move" },
+    /* FOCUS_EXPERIENCE_20261005_V2 */
+    excludeIds: { type: Array, default: () => [] },
     mode: { type: String, default: "manage" },
 
     /** pick 模式下正在移动的文档，用于显示名称与判断是否有变化 */
@@ -352,6 +367,7 @@ export default {
     "move-folder",
     "document-action",
     "pick",
+    "create-document",
   ],
 
   data() {
@@ -375,11 +391,32 @@ export default {
       return this.mode === "pick";
     },
 
+    isDocumentPick() {
+      return this.mode === "document";
+    },
+
+    canManage() {
+      return this.mode === "manage";
+    },
+
     canDrag() {
-      return !this.isPick;
+      return this.canManage;
+    },
+
+    selectedCreationFolder() {
+      if (this.activeKey === "__root__") return null;
+      if (this.activeRow?.type === "folder") return this.activeRow.id;
+      if (this.activeRow?.type === "doc") return this.activeRow.parentId || null;
+      return this.selectedFolderId === "__root__"
+        ? null
+        : this.selectedFolderId || null;
     },
 
     subtitle() {
+      if (this.isDocumentPick) {
+        return "选择文档，或在当前目录新建；已打开文档不可重复添加";
+      }
+
       if (this.isPick) {
         return this.pickDocument?.title || "未命名文档";
       }
@@ -519,9 +556,12 @@ export default {
     },
 
     activeDoc() {
-      return this.activeRow && this.activeRow.type === "doc"
-        ? this.activeRow
-        : null;
+      const row = this.activeRow;
+
+      if (!row || row.type !== "doc") return null;
+      if (this.isDocumentPick && this.excludeIds.includes(row.id)) return null;
+
+      return row;
     },
 
     /** pick 模式：当前选中的目标目录 id（null = 未归档） */
@@ -585,6 +625,7 @@ export default {
       if (folder.collapsed) this.collapsed.add(folder.id);
     });
 
+    this._directoryPreviousFocus = document.activeElement;
     document.addEventListener("mousedown", this.closeRowMenu);
     window.addEventListener("resize", this.closeRowMenu);
 
@@ -594,6 +635,15 @@ export default {
       if (this.isPick) {
         const current = this.pickDocument?.folderId;
         this.activeKey = current ? "f:" + current : "__root__";
+        this.revealSelectedAncestors();
+      } else if (this.isDocumentPick) {
+        const current = this.selectedFolderId;
+
+        this.activeKey = current && current !== "__root__"
+          ? "f:" + current
+          : "__root__";
+
+        this.revealSelectedAncestors();
       } else if (this.visibleRows.length) {
         this.activeKey = this.visibleRows[0].key;
       }
@@ -601,11 +651,44 @@ export default {
   },
 
   beforeUnmount() {
+    const previous = this._directoryPreviousFocus;
+    queueMicrotask(() => {
+      if (previous?.isConnected) previous.focus?.();
+    });
+
     document.removeEventListener("mousedown", this.closeRowMenu);
     window.removeEventListener("resize", this.closeRowMenu);
   },
 
   methods: {
+    revealSelectedAncestors() {
+      const current = this.isPick
+        ? this.pickDocument?.folderId
+        : this.selectedFolderId;
+
+      const next = new Set(this.collapsed);
+      const seen = new Set();
+      let cursor = current;
+
+      while (cursor && !seen.has(cursor)) {
+        seen.add(cursor);
+        next.delete(cursor);
+        cursor = this.folders.find((folder) => folder.id === cursor)?.parentId;
+      }
+
+      this.collapsed = next;
+      this.scrollActiveIntoView();
+    },
+
+    createSelectedDocument() {
+      if (!this.isDocumentPick) return;
+
+      this.$emit("create-document", {
+        title: this.query.trim(),
+        folderId: this.selectedCreationFolder,
+      });
+    },
+
     focusTree() {
       this.$refs.tree?.focus();
       if (!this.activeKey && this.visibleRows.length) {
@@ -638,6 +721,7 @@ export default {
         return;
       }
 
+      if (this.isDocumentPick && this.excludeIds.includes(row.id)) return;
       this.$emit("open-document", row.id);
     },
 
@@ -711,6 +795,26 @@ export default {
     /* ---------- 键盘流 ---------- */
 
     onDialogKeydown(event) {
+      if (event.key === "Tab" && !this.rowMenu.row) {
+        const items = [...this.$refs.dialog.querySelectorAll(
+          "button:not(:disabled), input:not(:disabled), [tabindex='0']"
+        )].filter((element) => element.getClientRects().length);
+
+        const first = items[0];
+        const last = items[items.length - 1];
+
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        } else if (document.activeElement === this.$refs.dialog) {
+          event.preventDefault();
+          (event.shiftKey ? last : first)?.focus();
+        }
+      }
+
       if (event.key === "Escape" && !this.editingKey && !this.creating) {
         event.preventDefault();
 
@@ -781,12 +885,12 @@ export default {
 
         case "F2":
           event.preventDefault();
-          if (row && !this.isPick) this.beginRename(row);
+          if (row && this.canManage) this.beginRename(row);
           break;
 
         case "Backspace":
         case "Delete":
-          if (this.isPick) return;
+          if (!this.canManage) return;
           event.preventDefault();
           if (row) this.requestDelete(row);
           break;
@@ -1486,5 +1590,55 @@ export default {
 
 .dark-theme .dir-menu-divider {
   background: #333a44;
+}
+</style>
+
+<style lang="scss">
+/* FOCUS_EXPERIENCE_20261005_V2 */
+.dir-backdrop {
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.dir-dialog {
+  width: min(760px, calc(100vw - 48px));
+  max-width: 100%;
+  height: min(680px, calc(100vh - 48px));
+  height: min(680px, calc(100dvh - 48px));
+  max-height: 100%;
+  min-height: 0;
+}
+
+.dir-tree {
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.dir-row.is-unavailable {
+  opacity: 0.58;
+}
+
+.dir-dialog .dir-footer {
+  min-width: 0;
+}
+
+.dir-dialog .dir-primary,
+.dir-dialog .dir-ghost {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .dir-backdrop { padding: 12px; }
+  .dir-dialog {
+    width: calc(100vw - 24px);
+    height: calc(100vh - 24px);
+    height: calc(100dvh - 24px);
+  }
+  .dir-header { gap: 6px; padding: 12px; }
+  .dir-header-text { max-width: 130px; }
+  .dir-tips { display: none; }
+  .dir-footer { gap: 6px; }
 }
 </style>

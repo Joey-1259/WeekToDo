@@ -17,7 +17,7 @@
         <header class="fi-header">
           <div>
             <h2 id="fi-title">导入文档</h2>
-            <p>先检查内容，再保存到重点事项；不会覆盖现有文档。</p>
+            <p>选择文件后自动解析预览，选择目录并确认即可导入。</p>
           </div>
           <button
             type="button"
@@ -39,10 +39,10 @@
                 可拖入文件，或选择文件夹以包含 Markdown 的相对图片。
               </p>
               <div class="fi-buttons">
-                <button :disabled="busy" @click="$refs.filesInput.click()">
+                <button :disabled="committing" @click="$refs.filesInput.click()">
                   选择文件
                 </button>
-                <button :disabled="busy" @click="$refs.folderInput.click()">
+                <button :disabled="committing" @click="$refs.folderInput.click()">
                   选择文件夹
                 </button>
               </div>
@@ -66,42 +66,53 @@
               @change="onFiles"
             />
 
-            <div class="fi-settings">
-              <label>
-                <span>应用内目标目录</span>
-                <button :disabled="busy" @click="folderPicker = true">
-                  {{ targetPath }}
+            <div class="fi-target-bar">
+              <div>
+                <small>导入到</small>
+                <button
+                  :disabled="committing"
+                  @click="folderPicker = true"
+                >
+                  {{ targetPath }} ▾
                 </button>
-              </label>
-
-              <label>
-                <span>PDF 导入方式</span>
-                <select v-model="pdfMode" :disabled="busy" @change="invalidate">
-                  <option value="both">文字 + 页面图像</option>
-                  <option value="text">仅可编辑文字</option>
-                  <option value="images">仅页面图像（含扫描件）</option>
-                </select>
-              </label>
-
-              <label>
-                <span>文本编码</span>
-                <select v-model="encoding" :disabled="busy" @change="invalidate">
-                  <option value="utf-8">UTF-8</option>
-                  <option value="gb18030">GB18030</option>
-                </select>
-              </label>
-
-              <label>
-                <span>PDF 密码（如需要）</span>
-                <input
-                  v-model="pdfPassword"
-                  type="password"
-                  autocomplete="off"
-                  :disabled="busy"
-                  @input="invalidate"
-                />
-              </label>
+              </div>
+              <span role="status">
+                {{ parsing ? progress : (rows.length ? "解析完成，请确认导入" : "选择文件后自动解析") }}
+              </span>
             </div>
+
+            <details class="fi-advanced">
+              <summary>高级选项：PDF 方式、编码、密码</summary>
+              <div class="fi-settings">
+                <label>
+                  <span>PDF 导入方式</span>
+                  <select v-model="pdfMode" :disabled="committing" @change="invalidate">
+                    <option value="both">文字 + 页面图像</option>
+                    <option value="text">仅可编辑文字</option>
+                    <option value="images">仅页面图像（含扫描件）</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>文本编码</span>
+                  <select v-model="encoding" :disabled="committing" @change="invalidate">
+                    <option value="utf-8">UTF-8</option>
+                    <option value="gb18030">GB18030</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>PDF 密码（如需要）</span>
+                  <input
+                    v-model="pdfPassword"
+                    type="password"
+                    autocomplete="off"
+                    :disabled="committing"
+                    @input="invalidate"
+                  />
+                </label>
+              </div>
+            </details>
 
             <p class="fi-boundary">
               单文件 ≤25MB；每个 PDF ≤100页；本次图片总量 ≤64MB。
@@ -143,7 +154,7 @@
                   <input
                     v-model="current.draft.title"
                     maxlength="120"
-                    :disabled="busy"
+                    :disabled="committing"
                   />
                 </label>
 
@@ -153,18 +164,22 @@
                   </li>
                 </ul>
 
-                <h3>正文检查（文字视图）</h3>
-                <pre>{{ current.draft.preview || "没有可编辑文字" }}</pre>
-
-                <h3 v-if="previewUrls.length">图片检查</h3>
-                <figure v-for="image in previewUrls" :key="image.id">
-                  <img :src="image.url" :alt="image.name" />
-                  <figcaption>{{ image.name }}</figcaption>
-                </figure>
+                <h3>内容预览</h3>
+                <FocusImportContentPreview
+                  :content="current.draft.content"
+                  :images="previewUrls"
+                />
               </main>
 
               <main v-else class="fi-preview">
-                {{ current?.error || "选择左侧文件查看解析结果" }}
+                <p>{{ current?.error || "正在自动解析，选择目录后等待结果即可" }}</p>
+                <button
+                  v-if="current?.error && !busy"
+                  type="button"
+                  @click="parse"
+                >
+                  重新尝试解析
+                </button>
               </main>
             </div>
           </template>
@@ -187,13 +202,6 @@
           <button v-if="parsing" @click="cancelParsing">取消解析</button>
           <button v-else :disabled="committing" @click="close">
             {{ done ? "完成" : "取消" }}
-          </button>
-          <button
-            v-if="!done"
-            :disabled="busy || !sources.length"
-            @click="parse"
-          >
-            {{ rows.length ? "重新解析" : "解析并检查" }}
           </button>
           <button
             v-if="!done"
@@ -223,6 +231,9 @@
 
 <script>
 import FocusDirectoryBrowser from "./FocusDirectoryBrowser.vue";
+/* FOCUS_EXPERIENCE_20261005_V2 */
+import focusImportAutomation from "./focusImportAutomation";
+import FocusImportContentPreview from "./FocusImportContentPreview.vue";
 import {
   parseImportFile,
   commitImportBatch,
@@ -233,7 +244,8 @@ const MAX_POOL_BYTES = 100 * 1024 * 1024;
 
 export default {
   name: "FocusDocumentImportDialog",
-  components: { FocusDirectoryBrowser },
+  mixins: [focusImportAutomation],
+  components: { FocusDirectoryBrowser, FocusImportContentPreview },
 
   props: {
     folders: { type: Array, default: () => [] },
@@ -292,6 +304,9 @@ export default {
     current() {
       this.refreshPreviewUrls();
     },
+    "current.draft"() {
+      this.refreshPreviewUrls();
+    },
     folderPicker(value) {
       if (!value) this.$nextTick(() => this.$refs.dialog?.focus());
     },
@@ -312,6 +327,7 @@ export default {
   methods: {
     close() {
       if (this.committing) return;
+      this._autoImportQueue?.cancel();
       this.controller?.abort();
       this.$emit("close");
     },
@@ -351,7 +367,7 @@ export default {
       event.target.value = "";
     },
     onDrop(event) {
-      if (this.busy) return;
+      if (this.committing) return;
 
       if ([...(event.dataTransfer.items || [])].some(
         (item) => item.webkitGetAsEntry?.()?.isDirectory
@@ -363,7 +379,7 @@ export default {
       this.addFiles([...event.dataTransfer.files]);
     },
     addFiles(files) {
-      if (this.busy) return;
+      if (this.committing) return;
 
       const map = new Map(this.pool.map((file) => [
         `${file.webkitRelativePath || file.name}\0${file.size}\0${file.lastModified}`,
@@ -400,10 +416,7 @@ export default {
       this.invalidate();
     },
     invalidate() {
-      this.rows = [];
-      this.active = 0;
-      this.error = "";
-      this.releasePreviewUrls();
+      this.autoScheduleParse();
     },
     finishPick() {
       this.folderPicker = false;
@@ -413,67 +426,10 @@ export default {
       this.finishPick();
     },
     cancelParsing() {
-      this.controller?.abort();
+      this.autoCancelParse();
     },
-    async parse() {
-      if (this.busy) return;
-
-      this.error = "";
-      this.parsing = true;
-      this.controller = new AbortController();
-      const signal = this.controller.signal;
-
-      this.rows = this.sources.map((file, index) => ({
-        key: `${index}-${file.name}`,
-        file,
-        selected: false,
-        draft: null,
-        error: "",
-      }));
-
-      try {
-        for (let index = 0; index < this.rows.length; index++) {
-          if (signal.aborted) break;
-
-          const row = this.rows[index];
-          this.progress =
-            `正在解析 ${index + 1}/${this.rows.length}：${row.file.name}`;
-
-          try {
-            row.draft = await parseImportFile(row.file, {
-              files: this.pool,
-              signal,
-              pdfMode: this.pdfMode,
-              pdfPassword: this.pdfPassword,
-              encoding: this.encoding,
-            });
-
-            row.selected = true;
-          } catch (error) {
-            if (error.name === "AbortError") break;
-            row.error = error.message || "解析失败";
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 0));
-        }
-
-        if (signal.aborted) {
-          this.rows.forEach((row) => {
-            if (!row.draft && !row.error) row.error = "已取消解析";
-          });
-          this.error = "解析已取消；已完成的结果仍可检查和导入。";
-        }
-
-        this.active = Math.max(
-          0,
-          this.rows.findIndex((row) => row.draft)
-        );
-
-        this.refreshPreviewUrls();
-      } finally {
-        this.parsing = false;
-        this.progress = "";
-      }
+    parse() {
+      this.autoScheduleParse(0);
     },
     releasePreviewUrls() {
       this.previewUrls.forEach((image) => URL.revokeObjectURL(image.url));
@@ -872,5 +828,51 @@ export default {
   .fi-footer {
     flex-wrap: wrap;
   }
+}
+</style>
+
+<style lang="scss">
+/* FOCUS_EXPERIENCE_20261005_V2 */
+.fi-target-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0 12px;
+
+  > div {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+  }
+
+  small, > span { color: #7f8b9a; font-size: 11px; }
+
+  button {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.fi-advanced {
+  margin-bottom: 10px;
+
+  summary {
+    color: #87919f;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .fi-settings {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .fi-target-bar { align-items: flex-start; flex-direction: column; }
+  .fi-advanced .fi-settings { grid-template-columns: 1fr; }
 }
 </style>

@@ -17,7 +17,10 @@ import focusAssetRepository from "../repositories/focusAssetRepository";
 import {
   CALLOUT_PRESETS,
   normalizeCalloutTone,
+  normalizeCalloutColor,
 } from "../editor/extensions/FocusCallout";
+/* FOCUS_EXPERIENCE_20261005_V2 */
+import { getCalloutPresentation } from "./focusCalloutPresentation.mjs";
 
 /* FOCUS_EXPORT_IMAGES_20260920_V3 */
 
@@ -232,7 +235,7 @@ function nodeToMarkdown(node, depth = 0) {
 
     case "focusCallout":
       return (
-        `:::focusCallout {tone="${normalizeCalloutTone(node.attrs?.tone)}"}\n\n`
+        `:::focusCallout {tone="${normalizeCalloutTone(node.attrs?.tone)}" color="${normalizeCalloutColor(node.attrs?.color)}"}\n\n`
         + children.trim()
         + "\n\n:::\n\n"
       );
@@ -452,16 +455,16 @@ function nodeToHtml(node) {
 
     case "focusCallout": {
       const tone = normalizeCalloutTone(node.attrs?.tone);
-      const preset = CALLOUT_PRESETS[tone];
+      const preset = getCalloutPresentation(tone, node.attrs?.color);
 
       return (
         `<aside style="margin:14px 0;padding:12px 16px;`
         + `border:1px solid ${preset.border};border-radius:8px;`
         + `background:${preset.background};color:#29313d;`
         + `-webkit-print-color-adjust:exact;print-color-adjust:exact;">`
-        + `<div style="font-weight:600;margin-bottom:6px;">`
-        + `${escapeHtml(preset.icon)} ${escapeHtml(preset.label)}</div>`
-        + children
+        + `<div style="display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;">`
+        + `<span aria-label="${escapeHtml(preset.label)}">${escapeHtml(preset.icon)}</span>`
+        + `<div>${children}</div></div>`
         + `</aside>`
       );
     }
@@ -1629,7 +1632,7 @@ function nodeToDocxBlocks(
 
     case "focusCallout": {
       const tone = normalizeCalloutTone(node.attrs?.tone);
-      const preset = CALLOUT_PRESETS[tone];
+      const preset = getCalloutPresentation(tone, node.attrs?.color);
       const blocks = [
         new Paragraph({
           children: [

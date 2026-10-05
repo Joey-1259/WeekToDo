@@ -1,5 +1,6 @@
 import MindElixir from "mind-elixir";
-import { planMindMapViewport } from "../../services/focusMindMapViewport.mjs";
+/* FOCUS_EXPERIENCE_20261005_V2 */
+import { fitFocusMindMap } from "./focusMindMapViewportController.js";
 
 const FLAG = "__focusPreviewFitV1";
 const states = new WeakMap();
@@ -51,88 +52,17 @@ export function fitMindMapPreview(mind) {
   const host = previewHost(mind);
   const state = states.get(mind);
 
-  if (!host || !mind?.map || !mind?.nodes || state?.busy) return;
-
-  const container = mind.container;
-  const viewport = container.getBoundingClientRect();
-  const root = rootTopic(mind);
-
-  if (!root || viewport.width < 60 || viewport.height < 60) return;
-
-  const rootRect = root.getBoundingClientRect();
-  const rootCenterX = rootRect.left + rootRect.width / 2;
-  const rootCenterY = rootRect.top + rootRect.height / 2;
-  const currentScale = Math.max(Number(mind.scaleVal) || 1, 0.00001);
-  const elements = measurableElements(mind);
-
-  if (!elements.length) return;
-
-  const bounds = {
-    left: Infinity,
-    top: Infinity,
-    right: -Infinity,
-    bottom: -Infinity,
-  };
-
-  elements.forEach((element) => {
-    const rect = element.getBoundingClientRect();
-    bounds.left = Math.min(
-      bounds.left,
-      (rect.left - rootCenterX) / currentScale
-    );
-    bounds.right = Math.max(
-      bounds.right,
-      (rect.right - rootCenterX) / currentScale
-    );
-    bounds.top = Math.min(
-      bounds.top,
-      (rect.top - rootCenterY) / currentScale
-    );
-    bounds.bottom = Math.max(
-      bounds.bottom,
-      (rect.bottom - rootCenterY) / currentScale
-    );
-  });
-
-  const plan = planMindMapViewport({
-    width: viewport.width,
-    height: viewport.height,
-    bounds,
-    direction: mind.direction,
-    single: !mind.nodeData?.children?.length,
-    padding: Math.max(16, Math.min(28, viewport.width * 0.04)),
-  });
-
-  if (!plan) return;
+  if (!host || state?.busy) return;
 
   if (state) state.busy = true;
 
   try {
-    // 预览允许低于编辑画布的缩放下限，以完整展示大脑图。
-    mind.scaleMin = Math.min(
-      Number(mind.scaleMin) || 0.1,
-      plan.scale
-    );
+    const width = host.getBoundingClientRect().width;
 
-    mind.map.style.transition = "none";
-    mind.scale(plan.scale);
-
-    const nextRoot = root.getBoundingClientRect();
-    const dx =
-      viewport.left + plan.rootX -
-      (nextRoot.left + nextRoot.width / 2);
-    const dy =
-      viewport.top + plan.rootY -
-      (nextRoot.top + nextRoot.height / 2);
-
-    // 只读预览需要精确取景，不采用编辑模式的拖动边界限制。
-    const matrix = new DOMMatrixReadOnly(
-      getComputedStyle(mind.map).transform
-    );
-
-    mind.map.style.transform =
-      `translate3d(${matrix.m41 + dx}px, ` +
-      `${matrix.m42 + dy}px, 0) scale(${plan.scale})`;
+    fitFocusMindMap(mind, {
+      host,
+      padding: Math.max(16, Math.min(28, width * 0.04)),
+    });
   } finally {
     if (state) state.busy = false;
   }

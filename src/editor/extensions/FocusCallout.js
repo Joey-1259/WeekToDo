@@ -1,3 +1,4 @@
+/* FOCUS_EXPERIENCE_20261005_V2 */
 import {
   Node,
   createBlockMarkdownSpec,
@@ -5,47 +6,19 @@ import {
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 import FocusCalloutNodeView from "../../views/focusDocuments/FocusCalloutNodeView.vue";
 
-export const CALLOUT_PRESETS = Object.freeze({
-  info: {
-    label: "信息",
-    icon: "ℹ",
-    background: "#eaf2ff",
-    border: "#b9cff5",
-    wordFill: "EAF2FF",
-  },
-  tip: {
-    label: "提示",
-    icon: "✦",
-    background: "#f2edff",
-    border: "#d0c3ef",
-    wordFill: "F2EDFF",
-  },
-  success: {
-    label: "成功",
-    icon: "✓",
-    background: "#eaf6ee",
-    border: "#b8dcc5",
-    wordFill: "EAF6EE",
-  },
-  warning: {
-    label: "注意",
-    icon: "!",
-    background: "#fff4d9",
-    border: "#ead294",
-    wordFill: "FFF4D9",
-  },
-  danger: {
-    label: "重要",
-    icon: "!",
-    background: "#ffeded",
-    border: "#edbcbc",
-    wordFill: "FFEDED",
-  },
-});
+import {
+  CALLOUT_PRESETS,
+  normalizeCalloutTone,
+  normalizeCalloutColor,
+  getCalloutPresentation,
+  readCalloutPreference,
+} from "../../services/focusCalloutPresentation.mjs";
 
-export function normalizeCalloutTone(value) {
-  return Object.hasOwn(CALLOUT_PRESETS, value) ? value : "info";
-}
+export {
+  CALLOUT_PRESETS,
+  normalizeCalloutTone,
+  normalizeCalloutColor,
+};
 
 export default Node.create({
   name: "focusCallout",
@@ -53,6 +26,7 @@ export default Node.create({
   content: "block+",
   defining: true,
   isolating: true,
+  priority: 1100,
 
   addAttributes() {
     return {
@@ -60,6 +34,12 @@ export default Node.create({
         default: "info",
         parseHTML: (element) =>
           normalizeCalloutTone(element.getAttribute("data-tone")),
+        renderHTML: () => ({}),
+      },
+      color: {
+        default: "default",
+        parseHTML: (element) =>
+          normalizeCalloutColor(element.getAttribute("data-color")),
         renderHTML: () => ({}),
       },
     };
@@ -71,12 +51,20 @@ export default Node.create({
 
   renderHTML({ node }) {
     const tone = normalizeCalloutTone(node.attrs.tone);
+    const color = normalizeCalloutColor(node.attrs.color);
+    const palette = getCalloutPresentation(tone, color);
+
     return [
       "aside",
       {
         "data-type": "focus-callout",
         "data-tone": tone,
+        "data-color": color,
         class: `focus-callout is-${tone}`,
+        style:
+          `background:${palette.background};` +
+          `border:1px solid ${palette.border};` +
+          "border-radius:8px;padding:14px 16px;color:#29313d;",
       },
       0,
     ];
@@ -84,8 +72,8 @@ export default Node.create({
 
   ...createBlockMarkdownSpec({
     nodeName: "focusCallout",
-    defaultAttributes: { tone: "info" },
-    allowedAttributes: ["tone"],
+    defaultAttributes: { tone: "info", color: "default" },
+    allowedAttributes: ["tone", "color"],
     content: "block",
   }),
 
@@ -96,15 +84,19 @@ export default Node.create({
         ({ editor, commands }) => {
           if (editor.isActive(this.name)) return false;
 
-          const tone = normalizeCalloutTone(attributes.tone);
+          const preference = readCalloutPreference();
+          const attrs = {
+            tone: normalizeCalloutTone(attributes.tone ?? preference.tone),
+            color: normalizeCalloutColor(attributes.color ?? preference.color),
+          };
 
           if (!editor.state.selection.empty) {
-            return commands.wrapIn(this.name, { tone });
+            return commands.wrapIn(this.name, attrs);
           }
 
           return commands.insertContent({
             type: this.name,
-            attrs: { tone },
+            attrs,
             content: [{ type: "paragraph" }],
           });
         },
@@ -118,9 +110,47 @@ export default Node.create({
 
   addKeyboardShortcuts() {
     return {
-      "Mod-Enter": () => {
+      Enter: () => {
         const { state } = this.editor;
-        const { $from } = state.selection;
+        const { $from, empty } = state.selection;
+
+        if (
+          !empty ||
+          this.editor.isActive(this.name) ||
+          $from.parent.type.name !== "paragraph" ||
+          $from.parentOffset !== $from.parent.content.size
+        ) {
+          return false;
+        }
+
+        const matched = $from.parent.textContent.match(
+          /^:::(info|warning|success|danger|tips|tip)?$/
+        );
+
+        if (!matched) return false;
+
+        const preference = readCalloutPreference();
+        const from = $from.before();
+        const to = $from.after();
+
+        return this.editor
+          .chain()
+          .insertContentAt({ from, to }, {
+            type: this.name,
+            attrs: {
+              tone: matched[1]
+                ? normalizeCalloutTone(matched[1])
+                : preference.tone,
+              color: preference.color,
+            },
+            content: [{ type: "paragraph" }],
+          })
+          .setTextSelection(from + 2)
+          .run();
+      },
+
+      "Mod-Enter": () => {
+        const { $from } = this.editor.state.selection;
 
         for (let depth = $from.depth; depth > 0; depth--) {
           if ($from.node(depth).type.name !== this.name) continue;

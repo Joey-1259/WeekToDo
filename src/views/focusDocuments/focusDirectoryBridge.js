@@ -48,8 +48,13 @@ function spliceOrder(siblings, movedId, beforeId, afterId) {
   ];
 }
 
+/* FOCUS_EXPERIENCE_20261005_V2 */
 export default {
   components: { FocusDirectoryBrowser },
+
+  data() {
+    return { fdReturnToDirectory: false };
+  },
 
   methods: {
     async fdRefresh() {
@@ -175,11 +180,16 @@ export default {
     /* ---------- pick 模式 ---------- */
 
     fdOpenPicker(document) {
+      this.fdReturnToDirectory = Boolean(this.treeVisible);
+      this.treeVisible = false;
       this.moveDialogDocument = document;
     },
 
     fdClosePicker() {
       this.moveDialogDocument = null;
+
+      if (this.fdReturnToDirectory) this.treeVisible = true;
+      this.fdReturnToDirectory = false;
     },
 
     async fdConfirmPick(folderId) {
@@ -199,7 +209,7 @@ export default {
         console.error(error);
         window.alert("移动文档失败，请重试。");
       } finally {
-        this.moveDialogDocument = null;
+        this.fdClosePicker();
         await this.fdRefresh();
       }
     },

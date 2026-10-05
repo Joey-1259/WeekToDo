@@ -1,3 +1,4 @@
+/* FOCUS_EXPERIENCE_20261005_V2 */
 import MarkdownIt from "markdown-it";
 import DOMPurify from "dompurify";
 import * as pdfjs from "pdfjs-dist";
@@ -9,6 +10,7 @@ import focusFolderService from "./focusFolderService";
 import {
   CALLOUT_PRESETS,
   normalizeCalloutTone,
+  normalizeCalloutColor,
 } from "../editor/extensions/FocusCallout";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -268,7 +270,7 @@ function markdownRenderer() {
     );
 
     const open = first.match(
-      /^:::focusCallout(?:\s+\{([^}]*)\})?\s*$/
+      /^:::(?:focusCallout(?:\s+\{([^}]*)\})?|(info|warning|success|danger|tips|tip))\s*$/
     );
 
     if (!open) return false;
@@ -299,7 +301,12 @@ function markdownRenderer() {
     if (silent) return true;
 
     const tone = normalizeCalloutTone(
+      open[2] ||
       open[1]?.match(/tone\s*=\s*["']([^"']+)["']/)?.[1]
+    );
+
+    const color = normalizeCalloutColor(
+      open[1]?.match(/color\s*=\s*["']([^"']+)["']/)?.[1]
     );
 
     const token = state.push("focus_callout", "", 0);
@@ -309,7 +316,7 @@ function markdownRenderer() {
       state.blkIndent,
       false
     );
-    token.meta = { tone };
+    token.meta = { tone, color };
     state.line = closeLine + 1;
 
     return true;
@@ -318,7 +325,7 @@ function markdownRenderer() {
   md.renderer.rules.focus_callout = (tokens, index) => {
     const token = tokens[index];
     return (
-      `<aside data-type="focus-callout" data-tone="${token.meta.tone}">` +
+      `<aside data-type="focus-callout" data-tone="${token.meta.tone}" data-color="${token.meta.color}">` +
       md.render(token.content) +
       "</aside>\n"
     );
@@ -341,7 +348,7 @@ function cleanHtml(html) {
     ],
     ALLOWED_ATTR: [
       "href", "src", "alt", "title", "start", "class",
-      "data-type", "data-tone",
+      "data-type", "data-tone", "data-color",
     ],
     ALLOW_DATA_ATTR: false,
     RETURN_DOM_FRAGMENT: true,
@@ -608,6 +615,7 @@ async function convertHtml(html, context) {
         type: "focusCallout",
         attrs: {
           tone: normalizeCalloutTone(node.getAttribute("data-tone")),
+          color: normalizeCalloutColor(node.getAttribute("data-color")),
         },
         content: content.length ? content : [paragraph()],
       }];

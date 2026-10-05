@@ -711,6 +711,8 @@ import {
   createBranchGenerators,
   skeletonThumb,
 } from "./focusMindMapEnhancer.js";
+/* FOCUS_DOCUMENT_UPGRADE_20261005_V1 */
+import "./focusMindMapPreviewFit.js";
 
 const SAVE_DELAY = 550;
 const SNAPSHOT_DELAY = 950;

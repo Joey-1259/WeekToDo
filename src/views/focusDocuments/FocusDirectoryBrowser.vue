@@ -15,7 +15,7 @@
         </span>
 
         <div class="dir-header-text">
-          <strong id="dir-title">{{ isPick ? "移动到目录" : "文件目录" }}</strong>
+          <strong id="dir-title">{{ isPick ? (pickPurpose === "import" ? "选择导入目录" : "移动到目录") : "文件目录" }}</strong>
           <small>{{ subtitle }}</small>
         </div>
 
@@ -331,6 +331,8 @@ export default {
     openIds: { type: Array, default: () => [] },
 
     /** manage = 完整管理；pick = 只选目录，用于"移动到…" */
+    /* FOCUS_DOCUMENT_UPGRADE_20261005_V1 */
+    pickPurpose: { type: String, default: "move" },
     mode: { type: String, default: "manage" },
 
     /** pick 模式下正在移动的文档，用于显示名称与判断是否有变化 */
@@ -532,6 +534,7 @@ export default {
 
     pickChanged() {
       if (this.pickTargetId === undefined) return false;
+      if (this.pickPurpose === "import") return true;
 
       const current = this.pickDocument?.folderId || null;
       return this.pickTargetId !== current;
@@ -539,6 +542,7 @@ export default {
 
     pickLabel() {
       if (this.pickTargetId === undefined) return "选择目标目录";
+      if (this.pickPurpose === "import") return "使用此目录";
       if (this.pickTargetId === null) return "移出目录";
 
       const folder = this.folders.find((f) => f.id === this.pickTargetId);

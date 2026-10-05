@@ -13,6 +13,11 @@ import {
 } from "docx";
 
 import focusAssetRepository from "../repositories/focusAssetRepository";
+/* FOCUS_DOCUMENT_UPGRADE_20261005_V1 */
+import {
+  CALLOUT_PRESETS,
+  normalizeCalloutTone,
+} from "../editor/extensions/FocusCallout";
 
 /* FOCUS_EXPORT_IMAGES_20260920_V3 */
 
@@ -223,6 +228,13 @@ function nodeToMarkdown(node, depth = 0) {
         `${"#".repeat(
           Math.min(Math.max(level, 1), 6)
         )} ${children}\n\n`
+      );
+
+    case "focusCallout":
+      return (
+        `:::focusCallout {tone="${normalizeCalloutTone(node.attrs?.tone)}"}\n\n`
+        + children.trim()
+        + "\n\n:::\n\n"
       );
 
     case "blockquote":
@@ -437,6 +449,22 @@ function nodeToHtml(node) {
         `<h${level}>${inlineChildren}`
         + `</h${level}>`
       );
+
+    case "focusCallout": {
+      const tone = normalizeCalloutTone(node.attrs?.tone);
+      const preset = CALLOUT_PRESETS[tone];
+
+      return (
+        `<aside style="margin:14px 0;padding:12px 16px;`
+        + `border:1px solid ${preset.border};border-radius:8px;`
+        + `background:${preset.background};color:#29313d;`
+        + `-webkit-print-color-adjust:exact;print-color-adjust:exact;">`
+        + `<div style="font-weight:600;margin-bottom:6px;">`
+        + `${escapeHtml(preset.icon)} ${escapeHtml(preset.label)}</div>`
+        + children
+        + `</aside>`
+      );
+    }
 
     case "blockquote":
       return `<blockquote>${children}</blockquote>`;
@@ -1568,6 +1596,12 @@ function nodeToDocxBlocks(
     case "paragraph":
       return [
         new Paragraph({
+          shading: context.calloutFill
+            ? {
+                type: ShadingType.CLEAR,
+                fill: context.calloutFill,
+              }
+            : undefined,
           children:
             paragraphChildren(node),
           spacing: {
@@ -1592,6 +1626,35 @@ function nodeToDocxBlocks(
           keepNext: true,
         }),
       ];
+
+    case "focusCallout": {
+      const tone = normalizeCalloutTone(node.attrs?.tone);
+      const preset = CALLOUT_PRESETS[tone];
+      const blocks = [
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `${preset.icon} ${preset.label}`,
+              bold: true,
+            }),
+          ],
+          shading: {
+            type: ShadingType.CLEAR,
+            fill: preset.wordFill,
+          },
+          spacing: { before: 120, after: 80 },
+          keepNext: true,
+        }),
+        ...(node.content || []).flatMap((child) =>
+          nodeToDocxBlocks(child, {
+            ...context,
+            calloutFill: preset.wordFill,
+          })
+        ),
+      ];
+
+      return blocks;
+    }
 
     case "blockquote":
       return (

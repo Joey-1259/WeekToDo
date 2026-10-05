@@ -11,7 +11,21 @@ export function createSlashCommandItems(
   onImage
 ) {
   /* FOCUS_RICH_CONTENT_SYSTEM_20260907_V1 */
+  /* FOCUS_DOCUMENT_UPGRADE_20261005_V1 */
   return [
+    {
+      id: "callout",
+      category: "进阶内容",
+      title: "高亮块",
+      description: "强调说明、结论、建议与风险",
+      icon: "!",
+      shortcut: "/glk",
+      aliases: [
+        "callout", "提示块", "高亮块", "提示", "注意", "glk"
+      ],
+      command: ({ editor, range }) =>
+        base(editor, range).insertFocusCallout().run(),
+    },
     {
       id: "linked-task",
       category: "进阶内容",

@@ -128,6 +128,13 @@
 
         <button
           type="button"
+          @click="importVisible = true"
+        >
+          导入文档
+        </button>
+
+        <button
+          type="button"
           class="primary"
           @click="createDocument()"
         >
@@ -135,6 +142,20 @@
         </button>
       </div>
     </header>
+
+    <FocusDocumentImportDialog
+      v-if="importVisible"
+      :folders="folders"
+      :documents="documents"
+      :folder-paths="folderPaths"
+      :initial-folder-id="
+        selectedFolderId === '__root__' ? null : selectedFolderId
+      "
+      @close="importVisible = false"
+      @create-folder="fdCreateFolder"
+      @imported="onDocumentsImported"
+      @open="openImportedDocument"
+    />
 
     <FocusColumnBoard
       :layout="layout"
@@ -191,6 +212,8 @@
 import FocusColumnBoard from "./FocusColumnBoard.vue";
 import FocusBoardPager from "./FocusBoardPager.vue";
 import FocusDocumentDialog from "./FocusDocumentDialog.vue";
+/* FOCUS_DOCUMENT_UPGRADE_20261005_V1 */
+import FocusDocumentImportDialog from "./FocusDocumentImportDialog.vue";
 import FocusFolderPicker from "./FocusFolderPicker.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 import focusFolderService from "../../services/focusFolderService";
@@ -231,6 +254,7 @@ export default {
     FocusColumnBoard,
     FocusBoardPager,
     FocusDocumentDialog,
+    FocusDocumentImportDialog,
     FocusFolderPicker,
   },
 
@@ -252,6 +276,7 @@ export default {
       treeVisible: false,
       selectedFolderId: null,
       moveDialogDocument: null,
+      importVisible: false,
       pageSizeOptions: [1, 2, 3],
     };
   },
@@ -362,6 +387,15 @@ export default {
   },
 
   methods: {
+    onDocumentsImported(created) {
+      created.forEach((document) => this.replaceDocument(document));
+    },
+
+    openImportedDocument(id) {
+      this.importVisible = false;
+      this.openAtEnd(id);
+    },
+
     onGlobalPointerDown(event) {
       if (event.target.closest(".focus-search-anchor")) return;
 

@@ -313,6 +313,8 @@ import SlashCommands from "../../editor/extensions/SlashCommands";
 import LinkedTask from "../../editor/extensions/LinkedTask";
 import FocusImage from "../../editor/extensions/FocusImage";
 import FocusMindMap from "../../editor/extensions/FocusMindMap";
+/* FOCUS_DOCUMENT_UPGRADE_20261005_V1 */
+import FocusCallout from "../../editor/extensions/FocusCallout";
 /* FOCUS_MIND_MAP_PRODUCT_20260920_V1 */
 import focusAssetRepository from "../../repositories/focusAssetRepository";
 import SmartFormatting from "../../editor/extensions/SmartFormatting";
@@ -540,6 +542,7 @@ export default {
         }),
         FocusImage,
         FocusMindMap,
+        FocusCallout,
         Details.configure({
           persist: true,
 

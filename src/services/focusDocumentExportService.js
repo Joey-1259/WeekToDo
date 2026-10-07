@@ -454,17 +454,16 @@ function nodeToHtml(node) {
       );
 
     case "focusCallout": {
-      const tone = normalizeCalloutTone(node.attrs?.tone);
-      const preset = getCalloutPresentation(tone, node.attrs?.color);
+      /* FOCUS_CALLOUT_COLOR_20261007_V3：只保留底色与细边框，不输出图标与类型标签 */
+      const preset = getCalloutPresentation(
+        normalizeCalloutTone(node.attrs?.tone),
+        node.attrs?.color
+      );
 
       return (
-        `<aside style="margin:14px 0;padding:12px 16px;`
-        + `border:1px solid ${preset.border};border-radius:8px;`
-        + `background:${preset.background};color:#29313d;`
-        + `-webkit-print-color-adjust:exact;print-color-adjust:exact;">`
-        + `<div style="display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;">`
-        + `<span aria-label="${escapeHtml(preset.label)}">${escapeHtml(preset.icon)}</span>`
-        + `<div>${children}</div></div>`
+        `<aside class="callout" style="background:${preset.background};`
+        + `border-color:${preset.border};">`
+        + children
         + `</aside>`
       );
     }
@@ -890,6 +889,21 @@ function documentToPrintHtml(document) {
       border-radius: 8px;
       break-inside: avoid;
     }
+
+    /* FOCUS_CALLOUT_COLOR_20261007_V3 */
+    .callout {
+      margin: 14px 0;
+      padding: 12px 16px;
+      border: 1px solid #dfe3e8;
+      border-radius: 8px;
+      color: #29313d;
+      break-inside: avoid;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .callout > :first-child { margin-top: 0; }
+    .callout > :last-child { margin-bottom: 0; }
 
     .document-footer {
       margin-top: 32px;
@@ -1579,6 +1593,20 @@ function docxHeading(level) {
   );
 }
 
+/* FOCUS_CALLOUT_COLOR_20261007_V3 */
+function calloutBorders(context) {
+  if (!context?.calloutBorder) return undefined;
+
+  const side = {
+    style: BorderStyle.SINGLE,
+    color: context.calloutBorder,
+    size: 4,
+    space: 6,
+  };
+
+  return { top: side, bottom: side, left: side, right: side };
+}
+
 function nodeToDocxBlocks(
   node,
   context = {}
@@ -1605,6 +1633,7 @@ function nodeToDocxBlocks(
                 fill: context.calloutFill,
               }
             : undefined,
+          border: calloutBorders(context),
           children:
             paragraphChildren(node),
           spacing: {
@@ -1631,32 +1660,29 @@ function nodeToDocxBlocks(
       ];
 
     case "focusCallout": {
-      const tone = normalizeCalloutTone(node.attrs?.tone);
-      const preset = getCalloutPresentation(tone, node.attrs?.color);
-      const blocks = [
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `${preset.icon} ${preset.label}`,
-              bold: true,
-            }),
-          ],
-          shading: {
-            type: ShadingType.CLEAR,
-            fill: preset.wordFill,
-          },
-          spacing: { before: 120, after: 80 },
-          keepNext: true,
-        }),
-        ...(node.content || []).flatMap((child) =>
-          nodeToDocxBlocks(child, {
-            ...context,
-            calloutFill: preset.wordFill,
-          })
-        ),
-      ];
+      /* FOCUS_CALLOUT_COLOR_20261007_V3：段落底色 + 同色四边框，Word 会把相邻段落合并成一个色块 */
+      const preset = getCalloutPresentation(
+        normalizeCalloutTone(node.attrs?.tone),
+        node.attrs?.color
+      );
+      const calloutContext = {
+        ...context,
+        calloutFill: preset.wordFill,
+        calloutBorder: preset.border.slice(1).toUpperCase(),
+      };
+      const blocks = (node.content || []).flatMap((child) =>
+        nodeToDocxBlocks(child, calloutContext)
+      );
 
-      return blocks;
+      return blocks.length
+        ? blocks
+        : [
+            new Paragraph({
+              children: [new TextRun("")],
+              shading: { type: ShadingType.CLEAR, fill: preset.wordFill },
+              border: calloutBorders(calloutContext),
+            }),
+          ];
     }
 
     case "blockquote":

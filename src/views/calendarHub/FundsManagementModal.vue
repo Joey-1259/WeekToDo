@@ -27,6 +27,14 @@
           </div>
 
           <div class="header-actions">
+            <!-- FUNDS_TXT_EXPORT_20261007_V1：资产 / 负债 / 未来资金用途 / 本次记录，空模块不输出 -->
+            <FundsExportMenu
+              :snapshot="faActiveSnapshot"
+              :snapshots="faSnapshots"
+              :scope="faScope"
+              :accounts="faAccounts"
+            />
+
             <span class="privacy-label">
               <i class="bi-shield-check"></i>
               本地记录

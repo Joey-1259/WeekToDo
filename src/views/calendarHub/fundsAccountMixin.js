@@ -25,6 +25,8 @@ import FundsAccountScopeBar from "./FundsAccountScopeBar.vue";
 import FundsAccountManagerDialog from "./FundsAccountManagerDialog.vue";
 import FundsRowAccount from "./FundsRowAccount.vue";
 import FundsTrendChart from "./FundsTrendChart.vue";
+/* FUNDS_TXT_EXPORT_20261007_V1 */
+import FundsExportMenu from "./FundsExportMenu.vue";
 
 function toNumber(value) {
   const number = Number(value);
@@ -37,6 +39,7 @@ export default {
     FundsAccountManagerDialog,
     FundsRowAccount,
     FundsTrendChart,
+    FundsExportMenu,
   },
 
   data() {

@@ -267,6 +267,21 @@
         <AppIcon name="link" />
       </button>
 
+      <!-- FOCUS_CALLOUT_COLOR_20261007_V3：高亮块入口；光标在块内时再点＝转为正文 -->
+      <button
+        type="button"
+        class="fx-btn"
+        :class="{ 'is-on': isActive('focusCallout') }"
+        v-tip="{ label: '高亮块', keys: '/glk' }"
+        @mousedown.prevent
+        @click="$emit('toggle-callout')"
+      >
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2.75" y="4" width="14.5" height="12" rx="2.5" />
+          <path d="M6.5 8.5h7M6.5 11.5h4.5" />
+        </svg>
+      </button>
+
       <button
         type="button"
         class="fx-btn"
@@ -583,6 +598,7 @@ export default {
   },
 
   emits: [
+    "toggle-callout",
     "run",
     "set-block",
     "set-font-size",

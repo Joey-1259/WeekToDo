@@ -1,94 +1,82 @@
-<!-- FOCUS_EXPERIENCE_20261005_V2 -->
+<!-- FOCUS_CALLOUT_COLOR_20261007_V3 -->
 <template>
   <NodeViewWrapper
-    ref="card"
     as="aside"
-    class="focus-callout fc2"
-    :class="`is-${tone}`"
+    class="focus-callout fc3"
+    :class="{ 'is-active': barVisible, 'is-selected': selected }"
     :style="cssVariables"
     data-type="focus-callout"
-    :data-tone="tone"
-    :data-color="color"
+    :data-color="effectiveColor"
   >
-    <div class="fc2-icon-area" contenteditable="false">
+    <!-- v-show 而非 v-if：原生取色器打开时编辑器会失焦，
+         输入框必须保持挂载，change 事件才能送达。 -->
+    <div
+      v-show="barVisible"
+      class="fc3-bar"
+      :class="{ 'is-below': below }"
+      contenteditable="false"
+      role="toolbar"
+      aria-label="高亮块"
+      @mousedown="onBarMouseDown"
+    >
+      <button
+        v-for="item in swatches"
+        :key="item.key"
+        type="button"
+        class="fc3-swatch"
+        :class="{ 'is-current': item.key === effectiveColor }"
+        :style="item.style"
+        :title="item.label"
+        :aria-label="item.label"
+        :aria-pressed="String(item.key === effectiveColor)"
+        @click="apply(item.key)"
+      >
+        <svg v-if="item.key === effectiveColor" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M3.5 8.4 6.6 11.4 12.5 4.8" />
+        </svg>
+      </button>
+
+      <label
+        class="fc3-swatch fc3-custom"
+        :class="{ 'is-current': isCustom }"
+        title="自定义颜色"
+      >
+        <input
+          type="color"
+          :value="palette.accent"
+          aria-label="自定义高亮块颜色"
+          @focus="picking = true"
+          @blur="picking = false"
+          @input="previewColor = $event.target.value"
+          @change="apply($event.target.value)"
+        />
+      </label>
+
+      <span class="fc3-sep" aria-hidden="true"></span>
+
       <button
         type="button"
-        class="fc2-icon-button"
-        :aria-label="`${palette.label}高亮块，打开设置`"
-        :aria-expanded="String(menuOpen)"
-        @mousedown.prevent
-        @click.stop="menuOpen = !menuOpen"
+        class="fc3-action"
+        title="去掉底色，保留内容"
+        @click="unwrap"
       >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path :d="iconPath" />
+        转为正文
+      </button>
+
+      <button
+        type="button"
+        class="fc3-action is-icon is-danger"
+        title="删除高亮块及其内容"
+        aria-label="删除高亮块"
+        @click="remove"
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2c.05.7.6 1.3 1.3 1.3h3.2c.7 0 1.25-.6 1.3-1.3l.6-8.2M6.8 7v4.5M9.2 7v4.5" />
         </svg>
       </button>
     </div>
 
-    <NodeViewContent class="focus-callout-content fc2-content" />
-
-    <section
-      v-if="menuOpen"
-      class="fc2-panel"
-      contenteditable="false"
-      aria-label="高亮块设置"
-      @keydown.esc.stop.prevent="menuOpen = false"
-      @mousedown.stop
-    >
-      <strong>高亮块</strong>
-
-      <div class="fc2-types" role="group" aria-label="语义类型">
-        <button
-          v-for="(item, key) in types"
-          :key="key"
-          type="button"
-          :aria-pressed="String(tone === key)"
-          @click="change({ tone: key })"
-        >
-          {{ item.label }}
-        </button>
-      </div>
-
-      <small>背景配色</small>
-
-      <div class="fc2-colors" role="group" aria-label="背景配色">
-        <button
-          type="button"
-          aria-label="跟随类型颜色"
-          :aria-pressed="String(color === 'default')"
-          @click="change({ color: 'default' })"
-        >↺</button>
-
-        <button
-          v-for="(item, key) in colors"
-          :key="key"
-          type="button"
-          :aria-label="item.label"
-          :title="item.label"
-          :aria-pressed="String(color === key)"
-          :style="{ background: item.accent }"
-          @click="change({ color: key })"
-        >
-          <span v-if="color === key" aria-hidden="true">✓</span>
-        </button>
-      </div>
-
-      <label class="fc2-custom">
-        <span>自定义主题色</span>
-        <input
-          type="color"
-          :value="palette.accent"
-          aria-label="自定义高亮块主题色"
-          @change="change({ color: $event.target.value })"
-        />
-      </label>
-
-      <p>新建高亮块会记住本次类型和颜色。</p>
-
-      <button type="button" class="fc2-unwrap" @click="unwrap">
-        转为正文，保留内容
-      </button>
-    </section>
+    <NodeViewContent class="focus-callout-content fc3-content" />
   </NodeViewWrapper>
 </template>
 
@@ -99,10 +87,9 @@ import {
   nodeViewProps,
 } from "@tiptap/vue-3";
 import {
-  CALLOUT_TYPES,
   CALLOUT_COLORS,
   normalizeCalloutTone,
-  normalizeCalloutColor,
+  resolveCalloutColor,
   getCalloutPresentation,
   getCalloutCssVariables,
   rememberCalloutPreference,
@@ -114,222 +101,362 @@ export default {
   props: nodeViewProps,
 
   data() {
-    return { menuOpen: false };
+    return {
+      inside: false,
+      below: false,
+      picking: false,
+      previewColor: "",
+    };
   },
 
   computed: {
-    types() { return CALLOUT_TYPES; },
-    colors() { return CALLOUT_COLORS; },
-    tone() { return normalizeCalloutTone(this.node.attrs.tone); },
-    color() { return normalizeCalloutColor(this.node.attrs.color); },
-    palette() { return getCalloutPresentation(this.tone, this.color); },
-    cssVariables() { return getCalloutCssVariables(this.tone, this.color); },
-    iconPath() {
-      const paths = {
-        info: "M12 8h.01M11 11h1v6h1M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z",
-        tip: "m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z",
-        success: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM7.5 12l3 3L17 8.5",
-        warning: "m12 3 10 18H2L12 3ZM12 9v5m0 3h.01",
-        danger: "M8 3h8l5 5v8l-5 5H8l-5-5V8l5-5ZM12 7v7m0 3h.01",
-      };
-      return paths[this.tone];
+    tone() {
+      return normalizeCalloutTone(this.node.attrs.tone);
+    },
+
+    effectiveColor() {
+      return resolveCalloutColor(this.tone, this.node.attrs.color);
+    },
+
+    isCustom() {
+      return this.effectiveColor.startsWith("#");
+    },
+
+    shownColor() {
+      return this.previewColor || this.effectiveColor;
+    },
+
+    palette() {
+      return getCalloutPresentation(this.tone, this.shownColor);
+    },
+
+    cssVariables() {
+      return getCalloutCssVariables(this.tone, this.shownColor);
+    },
+
+    swatches() {
+      return Object.entries(CALLOUT_COLORS).map(([key, item]) => {
+        const preset = getCalloutPresentation(this.tone, key);
+
+        return {
+          key,
+          label: item.label,
+          style: {
+            "--sw-bg": preset.background,
+            "--sw-border": preset.border,
+            "--sw-accent": preset.accent,
+            "--sw-dark-bg": preset.darkBackground,
+            "--sw-dark-border": preset.darkBorder,
+          },
+        };
+      });
+    },
+
+    barVisible() {
+      return Boolean(
+        this.editor?.isEditable &&
+          (this.inside || this.selected || this.picking)
+      );
+    },
+  },
+
+  watch: {
+    "node.attrs.color"() {
+      this.previewColor = "";
     },
   },
 
   mounted() {
-    document.addEventListener("pointerdown", this.outside);
+    this.editor.on("selectionUpdate", this.sync);
+    this.editor.on("update", this.sync);
+    this.editor.on("focus", this.sync);
+    this.editor.on("blur", this.onBlur);
+    this.sync();
   },
 
   beforeUnmount() {
-    document.removeEventListener("pointerdown", this.outside);
+    this.editor.off("selectionUpdate", this.sync);
+    this.editor.off("update", this.sync);
+    this.editor.off("focus", this.sync);
+    this.editor.off("blur", this.onBlur);
   },
 
   methods: {
-    outside(event) {
-      const root = this.$refs.card?.$el || this.$refs.card;
-      if (!root?.contains?.(event.target)) this.menuOpen = false;
+    position() {
+      try {
+        const pos = this.getPos();
+        return Number.isInteger(pos) ? pos : null;
+      } catch {
+        return null;
+      }
     },
 
-    change(patch) {
-      const attrs = {
-        tone: normalizeCalloutTone(patch.tone ?? this.tone),
-        color: normalizeCalloutColor(patch.color ?? this.color),
-      };
+    sync() {
+      const pos = this.position();
 
-      this.updateAttributes(attrs);
-      rememberCalloutPreference(attrs);
+      if (pos === null || this.editor.isDestroyed) {
+        this.inside = false;
+        return;
+      }
+
+      const { from, to } = this.editor.state.selection;
+      const end = pos + this.node.nodeSize;
+      const next = this.editor.view.hasFocus() && from > pos && to < end;
+
+      if (next && !this.inside) this.$nextTick(this.measure);
+      this.inside = next;
+    },
+
+    onBlur() {
+      setTimeout(() => {
+        if (!this.picking) this.sync();
+      }, 0);
+    },
+
+    /* 块距离滚动区顶部不足一条工具条高度时，工具条翻到块下方。 */
+    measure() {
+      const root = this.$el;
+      if (!root?.getBoundingClientRect) return;
+
+      const scroller = root.closest(".focus-editor-content");
+      const top =
+        root.getBoundingClientRect().top -
+        (scroller ? scroller.getBoundingClientRect().top : 0);
+
+      this.below = top < 48;
+    },
+
+    /* 点击工具条不抢编辑器焦点；自定义取色器除外（它需要拿到焦点）。 */
+    onBarMouseDown(event) {
+      if (!event.target.closest(".fc3-custom")) event.preventDefault();
+    },
+
+    apply(color) {
+      const pos = this.position();
+      if (pos === null) return;
+
+      this.previewColor = "";
+      this.editor.commands.updateFocusCallout({ color }, pos);
+      rememberCalloutPreference({ tone: this.tone, color });
     },
 
     unwrap() {
-      const position = this.getPos();
-      if (!Number.isInteger(position)) return;
+      const pos = this.position();
+      if (pos === null) return;
+      this.editor.chain().focus().unwrapFocusCallout(pos).run();
+    },
 
-      this.menuOpen = false;
-
-      this.editor
-        .chain()
-        .setTextSelection(position + 1)
-        .unwrapFocusCallout()
-        .focus()
-        .run();
+    remove() {
+      const pos = this.position();
+      if (pos === null) return;
+      this.editor.chain().focus().deleteFocusCallout(pos).run();
     },
   },
 };
 </script>
 
 <style lang="scss">
-.focus-callout.fc2 {
+/* FOCUS_CALLOUT_COLOR_20261007_V3：前缀 fc3-，与旧版 fc2- 完全隔离 */
+.focus-callout.fc3 {
   position: relative;
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  gap: 11px;
-  margin: 16px 0;
-  padding: 15px 16px;
+  margin: 12px 0;
+  padding: 12px 16px;
   border: 1px solid var(--fc-border);
   border-radius: 8px;
   background: var(--fc-bg);
   color: #29313d;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+
+  &.is-selected,
+  &.ProseMirror-selectednode {
+    box-shadow: 0 0 0 2px rgba(66, 99, 235, 0.28);
+  }
 }
 
-.fc2-icon-button {
-  display: grid;
-  width: 22px;
-  height: 24px;
-  place-items: center;
-  margin-top: 1px;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--fc-accent);
-  cursor: pointer;
+.fc3-content {
+  min-width: 0;
 
-  &:hover { background: rgba(0, 0, 0, 0.06); }
-  &:focus-visible { outline: 2px solid var(--fc-accent); }
+  > :first-child { margin-top: 0; }
+  > :last-child { margin-bottom: 0; }
+
+  > p.is-empty:only-child::before {
+    content: "输入高亮内容…";
+    float: left;
+    height: 0;
+    color: rgba(41, 49, 61, 0.38);
+    pointer-events: none;
+  }
+}
+
+.fc3-bar {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% + 6px);
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 6px;
+  border: 1px solid #e1e5ea;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow:
+    0 8px 24px rgba(24, 29, 38, 0.14),
+    0 1px 3px rgba(24, 29, 38, 0.06);
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+
+  &.is-below {
+    top: calc(100% + 6px);
+    bottom: auto;
+  }
+}
+
+.fc3-swatch {
+  position: relative;
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid var(--sw-border);
+  border-radius: 50%;
+  background: var(--sw-bg);
+  color: var(--sw-accent);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+
+  &:hover { transform: scale(1.12); }
+
+  &.is-current {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--sw-accent);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #4263eb;
+  }
 
   svg {
-    width: 18px;
-    height: 18px;
+    width: 12px;
+    height: 12px;
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.7;
+    stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
 }
 
-.fc2-content {
-  min-width: 0;
+.fc3-custom {
+  overflow: hidden;
+  border-color: rgba(0, 0, 0, 0.12);
+  background: conic-gradient(
+    #f6c4c4, #f6e2a6, #c7ebcf, #bfe3ee, #cdd4f6, #e5cdf2, #f6c4c4
+  );
 
-  > :first-child { margin-top: 0; }
-  > :last-child { margin-bottom: 0; }
-}
-
-.fc2-panel {
-  position: absolute;
-  z-index: 60;
-  top: 42px;
-  left: 12px;
-  width: min(300px, calc(100% - 24px));
-  box-sizing: border-box;
-  padding: 12px;
-  border: 1px solid #dce2e9;
-  border-radius: 10px;
-  background: #fff;
-  color: #29313d;
-  box-shadow: 0 12px 32px rgba(20, 26, 36, 0.16);
-
-  strong { display: block; margin-bottom: 10px; font-size: 12px; }
-  small { display: block; margin: 12px 0 7px; color: #87919e; font-size: 10px; }
-  p { margin: 9px 0 !important; color: #87919e; font-size: 10px; }
-}
-
-.fc2-types {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-
-  button {
-    padding: 4px 7px;
-    border: 1px solid #e0e5ec;
-    border-radius: 5px;
-    background: transparent;
-    color: inherit;
-    font-size: 11px;
-    cursor: pointer;
+  &.is-current {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--fc-accent);
   }
-
-  button[aria-pressed="true"] {
-    border-color: #879bd7;
-    background: #edf2ff;
-  }
-}
-
-.fc2-colors {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-
-  button {
-    display: grid;
-    width: 24px;
-    height: 24px;
-    place-items: center;
-    padding: 0;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    border-radius: 50%;
-    background: #f1f3f6;
-    color: #fff;
-    font-size: 13px;
-    cursor: pointer;
-  }
-
-  button:first-child { color: #697584; }
-
-  button[aria-pressed="true"] {
-    outline: 2px solid #8b9bc0;
-    outline-offset: 2px;
-  }
-}
-
-.fc2-custom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 12px;
-  font-size: 11px;
 
   input {
-    width: 36px;
-    height: 25px;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     padding: 0;
     border: 0;
-    background: transparent;
+    opacity: 0;
     cursor: pointer;
   }
 }
 
-.fc2-unwrap {
-  width: 100%;
-  padding: 7px;
-  border: 1px solid #dce2e9;
+.fc3-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: #e3e6ea;
+}
+
+.fc3-action {
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  padding: 0 7px;
+  border: 0;
   border-radius: 6px;
   background: transparent;
-  color: inherit;
-  font-size: 11px;
+  color: #4f5863;
+  font-family: inherit;
+  font-size: 12px;
   cursor: pointer;
+
+  &:hover { background: #f0f2f5; color: #2f353d; }
+
+  &.is-icon {
+    width: 24px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  &.is-danger:hover { background: #fdecec; color: #c84444; }
+
+  svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
 }
 
 .dark-theme {
-  .focus-callout.fc2 {
+  .focus-callout.fc3 {
     border-color: var(--fc-dark-border);
     background: var(--fc-dark-bg);
     color: #e2e8f0;
   }
 
-  .fc2-icon-button { color: var(--fc-dark-accent); }
-  .fc2-panel { border-color: #3b4654; background: #232b36; color: #e2e8f0; }
-  .fc2-types button, .fc2-unwrap { border-color: #465164; }
-  .fc2-types button[aria-pressed="true"] { background: #344364; }
+  .fc3-content > p.is-empty:only-child::before {
+    color: rgba(226, 232, 240, 0.38);
+  }
+
+  .fc3-bar {
+    border-color: #39414c;
+    background: #1d232b;
+  }
+
+  .fc3-swatch {
+    border-color: var(--sw-dark-border);
+    background: var(--sw-dark-bg);
+
+    &.is-current {
+      box-shadow: 0 0 0 2px #1d232b, 0 0 0 3.5px var(--sw-accent);
+    }
+  }
+
+  .fc3-swatch.fc3-custom {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: conic-gradient(
+      #8a5656, #8a7a4a, #4f7a5c, #4a7584, #5a6390, #7a5a8a, #8a5656
+    );
+  }
+
+  .fc3-sep { background: #333a44; }
+
+  .fc3-action {
+    color: #c4cad1;
+
+    &:hover { background: #262e38; color: #e1e5ea; }
+    &.is-danger:hover { background: rgba(209, 67, 67, 0.16); color: #ef9292; }
+  }
 }
 </style>

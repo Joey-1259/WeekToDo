@@ -37,6 +37,7 @@
       @toggle-code-wrap="toggleCodeWrap"
       @copy-code="copyCurrentCode"
       @insert-image="chooseImage"
+      @toggle-callout="toggleCallout"
       @request-task="$emit('request-task')"
       @open-markdown="openMarkdown"
       @indent="increaseIndent"
@@ -314,7 +315,10 @@ import LinkedTask from "../../editor/extensions/LinkedTask";
 import FocusImage from "../../editor/extensions/FocusImage";
 import FocusMindMap from "../../editor/extensions/FocusMindMap";
 /* FOCUS_DOCUMENT_UPGRADE_20261005_V1 */
-import FocusCallout from "../../editor/extensions/FocusCallout";
+/* FOCUS_CALLOUT_COLOR_20261007_V3：按键扩展单独注册——扩展 priority 只影响按键顺序，不影响 schema 默认块 */
+import FocusCallout, {
+  FocusCalloutKeymap,
+} from "../../editor/extensions/FocusCallout";
 /* FOCUS_MIND_MAP_PRODUCT_20260920_V1 */
 import focusAssetRepository from "../../repositories/focusAssetRepository";
 import SmartFormatting from "../../editor/extensions/SmartFormatting";
@@ -496,6 +500,8 @@ export default {
       extensions: [
         StarterKit.configure({
           heading: { levels: [1, 2, 3] },
+          /* 文末自动补行永远用正文段落，不依赖 schema 默认块 */
+          trailingNode: { node: "paragraph" },
           codeBlock: false,
           link: {
             openOnClick: false,
@@ -543,6 +549,7 @@ export default {
         FocusImage,
         FocusMindMap,
         FocusCallout,
+        FocusCalloutKeymap,
         Details.configure({
           persist: true,
 
@@ -763,6 +770,11 @@ export default {
       String(this.keepPasteStyle)
     );
   },
+    /* FOCUS_CALLOUT_COLOR_20261007_V3：块外插入，块内转为正文 */
+    toggleCallout() {
+      this.editor?.chain().focus().toggleFocusCallout().run();
+    },
+
     chooseImage() {
       if (this.imageSaving) return;
       this.$refs.imageInput?.click();

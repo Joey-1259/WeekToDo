@@ -1634,29 +1634,6 @@ export default {
   gap: 8px;
 }
 
-.focus-prosemirror [data-type="details"] {
-  position: relative;
-  margin: 12px 0;
-  padding: 10px 12px 10px 38px;
-  border: 1px solid #e4e7eb;
-  border-radius: 8px;
-  background: #fafbfc;
-}
-
-.focus-prosemirror [data-type="details"] > button {
-  position: absolute;
-  top: 11px;
-  left: 11px;
-  border: 0;
-  background: transparent;
-}
-
-.focus-prosemirror
-  [data-type="details"]:not(.is-open)
-  [data-type="detailsContent"] {
-  display: none;
-}
-
 .focus-prosemirror .is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
@@ -1778,7 +1755,6 @@ export default {
   background: #fff;
   box-shadow: 0 10px 30px rgba(20, 25, 34, 0.17);
 }
-
 
 /*
  * FOCUS_FULLSCREEN_FLOATING_LAYER_20260920_V2
@@ -1978,111 +1954,6 @@ export default {
   color: #a2a7af;
 }
 
-/* 折叠块 */
-.focus-prosemirror [data-type="details"] {
-  position: relative;
-  margin: 12px 0;
-  padding: 8px 10px 9px 38px;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  background: #f7f8fa;
-  transition:
-    border-color 0.15s ease,
-    background-color 0.15s ease;
-}
-
-.focus-prosemirror [data-type="details"]:hover,
-.focus-prosemirror [data-type="details"].is-open {
-  border-color: #e2e5e9;
-  background: #fafbfc;
-}
-
-.focus-prosemirror [data-type="details"] > button {
-  position: absolute;
-  top: 11px;
-  left: 11px;
-  display: grid;
-  width: 20px;
-  height: 20px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-}
-
-.focus-prosemirror [data-type="details"] > button:hover {
-  background: #e8ebef;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  > button::before {
-  content: "";
-  width: 0;
-  height: 0;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  border-left: 7px solid #6d747e;
-  transform-origin: 3px center;
-  transition: transform 0.15s ease;
-}
-
-.focus-prosemirror
-  [data-type="details"].is-open
-  > button::before {
-  transform: rotate(90deg);
-}
-
-.focus-prosemirror [data-type="details"] summary {
-  display: block;
-  min-height: 26px;
-  padding: 1px 4px;
-  outline: none;
-  color: #343940;
-  font-weight: 600;
-  line-height: 24px;
-  cursor: text;
-  list-style: none;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  summary::-webkit-details-marker {
-  display: none;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  [data-type="detailsContent"] {
-  margin-top: 5px;
-  padding: 7px 4px 2px;
-  border-top: 1px solid #e8eaed;
-  color: #505761;
-}
-
-.focus-prosemirror
-  [data-type="details"]:not(.is-open)
-  [data-type="detailsContent"] {
-  display: none;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  summary.is-empty::before,
-.focus-prosemirror
-  [data-type="details"]
-  [data-type="detailsContent"]
-  .is-empty::before {
-  content: attr(data-placeholder);
-  float: left;
-  height: 0;
-  color: #a6abb3;
-  font-weight: 400;
-  pointer-events: none;
-}
-
 .dark-theme .focus-command-menu {
   border-color: #343b45;
   background: rgba(27, 33, 41, 0.98);
@@ -2115,36 +1986,6 @@ export default {
   border-color: #3b434e;
   background: #222932;
   color: #adb4bd;
-}
-
-.dark-theme .focus-prosemirror [data-type="details"] {
-  border-color: transparent;
-  background: #1b2129;
-}
-
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]:hover,
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"].is-open {
-  border-color: #38414b;
-  background: #1e252e;
-}
-
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]
-  summary {
-  color: #dce1e7;
-}
-
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]
-  [data-type="detailsContent"] {
-  border-color: #343c46;
-  color: #c6cbd2;
 }
 
 .markdown-backdrop {
@@ -2236,7 +2077,6 @@ export default {
 }
 
 .dark-theme .focus-prosemirror blockquote,
-.dark-theme .focus-prosemirror [data-type="details"],
 .dark-theme .linked-task-block {
   border-color: #353d47;
   background: #1d232b;
@@ -2368,59 +2208,6 @@ export default {
   border: 0;
   background: transparent;
   cursor: pointer;
-}
-
-/*
- * 折叠块采用纯文本披露结构：
- * 无边框、无底色、无分割线，仅保留箭头。
- */
-.focus-prosemirror [data-type="details"],
-.focus-prosemirror [data-type="details"]:hover,
-.focus-prosemirror [data-type="details"].is-open,
-.dark-theme .focus-prosemirror [data-type="details"],
-.dark-theme .focus-prosemirror [data-type="details"]:hover,
-.dark-theme .focus-prosemirror [data-type="details"].is-open {
-  margin: 0.5em 0;
-  padding: 0 0 0 28px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.focus-prosemirror [data-type="details"] > button {
-  top: 3px;
-  left: 2px;
-  width: 20px;
-  height: 24px;
-  border-radius: 4px;
-}
-
-.focus-prosemirror [data-type="details"] > button:hover {
-  background: rgba(127, 133, 143, 0.12);
-}
-
-.focus-prosemirror [data-type="details"] summary,
-.dark-theme .focus-prosemirror [data-type="details"] summary {
-  min-height: 28px;
-  padding: 0;
-  color: inherit;
-  font-weight: 550;
-  line-height: 28px;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  [data-type="detailsContent"],
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]
-  [data-type="detailsContent"] {
-  margin: 2px 0 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
 }
 
 .dark-theme .focus-color-menu {
@@ -2609,8 +2396,6 @@ export default {
   color: #ef9292;
 }
 
-
-
 /* FOCUS CONTENT NEUTRAL SYSTEM
  * 关联事项完成态不使用删除线；
  * 引用块统一为低干扰灰色体系。
@@ -2668,8 +2453,6 @@ export default {
   color: #858d98;
   text-decoration: none !important;
 }
-
-
 
 /* FOCUS SLASH MENU DENSITY V2
  * Slash 菜单是工具选择器，不是内容展示卡片。
@@ -2889,7 +2672,6 @@ export default {
   background: #20262e;
 }
 
-
 /* ==========================================================
  * 重点事项 · 编辑工具栏、关联事项与折叠块统一规范
  * ========================================================== */
@@ -3100,43 +2882,6 @@ export default {
   opacity: 0.62;
 }
 
-/* 折叠块降低容器感，突出标题与内容层级。 */
-.focus-prosemirror [data-type="details"] {
-  margin: 10px 0;
-  padding: 7px 10px 8px 36px;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  background: #f7f8fa;
-}
-
-.focus-prosemirror [data-type="details"]:hover,
-.focus-prosemirror [data-type="details"].is-open {
-  border-color: #e1e5e9;
-  background: #fafbfc;
-}
-
-.focus-prosemirror [data-type="details"] > button {
-  top: 9px;
-  left: 9px;
-}
-
-.focus-prosemirror [data-type="details"] summary {
-  min-height: 27px;
-  color: #343a42;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 27px;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  [data-type="detailsContent"] {
-  margin-top: 5px;
-  padding: 8px 4px 2px;
-  border-top: 1px solid #e7eaed;
-  color: #515965;
-}
-
 .dark-theme .linked-task-block {
   border-color: #343c46;
   background: #1b2129;
@@ -3182,21 +2927,9 @@ export default {
   overscroll-behavior: contain;
 }
 
-.focus-prosemirror [data-type="details"],
 .linked-task-block {
   width: 100%;
   box-sizing: border-box;
-}
-
-.focus-prosemirror [data-type="details"] {
-  border-width: 1px;
-  border-style: solid;
-  transform: translateZ(0);
-}
-
-.focus-prosemirror [data-type="details"]:hover {
-  padding: 8px 10px 9px 38px;
-  margin: 12px 0;
 }
 
 .linked-task-block {
@@ -3458,363 +3191,40 @@ export default {
 /* FOCUS_FOLDER_TREE_SYSTEM_20260907_V1: stable details block */
 
 /*
- * 折叠块不再因鼠标悬停改变背景、边框或几何尺寸。
- * 展开和收起共用同一标题布局。
- */
-.focus-prosemirror [data-type="details"],
-.focus-prosemirror [data-type="details"]:hover,
-.focus-prosemirror [data-type="details"].is-open {
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-  margin: 12px 0;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  background: #f7f8fa;
-  transform: none;
-  transition: none;
-}
-
-/*
  * 箭头按钮固定在 40px 标题行中垂直居中。
  * 不再使用随展开内容变化的 top/padding 关系。
  */
-.focus-prosemirror [data-type="details"] > button {
-  position: absolute;
-  z-index: 1;
-  top: 8px;
-  left: 10px;
-  display: grid;
-  width: 24px;
-  height: 24px;
-  box-sizing: border-box;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  outline: none;
-  background: transparent;
-  color: #6d747e;
-  cursor: pointer;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  > button:hover {
-  background: transparent;
-  color: #4f5761;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  > button:focus-visible {
-  box-shadow: 0 0 0 2px rgba(66, 99, 235, 0.18);
-}
 
 /*
  * 统一由伪元素绘制箭头，清除按钮原内容可能造成的基线干扰。
  */
-.focus-prosemirror
-  [data-type="details"]
-  > button::before {
-  content: "";
-  display: block;
-  width: 0;
-  height: 0;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  border-left: 7px solid currentColor;
-  transform: translateX(1px) rotate(0deg);
-  transform-origin: 3px 5px;
-  transition: transform 0.14s ease;
-}
-
-.focus-prosemirror
-  [data-type="details"].is-open
-  > button::before {
-  transform: translateX(1px) rotate(90deg);
-}
 
 /*
  * 标题固定 40px，文字基线不受正文出现影响。
  */
-.focus-prosemirror
-  [data-type="details"]
-  summary {
-  display: flex;
-  min-height: 40px;
-  box-sizing: border-box;
-  align-items: center;
-  margin: 0;
-  padding: 7px 12px 7px 40px;
-  outline: none;
-  color: #343940;
-  font-weight: 600;
-  line-height: 24px;
-  cursor: text;
-  list-style: none;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  summary > * {
-  margin-top: 0;
-  margin-bottom: 0;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  summary::-webkit-details-marker {
-  display: none;
-}
 
 /*
  * 正文独立占据标题下方区域，不反向影响标题与箭头。
  */
-.focus-prosemirror
-  [data-type="details"]
-  [data-type="detailsContent"] {
-  box-sizing: border-box;
-  margin: 0 12px 10px 40px;
-  padding: 9px 4px 2px;
-  border-top: 1px solid #e8eaed;
-  color: #505761;
-}
-
-.focus-prosemirror
-  [data-type="details"]:not(.is-open)
-  [data-type="detailsContent"] {
-  display: none;
-}
-
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"],
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]:hover,
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"].is-open {
-  border-color: transparent;
-  background: #1b2129;
-}
-
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]
-  > button {
-  color: #9aa3ad;
-}
-
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]
-  > button:hover {
-  background: transparent;
-  color: #c7cdd5;
-}
 
 /* FOCUS_INTERACTION_STABILITY_20260907_V1: minimal details block */
-
-/*
- * 最终覆盖：折叠块不再表现为卡片或灰色容器。
- * hover、展开、收起均不改变背景和几何尺寸。
- */
-.focus-prosemirror [data-type="details"],
-.focus-prosemirror [data-type="details"]:hover,
-.focus-prosemirror [data-type="details"].is-open,
-.focus-prosemirror [data-type="details"][open] {
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-  margin: 8px 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  transform: none;
-  transition: none;
-}
 
 /*
  * 箭头使用固定 20×28px 操作区。
  * 展开前后标题起点和文字基线完全一致。
  */
-.focus-prosemirror
-  [data-type="details"]
-  > button {
-  position: absolute;
-  z-index: 2;
-  top: 1px;
-  left: 0;
-  display: grid;
-  width: 20px;
-  height: 28px;
-  box-sizing: border-box;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  outline: none;
-  background: transparent;
-  box-shadow: none;
-  color: #737b86;
-  font-size: 0;
-  line-height: 0;
-  cursor: pointer;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  > button:hover {
-  border: 0;
-  background: transparent;
-  color: #3f4751;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  > button:focus-visible {
-  background: rgba(66, 99, 235, 0.08);
-  box-shadow: 0 0 0 2px rgba(66, 99, 235, 0.13);
-}
 
 /*
  * 统一绘制极简三角箭头，避免原图标字体基线错位。
  */
-.focus-prosemirror
-  [data-type="details"]
-  > button::before {
-  content: "";
-  display: block;
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 6px solid currentColor;
-  transform: translateX(1px) rotate(0deg);
-  transform-origin: 3px 4px;
-  transition: transform 0.13s ease;
-}
-
-.focus-prosemirror
-  [data-type="details"].is-open
-  > button::before,
-.focus-prosemirror
-  [data-type="details"][open]
-  > button::before {
-  transform: translateX(1px) rotate(90deg);
-}
 
 /*
  * 标题行只为箭头预留 25px，不增加卡片内边距。
  */
-.focus-prosemirror
-  [data-type="details"]
-  summary {
-  display: flex;
-  min-height: 30px;
-  box-sizing: border-box;
-  align-items: center;
-  margin: 0;
-  padding: 3px 0 3px 25px;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: inherit;
-  font-weight: 600;
-  line-height: 24px;
-  list-style: none;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  summary:hover {
-  background: transparent;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  summary::-webkit-details-marker {
-  display: none;
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  summary::marker {
-  content: "";
-}
-
-.focus-prosemirror
-  [data-type="details"]
-  summary > * {
-  margin-top: 0;
-  margin-bottom: 0;
-}
 
 /*
  * 展开内容保持与标题文字左侧对齐，不添加分隔线或灰底。
  */
-.focus-prosemirror
-  [data-type="details"]
-  [data-type="detailsContent"] {
-  box-sizing: border-box;
-  margin: 0 0 4px 25px;
-  padding: 2px 0 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-}
-
-.focus-prosemirror
-  [data-type="details"]:not(.is-open):not([open])
-  [data-type="detailsContent"] {
-  display: none;
-}
-
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"],
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]:hover,
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"].is-open,
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"][open] {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]
-  > button {
-  color: #929ba6;
-}
-
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]
-  > button:hover {
-  background: transparent;
-  color: #d0d5dc;
-}
-
-.dark-theme
-  .focus-prosemirror
-  [data-type="details"]
-  [data-type="detailsContent"] {
-  border: 0;
-  background: transparent;
-  color: inherit;
-}
 
 /* FOCUS_INTERACTION_STABILITY_20260907_V1: stable slash command menu */
 
@@ -4192,8 +3602,6 @@ export default {
   }
 }
 
-
-
 /* FOCUS_DETAILS_DISCLOSURE_STYLE_20260920_V4
  *
  * 设计原则：
@@ -4205,264 +3613,162 @@ export default {
  */
 
 /* 外层：第一列是箭头，第二列是摘要和内容。 */
-.focus-editor-content
-  :deep([data-type="details"]) {
-  display: grid;
-  grid-template-columns:
-    24px minmax(0, 1fr);
-  column-gap: 4px;
-  align-items: start;
-  margin: 7px 0;
-}
 
 /* Tiptap 创建的内容容器固定落在第二列。 */
-.focus-editor-content
-  :deep(
-    [data-type="details"]
-      > div
-  ) {
-  grid-column: 2;
-  min-width: 0;
-}
-
-/* 唯一的折叠按钮。 */
-.focus-editor-content
-  :deep(
-    [data-type="details"]
-      > button
-  ) {
-  appearance: none;
-  display: inline-grid;
-  grid-column: 1;
-  grid-row: 1;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  align-self: start;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: #7c838d;
-
-  /*
-   * 隐藏旧版写入按钮的 Unicode 文本，
-   * 但不影响 ::before 使用 currentColor。
-   */
-  font-size: 0 !important;
-  line-height: 0;
-  cursor: pointer;
-  user-select: none;
-
-  transition:
-    background-color 140ms ease,
-    color 140ms ease,
-    box-shadow 140ms ease;
-}
 
 /*
  * 关闭 Tiptap 主题或历史样式可能注入的其他图标。
  * 箭头必须只有 ::before 这一处来源。
  */
-.focus-editor-content
-  :deep(
-    [data-type="details"]
-      > button
-      > svg
-  ) {
-  display: none !important;
-}
-
-.focus-editor-content
-  :deep(
-    [data-type="details"]
-      > button::after
-  ) {
-  content: none !important;
-  display: none !important;
-}
 
 /*
  * 用边框绘制 chevron，不依赖 →、▶、▼ 等系统字形。
  * 默认向右，代表当前处于收起状态。
  */
-.focus-editor-content
-  :deep(
-    [data-type="details"]
-      > button::before
-  ) {
-  content: "" !important;
-  display: block !important;
-  box-sizing: border-box;
-  width: 7px;
-  height: 7px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-
-  transform:
-    translateX(-1px)
-    rotate(-45deg);
-
-  transform-origin: center;
-  transition:
-    transform 140ms ease;
-}
 
 /* 展开：同一个 chevron 旋转向下，不替换为另一种字符。 */
-.focus-editor-content
-  :deep(
-    [data-type="details"].is-open
-      > button::before
-  ),
-.focus-editor-content
-  :deep(
-    [data-type="details"]
-      > button.is-expanded::before
-  ),
-.focus-editor-content
-  :deep(
-    [data-type="details"]
-      > button[data-state="expanded"]::before
-  ) {
-  transform:
-    translateY(-1px)
-    rotate(45deg);
-}
-
-.focus-editor-content
-  :deep(
-    [data-type="details"]
-      > button:hover
-  ) {
-  background: rgba(
-    66,
-    99,
-    235,
-    0.08
-  );
-  color: #526bba;
-}
-
-.focus-editor-content
-  :deep(
-    [data-type="details"]
-      > button:active
-  ) {
-  background: rgba(
-    66,
-    99,
-    235,
-    0.13
-  );
-}
-
-.focus-editor-content
-  :deep(
-    [data-type="details"]
-      > button:focus-visible
-  ) {
-  outline: none;
-  box-shadow:
-    0 0 0 2px
-    rgba(66, 99, 235, 0.22);
-}
 
 /* 摘要标题取消额外空隙，与箭头处于同一行。 */
-.focus-editor-content
-  :deep(
-    [data-type="details-summary"]
-  ) {
-  min-width: 0;
-  min-height: 24px;
-  padding: 1px 0 0;
-  cursor: text;
-}
-
-.focus-editor-content
-  :deep(
-    [data-type="details-summary"]
-      > p
-  ) {
-  margin-top: 0;
-  margin-bottom: 0;
-  line-height: 22px;
-}
 
 /*
  * 内容位于摘要下方，并与摘要文字左边缘对齐。
  * 不再额外缩进到箭头下面。
  */
-.focus-editor-content
-  :deep(
-    [data-type="details-content"]
-  ) {
-  margin-top: 4px;
-  padding-left: 0;
-}
 
 /* 空标题仍保留可点击、可编辑的稳定高度。 */
-.focus-editor-content
-  :deep(
-    [data-type="details-summary"]
-      > p:only-child:empty::before
-  ) {
-  content: "折叠块标题";
-  color: #b0b5bd;
+
+/* 深色模式保持低干扰，不让箭头成为视觉焦点。 */
+
+/* 减少动态效果偏好。 */
+
+/* 折叠块：卡片 + 标题行 + chevron（收起朝右，展开朝下） */
+.ProseMirror [data-type="details"] {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  margin: 10px 0;
+  padding: 0;
+  border: 1px solid #e4e7eb;
+  border-radius: 8px;
+  background: transparent;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.ProseMirror [data-type="details"]:hover { border-color: #d6dbe1; }
+.ProseMirror [data-type="details"]:focus-within { border-color: #cbd2db; }
+
+.ProseMirror [data-type="details"].ProseMirror-selectednode {
+  outline: none;
+  border-color: #a9b8f0;
+  box-shadow: 0 0 0 2px rgba(66, 99, 235, 0.16);
+}
+
+.ProseMirror [data-type="details"] > button {
+  appearance: none;
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  left: 9px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #8a919b;
+  font-size: 0;
+  line-height: 0;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.ProseMirror [data-type="details"] > button:hover {
+  background: rgba(31, 35, 41, 0.06);
+  color: #454c56;
+}
+
+.ProseMirror [data-type="details"] > button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(66, 99, 235, 0.28);
+}
+
+/* 唯一的 chevron：右下两条边旋转 -45° 朝右，展开旋转 45° 朝下 */
+.ProseMirror [data-type="details"] > button::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border: 0;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  transform: translateX(-1px) rotate(-45deg);
+  transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.ProseMirror [data-type="details"] > button[data-state="expanded"]::before,
+.ProseMirror [data-type="details"].is-open > button::before {
+  transform: translateY(-1px) rotate(45deg);
+}
+
+.ProseMirror [data-type="details"] > button::after { content: none; }
+
+.ProseMirror [data-type="details"] > div {
+  display: block;
+  min-width: 0;
+}
+
+.ProseMirror [data-type="details"] summary {
+  display: block;
+  min-height: 24px;
+  margin: 0;
+  padding: 8px 14px 8px 36px;
+  outline: none;
+  font-weight: 600;
+  line-height: 24px;
+  list-style: none;
+  word-break: break-word;
+  cursor: text;
+}
+
+.ProseMirror [data-type="details"] summary::-webkit-details-marker { display: none; }
+.ProseMirror [data-type="details"] summary::marker { content: ""; }
+
+/* 占位与光标同行：summary 为 block，浮动占位不再被 flex 挤到下一行 */
+.ProseMirror [data-type="details"] summary.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #b3b9c1;
+  font-weight: 500;
   pointer-events: none;
 }
 
-/* 深色模式保持低干扰，不让箭头成为视觉焦点。 */
-.dark-theme
-  .focus-editor-content
-  :deep(
-    [data-type="details"]
-      > button
-  ) {
-  color: #929aa5;
+.ProseMirror [data-type="details"] [data-type="detailsContent"] {
+  margin: -2px 0 0;
+  padding: 0 14px 10px 36px;
 }
 
-.dark-theme
-  .focus-editor-content
-  :deep(
-    [data-type="details"]
-      > button:hover
-  ) {
-  background: rgba(
-    143,
-    165,
-    238,
-    0.11
-  );
-  color: #a7b7ed;
-}
+.ProseMirror [data-type="details"] [data-type="detailsContent"][hidden] { display: none; }
+.ProseMirror [data-type="details"] [data-type="detailsContent"] > :first-child { margin-top: 0; }
+.ProseMirror [data-type="details"] [data-type="detailsContent"] > :last-child { margin-bottom: 0; }
 
-.dark-theme
-  .focus-editor-content
-  :deep(
-    [data-type="details-summary"]
-      > p:only-child:empty::before
-  ) {
-  color: #69717c;
+.dark-theme .ProseMirror [data-type="details"] { border-color: #323943; }
+.dark-theme .ProseMirror [data-type="details"]:hover { border-color: #3c4450; }
+.dark-theme .ProseMirror [data-type="details"]:focus-within { border-color: #46505d; }
+.dark-theme .ProseMirror [data-type="details"] > button { color: #8d96a1; }
+.dark-theme .ProseMirror [data-type="details"] > button:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #d0d5dc;
 }
+.dark-theme .ProseMirror [data-type="details"] summary.is-empty::before { color: #5f6874; }
 
-/* 减少动态效果偏好。 */
-@media (
-  prefers-reduced-motion:
-  reduce
-) {
-  .focus-editor-content
-    :deep(
-      [data-type="details"]
-        > button
-    ),
-  .focus-editor-content
-    :deep(
-      [data-type="details"]
-        > button::before
-    ) {
-    transition: none;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .ProseMirror [data-type="details"],
+  .ProseMirror [data-type="details"] > button,
+  .ProseMirror [data-type="details"] > button::before { transition: none; }
 }
 </style>
 

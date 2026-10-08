@@ -789,6 +789,22 @@ export default {
       }
     },
 
+    /** 新图片按原始像素显示，最宽不超过正文；以百分比保存，随容器缩放。 */
+    initialImageWidth(dimensions) {
+      const natural = Number(dimensions?.width) || 0;
+      const root = this.editor?.view?.dom;
+      if (!natural || !root) return "100%";
+
+      const style = window.getComputedStyle(root);
+      const box =
+        root.clientWidth -
+        (parseFloat(style.paddingLeft) || 0) -
+        (parseFloat(style.paddingRight) || 0);
+
+      if (!(box > 0) || natural >= box) return "100%";
+      return `${Math.max(10, Math.round((natural / box) * 1000) / 10)}%`;
+    },
+
     readImageDimensions(file) {
       return new Promise((resolve) => {
         const url = URL.createObjectURL(file);
@@ -842,7 +858,7 @@ export default {
                 assetId: asset.id,
                 alt: file.name || "图片",
                 title: file.name || "",
-                width: "100%",
+                width: this.initialImageWidth(dimensions),
                 originalWidth: dimensions.width,
                 originalHeight: dimensions.height,
               },
@@ -3355,40 +3371,6 @@ export default {
   min-width: 112px !important;
 }
 
-/* 图片始终以当前编辑栏为最大宽度，保持原始宽高比。 */
-.focus-image-block {
-  display: flex;
-  width: 100%;
-  max-width: 100%;
-  min-height: 72px;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  margin: 14px 0;
-  border-radius: 10px;
-  background: #f7f8fa;
-  overflow: hidden;
-}
-
-.focus-document-image {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  object-fit: contain;
-  cursor: zoom-in;
-}
-
-.focus-image-status {
-  padding: 24px;
-  color: #969ca5;
-  font-size: 12px;
-}
-
-.focus-image-block.is-missing {
-  border: 1px dashed #d7dce2;
-}
-
 .focus-image-preview-backdrop {
   position: fixed;
   z-index: 26000;
@@ -3509,14 +3491,6 @@ export default {
 .dark-theme .focus-prosemirror .hljs-regexp,
 .dark-theme .focus-prosemirror .hljs-link {
   color: #e59ac1;
-}
-
-.dark-theme .focus-image-block {
-  background: #1d232b;
-}
-
-.dark-theme .focus-image-block.is-missing {
-  border-color: #3a424d;
 }
 
 /* FOCUS_PAINTER_PATCH_V3 */

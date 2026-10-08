@@ -75,6 +75,7 @@ function normalizeMindMapExportNodes(value) {
 
     value.attrs = {
       ...(value.attrs || {}),
+      caption: value.attrs?.caption || value.attrs?.title || "思维导图",
       alt:
         value.attrs?.alt
         || (
@@ -410,6 +411,34 @@ function inlineNodeToHtml(node) {
   return value;
 }
 
+/* 图片：说明取 caption（不再把文件名 title 当说明），对齐取 align，宽度取 width。 */
+function imageCaption(node) {
+  return String(node?.attrs?.caption || "").trim();
+}
+
+function imageAlign(node) {
+  const align = node?.attrs?.align;
+  return align === "left" || align === "right" ? align : "center";
+}
+
+function imageAlignment(node) {
+  const align = imageAlign(node);
+  if (align === "left") return AlignmentType.LEFT;
+  if (align === "right") return AlignmentType.RIGHT;
+  return AlignmentType.CENTER;
+}
+
+function imageFigureAttrs(node) {
+  return ` style="text-align:${imageAlign(node)}"`;
+}
+
+function imageWidthAttr(node) {
+  const width = String(node?.attrs?.width || "").trim();
+  return /^\d+(?:\.\d+)?(?:%|px)$/.test(width) && width !== "100%"
+    ? ` style="width:${width}"`
+    : "";
+}
+
 function nodeToHtml(node) {
   if (!node) return "";
 
@@ -556,14 +585,14 @@ function nodeToHtml(node) {
       }
 
       return (
-        `<figure>`
-        + `<img src="${source}" alt="${escapeHtml(
+        `<figure${imageFigureAttrs(node)}>`
+        + `<img src="${source}"${imageWidthAttr(node)} alt="${escapeHtml(
           label
         )}">`
         + (
-          node.attrs?.title
+          imageCaption(node)
             ? `<figcaption>${escapeHtml(
-                node.attrs.title
+                imageCaption(node)
               )}</figcaption>`
             : ""
         )
@@ -1969,11 +1998,11 @@ function nodeToDocxBlocks(
               }),
             ],
             alignment:
-              AlignmentType.CENTER,
+              imageAlignment(node),
             spacing: {
               before: 120,
               after:
-                node.attrs?.title
+                imageCaption(node)
                   ? 45
                   : 140,
             },
@@ -1981,20 +2010,19 @@ function nodeToDocxBlocks(
           }),
         ];
 
-        if (node.attrs?.title) {
+        if (imageCaption(node)) {
           blocks.push(
             new Paragraph({
               children: [
                 new TextRun({
-                  text:
-                    node.attrs.title,
+                  text: imageCaption(node),
                   color: "858C96",
                   italics: true,
                   size: 18,
                 }),
               ],
               alignment:
-                AlignmentType.CENTER,
+                imageAlignment(node),
               spacing: {
                 after: 140,
               },

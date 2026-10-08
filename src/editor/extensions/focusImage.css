@@ -1,0 +1,257 @@
+/* 图片块：width = attrs.width（相对正文宽度的百分比），对齐 = data-align。
+   只读模式（contenteditable=false）隐藏手柄与工具条，单击即预览。 */
+
+.ProseMirror .focus-img {
+  position: relative;
+  display: block;
+  margin: 14px 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.ProseMirror .focus-img > .fi-frame {
+  position: relative;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 48px;
+  margin: 0 auto;
+  border-radius: 6px;
+  transition: box-shadow 0.15s ease;
+}
+
+.ProseMirror .focus-img[data-align="left"] > .fi-frame { margin: 0 auto 0 0; }
+.ProseMirror .focus-img[data-align="right"] > .fi-frame { margin: 0 0 0 auto; }
+
+.ProseMirror .focus-img .fi-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.ProseMirror[contenteditable="false"] .focus-img .fi-img { cursor: zoom-in; }
+
+.ProseMirror .focus-img.is-selected > .fi-frame,
+.ProseMirror .focus-img.is-resizing > .fi-frame {
+  box-shadow: 0 0 0 2px #4263eb;
+}
+
+/* ---------- 加载 / 失效 ---------- */
+
+.ProseMirror .focus-img.is-loading > .fi-frame,
+.ProseMirror .focus-img.is-missing > .fi-frame {
+  display: grid;
+  min-height: 96px;
+  place-items: center;
+  background: #f5f6f8;
+}
+
+.ProseMirror .focus-img.is-loading .fi-img {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.ProseMirror .focus-img.is-missing .fi-img { display: none; }
+
+.ProseMirror .focus-img.is-missing > .fi-frame {
+  border: 1px dashed #d7dce2;
+  background: transparent;
+}
+
+.ProseMirror .focus-img .fi-status {
+  padding: 20px;
+  color: #969ca5;
+  font-size: 12px;
+}
+
+.ProseMirror .focus-img .fi-status[hidden] { display: none; }
+
+/* ---------- 左右拖拽手柄 ---------- */
+
+.ProseMirror .focus-img .fi-handle {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  width: 18px;
+  align-items: center;
+  justify-content: center;
+  cursor: ew-resize;
+  opacity: 0;
+  touch-action: none;
+  transition: opacity 0.15s ease;
+}
+
+.ProseMirror .focus-img .fi-handle.is-left { left: 0; }
+.ProseMirror .focus-img .fi-handle.is-right { right: 0; }
+
+.ProseMirror .focus-img .fi-handle::after {
+  content: "";
+  width: 6px;
+  height: min(48px, 40%);
+  min-height: 22px;
+  border-radius: 999px;
+  background: rgba(20, 24, 30, 0.62);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.92);
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+.ProseMirror .focus-img .fi-handle:hover::after { transform: scaleY(1.08); background: rgba(20, 24, 30, 0.8); }
+
+.ProseMirror .focus-img:hover .fi-handle,
+.ProseMirror .focus-img.is-selected .fi-handle,
+.ProseMirror .focus-img.is-resizing .fi-handle { opacity: 1; }
+
+.ProseMirror[contenteditable="false"] .focus-img .fi-handle,
+.ProseMirror .focus-img.is-loading .fi-handle,
+.ProseMirror .focus-img.is-missing .fi-handle { display: none; }
+
+/* ---------- 拖拽时的尺寸提示 ---------- */
+
+.ProseMirror .focus-img .fi-badge {
+  position: absolute;
+  z-index: 3;
+  bottom: 10px;
+  left: 50%;
+  display: none;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(20, 24, 30, 0.78);
+  color: #fff;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.ProseMirror .focus-img.is-resizing .fi-badge { display: block; }
+
+body.fi-resizing,
+body.fi-resizing * {
+  cursor: ew-resize !important;
+  user-select: none !important;
+}
+
+/* ---------- 浮动工具条 ---------- */
+
+.ProseMirror .focus-img .fi-bar {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  display: none;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid #e1e5ea;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow:
+    0 8px 24px rgba(24, 29, 38, 0.14),
+    0 1px 3px rgba(24, 29, 38, 0.06);
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  user-select: none;
+}
+
+.ProseMirror .focus-img[data-align="left"] .fi-bar { left: 0; transform: none; }
+.ProseMirror .focus-img[data-align="right"] .fi-bar { left: auto; right: 0; transform: none; }
+.ProseMirror .focus-img .fi-bar.is-below { top: calc(100% + 8px); bottom: auto; }
+
+.ProseMirror .focus-img.is-selected:not(.is-resizing) .fi-bar { display: flex; }
+.ProseMirror[contenteditable="false"] .focus-img .fi-bar { display: none !important; }
+
+.ProseMirror .focus-img .fi-group { display: flex; align-items: center; gap: 2px; }
+.ProseMirror .focus-img.is-full .fi-align { display: none; }
+
+.ProseMirror .focus-img .fi-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: #e3e6ea;
+}
+
+.ProseMirror .focus-img .fi-btn {
+  display: inline-grid;
+  min-width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  place-items: center;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #4f5863;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ProseMirror .focus-img .fi-btn:hover:not(:disabled) { background: #f0f2f5; color: #2f353d; }
+.ProseMirror .focus-img .fi-btn[aria-pressed="true"] { background: #eef1fd; color: #4263eb; }
+.ProseMirror .focus-img .fi-btn:disabled { opacity: 0.35; cursor: default; }
+.ProseMirror .focus-img .fi-btn.is-danger:hover { background: #fdecec; color: #c84444; }
+
+.ProseMirror .focus-img .fi-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- 图片说明 ---------- */
+
+.ProseMirror .focus-img .fi-caption {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 6px 0 0;
+  padding: 2px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #8a919b;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.ProseMirror .focus-img[data-align="left"] .fi-caption { text-align: left; }
+.ProseMirror .focus-img[data-align="right"] .fi-caption { text-align: right; }
+.ProseMirror .focus-img .fi-caption::placeholder { color: #c0c5cc; }
+.ProseMirror .focus-img .fi-caption[hidden] { display: none; }
+
+/* ---------- 深色 ---------- */
+
+.dark-theme .ProseMirror .focus-img.is-loading > .fi-frame,
+.dark-theme .ProseMirror .focus-img.is-missing > .fi-frame { background: #1d232b; }
+.dark-theme .ProseMirror .focus-img.is-missing > .fi-frame { border-color: #3a424d; background: transparent; }
+.dark-theme .ProseMirror .focus-img.is-selected > .fi-frame,
+.dark-theme .ProseMirror .focus-img.is-resizing > .fi-frame { box-shadow: 0 0 0 2px #6d86f0; }
+
+.dark-theme .ProseMirror .focus-img .fi-bar { border-color: #39414c; background: #1d232b; }
+.dark-theme .ProseMirror .focus-img .fi-sep { background: #333a44; }
+.dark-theme .ProseMirror .focus-img .fi-btn { color: #c4cad1; }
+.dark-theme .ProseMirror .focus-img .fi-btn:hover:not(:disabled) { background: #262e38; color: #e1e5ea; }
+.dark-theme .ProseMirror .focus-img .fi-btn[aria-pressed="true"] { background: #283252; color: #9db0ff; }
+.dark-theme .ProseMirror .focus-img .fi-btn.is-danger:hover { background: rgba(209, 67, 67, 0.16); color: #ef9292; }
+.dark-theme .ProseMirror .focus-img .fi-caption { color: #8d96a1; }
+.dark-theme .ProseMirror .focus-img .fi-caption::placeholder { color: #545c67; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ProseMirror .focus-img > .fi-frame,
+  .ProseMirror .focus-img .fi-handle,
+  .ProseMirror .focus-img .fi-handle::after { transition: none; }
+}

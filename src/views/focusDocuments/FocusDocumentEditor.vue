@@ -265,6 +265,8 @@
               <strong>{{ imagePreviewName }}</strong>
               <small>{{ imagePreviewMeta }}</small>
             </div>
+            <button type="button" class="focus-image-preview-action" @click="copyPreviewImage">{{ previewCopyLabel }}</button>
+            <button type="button" class="focus-image-preview-action" @click="downloadPreviewImage">下载</button>
             <button
               type="button"
               aria-label="关闭图片预览"
@@ -322,6 +324,10 @@ import FocusCallout, {
 /* FOCUS_MIND_MAP_PRODUCT_20260920_V1 */
 import focusAssetRepository from "../../repositories/focusAssetRepository";
 import SmartFormatting from "../../editor/extensions/SmartFormatting";
+/* FOCUS_EDITOR_ENHANCE_20261028_V1 */
+import HeadingFold from "../../editor/extensions/HeadingFold";
+import DateMention from "../../editor/extensions/DateMention";
+import { copyImageAsset, downloadImageAsset } from "../../editor/imageClipboard";
 /* PATCH_20260923_V1 */
 import MacKeymap from "../../editor/extensions/MacKeymap";
 import { createSlashCommandItems } from "../../editor/slashCommandItems";
@@ -428,6 +434,8 @@ export default {
       imagePreviewName: "图片预览",
       imagePreviewMeta: "",
       assetPruneTimer: null,
+      imagePreviewDetail: null,
+      previewCopyLabel: "复制",
     };
   },
   computed: {
@@ -450,7 +458,7 @@ export default {
   },
     currentBlock() {
       if (!this.editor) return "paragraph";
-      for (const level of [1, 2, 3]) {
+      for (const level of [1, 2, 3, 4, 5, 6]) {
         if (this.editor.isActive("heading", { level })) {
           return `h${level}`;
         }
@@ -499,7 +507,7 @@ export default {
       content: this.modelValue || EMPTY,
       extensions: [
         StarterKit.configure({
-          heading: { levels: [1, 2, 3] },
+          heading: { levels: [1, 2, 3, 4, 5, 6] },
           /* 文末自动补行永远用正文段落，不依赖 schema 默认块 */
           trailingNode: { node: "paragraph" },
           codeBlock: false,
@@ -530,6 +538,8 @@ export default {
         Color,
         FontSize,
         SmartFormatting,
+        HeadingFold,
+        DateMention,
         MacKeymap.configure({ onLink: () => this.editLink() }),
         FormatPainter.configure({
           onChange: (sample) => {
@@ -900,6 +910,7 @@ export default {
 
       this.closeImagePreview();
       this.imagePreviewVisible = true;
+      this.imagePreviewDetail = detail;
       this.imagePreviewName =
         detail.alt || detail.title || "图片预览";
 
@@ -931,6 +942,25 @@ export default {
       } catch (error) {
         this.imagePreviewMeta =
           error?.message || "图片加载失败";
+      }
+    },
+
+    /* FOCUS_EDITOR_ENHANCE_20261028_V1 */
+    async copyPreviewImage() {
+      try {
+        await copyImageAsset(this.imagePreviewDetail);
+        this.previewCopyLabel = "已复制";
+      } catch (error) {
+        window.alert(error?.message || "复制失败");
+      }
+      setTimeout(() => { this.previewCopyLabel = "复制"; }, 1500);
+    },
+
+    async downloadPreviewImage() {
+      try {
+        await downloadImageAsset(this.imagePreviewDetail);
+      } catch (error) {
+        window.alert(error?.message || "下载失败");
       }
     },
 

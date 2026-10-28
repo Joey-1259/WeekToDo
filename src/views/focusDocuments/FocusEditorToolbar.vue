@@ -570,6 +570,9 @@ const BLOCK_OPTIONS = [
   { value: "h1", label: "一级标题", preview: "fx-preview-h1" },
   { value: "h2", label: "二级标题", preview: "fx-preview-h2" },
   { value: "h3", label: "三级标题", preview: "fx-preview-h3" },
+  { value: "h4", label: "四级标题", preview: "fx-preview-h4" },
+  { value: "h5", label: "五级标题", preview: "fx-preview-h5" },
+  { value: "h6", label: "六级标题", preview: "fx-preview-h6" },
 ];
 
 const DOUBLE_CLICK_WINDOW = 210;
@@ -1128,6 +1131,9 @@ export default {
 .fx-preview-h1 { font-size: 17px; font-weight: 680; }
 .fx-preview-h2 { font-size: 15px; font-weight: 660; }
 .fx-preview-h3 { font-size: 13.5px; font-weight: 640; }
+.fx-preview-h4 { font-size: 13px; font-weight: 620; }
+.fx-preview-h5 { font-size: 12.5px; font-weight: 600; }
+.fx-preview-h6 { font-size: 12px; font-weight: 600; color: #6a717b; }
 
 .fx-swatches {
   display: flex;

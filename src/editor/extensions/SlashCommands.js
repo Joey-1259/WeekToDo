@@ -4,6 +4,7 @@ import Suggestion, {
 } from "@tiptap/suggestion";
 import { PluginKey } from "@tiptap/pm/state";
 import { shift } from "@floating-ui/dom";
+import { fuzzyFilter } from "../fuzzyMatch";
 
 const slashKey = new PluginKey("focusSlash");
 const dunhaoKey = new PluginKey("focusDunhao");
@@ -39,39 +40,13 @@ function remember(item) {
 }
 
 function filterItems(items, query) {
-  const keyword = normalize(query);
-
-  if (!keyword) return items;
-
-  return items
-    .map((item) => {
-      const values = [
-        item.title,
-        item.description,
-        item.shortcut,
-        ...(item.aliases || []),
-      ].map(normalize);
-
-      let score = -1;
-
-      if (values.some((value) => value === keyword)) {
-        score = 400;
-      } else if (
-        values.some((value) => value.startsWith(keyword))
-      ) {
-        score = 300;
-      } else if (
-        values.some((value) => value.includes(keyword))
-      ) {
-        score = 200;
-      }
-
-      return { item, score };
-    })
-    .filter(({ score }) => score >= 0)
-    .sort((a, b) => b.score - a.score)
-    .map(({ item }) => item)
-    .slice(0, 12);
+  /* FOCUS_EDITOR_ENHANCE_20261028_V1：精确 > 前缀 > 包含 > 子序列，数字⇄中文数字 */
+  return fuzzyFilter(items, query, (item) => [
+    item.title,
+    item.shortcut,
+    ...(item.aliases || []),
+    item.description,
+  ]);
 }
 
 function escapeHtml(value) {

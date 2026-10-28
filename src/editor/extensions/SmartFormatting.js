@@ -22,16 +22,13 @@ function nextArrayValue(values, current) {
 }
 
 function incrementDecimalPath(value) {
-  const parts = String(value).split(".").map(Number);
-
-  if (
-    !parts.length ||
-    parts.some((item) => !Number.isFinite(item))
-  ) {
-    return null;
-  }
-
-  parts[parts.length - 1] += 1;
+  /* FOCUS_EDITOR_ENHANCE_20261028_V1：保留前导零（01 → 02） */
+  const parts = String(value).split(".");
+  if (!parts.length || parts.some((p) => !/^\d+$/.test(p))) return null;
+  const last = parts[parts.length - 1];
+  const next = String(Number(last) + 1);
+  parts[parts.length - 1] =
+    last.length > 1 && last.startsWith("0") ? next.padStart(last.length, "0") : next;
   return parts.join(".");
 }
 
@@ -55,9 +52,14 @@ function nextAlphabet(value) {
 function nextMarker(text) {
   const value = String(text || "");
 
+  /* FOCUS_EDITOR_ENHANCE_20261028_V1：分隔符后紧跟数字（2016.01.01 / 1.5倍 / v1.2.3）不是序号 */
   let match = value.match(
-    /^(\s*)(\d+(?:\.\d+)*)([.．、])\s*(.+)$/
+    /^(\s*)(\d+(?:\.\d+)*)([.．、])(?!\d)\s*(.+)$/
   );
+
+  if (match && match[2].split(".")[0].length >= 4) {
+    return null; // 年份样式（2016. / 2016.01.）不续号
+  }
 
   if (match) {
     const next = incrementDecimalPath(match[2]);

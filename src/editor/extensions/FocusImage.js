@@ -18,6 +18,7 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeSelection, Selection, TextSelection } from "@tiptap/pm/state";
 import focusAssetRepository from "../../repositories/focusAssetRepository";
 import "./focusImage.css";
+import { copyImageAsset, downloadImageAsset } from "../imageClipboard";
 
 const MIN_WIDTH_PX = 48;
 const SNAP_POINTS = [25, 100 / 3, 50, 200 / 3, 75, 100];
@@ -32,6 +33,8 @@ const ICONS = {
   fit: '<path d="M2 3v10M14 3v10M4.5 8h7M6.5 6 4.5 8l2 2M9.5 6l2 2-2 2" />',
   caption: '<rect x="2.5" y="2.5" width="11" height="7.5" rx="1.5" /><path d="M4.5 13h7" />',
   preview: '<path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9.25 6.75M2.5 13.5l4.25-4.25" />',
+  copy: '<rect x="5.5" y="5.5" width="8" height="8" rx="1.5" /><path d="M3.5 10.5h-.5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h6.5a1 1 0 0 1 1 1v.5" />',
+  download: '<path d="M8 2.5v8M4.75 7.5 8 10.75l3.25-3.25M3 13.5h10" />',
   remove: '<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2c.05.7.6 1.3 1.3 1.3h3.2c.7 0 1.25-.6 1.3-1.3l.6-8.2" />',
 };
 
@@ -126,6 +129,17 @@ export default Node.create({
 
   addKeyboardShortcuts() {
     return {
+      /* FOCUS_EDITOR_ENHANCE_20261028_V1：选中图片 ⌘C → 系统剪贴板（PNG） */
+      "Mod-c": () => {
+        const { selection } = this.editor.state;
+        if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) {
+          return false;
+        }
+        copyImageAsset(selection.node.attrs).catch((error) =>
+          window.alert(error?.message || "复制图片失败")
+        );
+        return true;
+      },
       /* 选中图片后按空格查看大图（Notion 同款）。 */
       Space: () => {
         const { selection } = this.editor.state;
@@ -176,6 +190,8 @@ export default Node.create({
       const captionButton = iconButton("caption", "图片说明");
       const previewButton = iconButton("preview", "查看大图（空格）");
       const removeButton = iconButton("remove", "删除图片", "is-danger");
+      const copyButton = iconButton("copy", "复制图片（⌘C）");
+      const downloadButton = iconButton("download", "下载到本地");
 
       bar.append(
         alignGroup,
@@ -184,6 +200,8 @@ export default Node.create({
         el("span", "fi-sep"),
         captionButton,
         previewButton,
+        copyButton,
+        downloadButton,
         el("span", "fi-sep"),
         removeButton
       );
@@ -516,6 +534,22 @@ export default Node.create({
 
       previewButton.addEventListener("click", () => openPreview(editor, current.attrs));
       removeButton.addEventListener("click", remove);
+
+      /* FOCUS_EDITOR_ENHANCE_20261028_V1 */
+      const flash = (button) => {
+        button.classList.add("is-done");
+        setTimeout(() => button.classList.remove("is-done"), 1200);
+      };
+      copyButton.addEventListener("click", () =>
+        copyImageAsset(current.attrs)
+          .then(() => flash(copyButton))
+          .catch((error) => window.alert(error?.message || "复制失败"))
+      );
+      downloadButton.addEventListener("click", () =>
+        downloadImageAsset(current.attrs)
+          .then(() => flash(downloadButton))
+          .catch((error) => window.alert(error?.message || "下载失败"))
+      );
 
       /* ---------- 图片说明 ---------- */
 

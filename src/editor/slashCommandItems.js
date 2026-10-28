@@ -7,6 +7,39 @@ function base(editor, range) {
  * 正文、标题、列表和待办已经常驻顶部工具栏，
  * Slash 菜单只承担低频、进阶内容插入。
  */
+/* FOCUS_EDITOR_ENHANCE_20261028_V1：标题项，支持 /3、/h3、/bt3、/三级、/### */
+const CN_LEVEL = ["", "一", "二", "三", "四", "五", "六"];
+
+function headingItems() {
+  const items = [1, 2, 3, 4, 5, 6].map((level) => ({
+    id: `heading-${level}`,
+    category: "标题",
+    title: `标题${level}`,
+    description: `${CN_LEVEL[level]}级标题 · ${"#".repeat(level)} 空格 · ⌘⌥${level}`,
+    icon: `H${level}`,
+    shortcut: `/bt${level}`,
+    aliases: [
+      `h${level}`, String(level), `标题${level}`, `${CN_LEVEL[level]}级标题`,
+      `bt${level}`, "#".repeat(level), "heading", "标题",
+    ],
+    command: ({ editor, range }) =>
+      base(editor, range).setNode("heading", { level }).run(),
+  }));
+
+  items.unshift({
+    id: "paragraph",
+    category: "标题",
+    title: "正文",
+    description: "转为普通段落 · ⌘⌥0",
+    icon: "T",
+    shortcut: "/zw",
+    aliases: ["paragraph", "text", "正文", "zw", "p"],
+    command: ({ editor, range }) => base(editor, range).setParagraph().run(),
+  });
+
+  return items;
+}
+
 export function createSlashCommandItems(
   onTask,
   onImage
@@ -143,5 +176,6 @@ export function createSlashCommandItems(
       command: ({ editor, range }) =>
         base(editor, range).setHorizontalRule().run(),
     },
+    ...headingItems(),
   ];
 }

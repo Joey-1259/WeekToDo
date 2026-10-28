@@ -1,0 +1,104 @@
+/* FOCUS_POLISH_20261028_V2 · 思维导图极简卡片：只留画布，悬停浮出操作 */
+
+.ProseMirror .focus-mind-map-block {
+  position: relative;
+  padding: 0 !important;
+  border: 1px solid #eceef1 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ProseMirror .focus-mind-map-block:hover { border-color: #dde1e7 !important; }
+
+.ProseMirror .focus-mind-map-block.is-selected {
+  border-color: #4263eb !important;
+  box-shadow: 0 0 0 1px #4263eb !important;
+}
+
+.ProseMirror .focus-mind-map-block .focus-mind-map-preview-shell {
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* 右上角操作 */
+.fmm-card-actions {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #e1e5ea;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 6px 18px rgba(24, 29, 38, 0.1);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.focus-mind-map-block:hover .fmm-card-actions,
+.focus-mind-map-block.is-selected .fmm-card-actions,
+.fmm-card-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+.fmm-card-action {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #4f5863;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.fmm-card-action svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fmm-card-action:hover { background: #f0f2f5; color: #24282e; }
+.fmm-card-action.is-primary:hover { background: #eef2ff; color: #4263eb; }
+.fmm-card-action.is-danger { padding: 0 7px; }
+.fmm-card-action.is-danger:hover { background: #fdecec; color: #c84444; }
+
+/* 右下角极淡提示 */
+.ProseMirror .focus-mind-map-block::after {
+  position: absolute;
+  right: 12px;
+  bottom: 9px;
+  color: #b0b6be;
+  font-size: 11px;
+  content: "双击编辑";
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+}
+
+.ProseMirror .focus-mind-map-block:hover::after { opacity: 1; }
+
+.ProseMirror[contenteditable="false"] .fmm-card-action.is-danger { display: none; }
+
+/* 深色 */
+.dark-theme .ProseMirror .focus-mind-map-block { border-color: #2c333d !important; }
+.dark-theme .fmm-card-actions { border-color: #39414c; background: rgba(29, 35, 43, 0.94); }
+.dark-theme .fmm-card-action { color: #c4cad1; }
+.dark-theme .fmm-card-action:hover { background: #262e38; color: #eef1f4; }

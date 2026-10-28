@@ -1,15 +1,40 @@
 <template>
   <div
-    class="focus-dialog-backdrop"
+    class="focus-dialog-backdrop fdx-mode"
     role="presentation"
     @mousedown.self="close"
   >
     <section
       class="focus-dialog"
+      :class="{ 'is-wide': wide }"
       role="dialog"
       aria-modal="true"
       aria-label="文档编辑"
     >
+      <!-- FOCUS_POLISH_20261028_V2：已分栏文档标签栏 -->
+      <nav class="fdx-tabs" role="tablist" aria-label="已分栏文档">
+        <button
+          v-for="tab in tabItems"
+          :key="tab.id"
+          type="button"
+          role="tab"
+          class="fdx-tab"
+          :class="{ 'is-active': tab.id === draft.id }"
+          :aria-selected="String(tab.id === draft.id)"
+          :title="tab.title || '未命名文档'"
+          @click="switchTab(tab.id)"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V5.5Z" /><path d="M9.5 2v3.5H13" /></svg>
+          <span>{{ tab.title || "未命名文档" }}</span>
+        </button>
+        <span class="fdx-tabs-spacer"></span>
+        <span v-if="tabItems.length > 1" class="fdx-hint">⌘⇧[ / ] 切换</span>
+        <button type="button" class="fdx-tool" :title="wide ? '切换为标准宽度（780px）' : '切换为宽屏（1180px）'" @click="toggleWide">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4v8M14 4v8M5 8h6M6.5 6.5 5 8l1.5 1.5M9.5 6.5 11 8l-1.5 1.5" /></svg>
+          {{ wide ? "标准宽度" : "宽屏" }}
+        </button>
+      </nav>
+
       <header>
         <div class="focus-dialog-heading">
           <FocusDocumentTitle
@@ -173,6 +198,8 @@ import FocusFolderPicker from "./FocusFolderPicker.vue";
 import FocusDocumentActionMenu from "./FocusDocumentActionMenu.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 import focusFolderService from "../../services/focusFolderService";
+/* FOCUS_POLISH_20261028_V2 */
+import "./focusDialogFocusMode.css";
 
 /* HARDENING_20260911_V13 · 焦点守卫
    本组件 Teleport 到 body，一旦在 Bootstrap modal 打开期间被唤起，
@@ -193,6 +220,8 @@ export default {
   props: {
     document: { type: Object, required: true },
     folderPaths: { type: Object, default: () => ({}) },
+    /* FOCUS_POLISH_20261028_V2 */
+    tabs: { type: Array, default: () => [] },
   },
 
   emits: [
@@ -202,6 +231,7 @@ export default {
     "jump-task",
     "create-task",
     "action",
+    "switch",
   ],
 
   data() {
@@ -226,10 +256,22 @@ export default {
       actionMenuVisible: false,
       notice: "",
       noticeTimer: null,
+      wide: localStorage.getItem("focusDialogWide") !== "false",
     };
   },
 
   computed: {
+    /* FOCUS_POLISH_20261028_V2：当前文档始终在标签栏里，标题实时同步 */
+    tabItems() {
+      const list = (this.tabs || []).map((tab) =>
+        tab.id === this.draft.id ? { ...tab, title: this.draft.title } : tab
+      );
+      if (!list.some((tab) => tab.id === this.draft.id)) {
+        list.unshift({ id: this.draft.id, title: this.draft.title });
+      }
+      return list;
+    },
+
     statusLabel() {
       if (this.notice) return this.notice;
       if (this.saveState === "saving") return "保存中…";
@@ -284,6 +326,30 @@ export default {
   },
 
   methods: {
+    /* FOCUS_POLISH_20261028_V2 · 标签切换：先落盘再切换 */
+    async switchTab(id) {
+      if (!id || id === this.draft.id) return;
+      try {
+        await this.flush();
+      } catch {
+        if (!window.confirm("当前内容保存失败，仍要切换吗？")) return;
+      }
+      this.$emit("switch", id);
+    },
+
+    stepTab(delta) {
+      const list = this.tabItems;
+      if (list.length < 2) return;
+      const index = list.findIndex((tab) => tab.id === this.draft.id);
+      const next = list[(index + delta + list.length) % list.length];
+      if (next) this.switchTab(next.id);
+    },
+
+    toggleWide() {
+      this.wide = !this.wide;
+      localStorage.setItem("focusDialogWide", String(this.wide));
+    },
+
     /* FMM_ENHANCE_20260923_V3 · 全屏态「更多操作」 */
     async onActionSelect(action) {
       this.actionMenuVisible = false;
@@ -337,6 +403,18 @@ export default {
     },
 
     onKeydown(event) {
+      /* FOCUS_POLISH_20261028_V2：⌘⇧[ / ⌘⇧] 或 Ctrl+Tab 切换标签 */
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey &&
+          (event.code === "BracketLeft" || event.code === "BracketRight")) {
+        event.preventDefault();
+        this.stepTab(event.code === "BracketRight" ? 1 : -1);
+        return;
+      }
+      if (event.ctrlKey && event.key === "Tab") {
+        event.preventDefault();
+        this.stepTab(event.shiftKey ? -1 : 1);
+        return;
+      }
       if (
         (event.metaKey || event.ctrlKey) &&
         event.key.toLowerCase() === "s"

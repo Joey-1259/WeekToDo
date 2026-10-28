@@ -31,7 +31,9 @@
     "electron:build:dir": "node scripts/pre-build-check.js && electron-vite build && electron-builder --dir",
     "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true});require('fs').rmSync('dist_electron',{recursive:true,force:true})\"",
     "postinstall": "electron-builder install-app-deps && node scripts/ensure-electron.cjs",
-    "electron:ensure": "node scripts/ensure-electron.cjs"
+    "electron:ensure": "node scripts/ensure-electron.cjs",
+    "test:focus": "node scripts/verify-focus.mjs",
+    "verify": "node scripts/verify-focus.mjs && electron-vite build"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",

@@ -167,7 +167,8 @@ export default Extension.create({
         dismissOnOutsideClick: true,
         flip: true,
         floatingUi: { strategy: "fixed", middleware: [shift({ padding: 10 })] },
-        allow: ({ state }) => !state.selection.$from.parent.type.spec.code,
+        allow: ({ editor, state }) =>
+          editor.view.hasFocus() && !state.selection.$from.parent.type.spec.code,
         items: ({ query }) => buildItems(query),
         command: ({ editor, range, props: item }) =>
           editor.chain().focus().deleteRange(range).insertContent(`${item.text} `).run(),

@@ -382,6 +382,9 @@ function plugin(editor, items, char, pluginKey) {
         shift({ padding: 10 }),
       ],
     },
+    /* FOCUS_POLISH_20261028_V2：分栏与全屏同开一篇文档时，后台编辑器同步内容后也会命中触发符 */
+    allow: ({ editor: host, state }) =>
+      host.view.hasFocus() && !state.selection.$from.parent.type.spec.code,
     items: ({ query }) => filterItems(items, query),
     command: ({ editor, range, props: item }) =>
       item.command({ editor, range }),

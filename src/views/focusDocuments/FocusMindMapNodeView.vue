@@ -9,55 +9,6 @@
     contenteditable="false"
     @mousedown.stop
   >
-    <header class="focus-mind-map-card-header">
-      <div class="focus-mind-map-heading">
-        <span
-          class="focus-mind-map-glyph"
-          aria-hidden="true"
-        >
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="3" />
-            <circle cx="4.5" cy="6" r="2" />
-            <circle cx="19.5" cy="6" r="2" />
-            <circle cx="4.5" cy="18" r="2" />
-            <circle cx="19.5" cy="18" r="2" />
-            <path d="M9.5 10.5 6.3 7.3M14.5 10.5l3.2-3.2M9.5 13.5l-3.2 3.2M14.5 13.5l3.2 3.2" />
-          </svg>
-        </span>
-
-        <div>
-          <span class="focus-mind-map-eyebrow">
-            思维导图
-          </span>
-          <strong>{{ mapTitle }}</strong>
-        </div>
-      </div>
-
-      <div class="focus-mind-map-card-actions">
-        <button
-          type="button"
-          class="focus-mind-map-edit-button"
-          @click.stop="openEditor"
-        >
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M7 3H4a1 1 0 0 0-1 1v3M13 3h3a1 1 0 0 1 1 1v3M7 17H4a1 1 0 0 1-1-1v-3M13 17h3a1 1 0 0 0 1-1v-3" />
-          </svg>
-          全屏编辑
-        </button>
-
-        <button
-          type="button"
-          class="focus-mind-map-delete-button"
-          title="删除思维导图"
-          aria-label="删除思维导图"
-          @click.stop="requestDelete"
-        >
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M4 6h12M8 3h4l1 2H7l1-2ZM6 6l.7 11h6.6L14 6M8.5 9v5M11.5 9v5" />
-          </svg>
-        </button>
-      </div>
-    </header>
 
     <button
       type="button"
@@ -100,28 +51,16 @@
       ></div>
     </button>
 
-    <footer class="focus-mind-map-card-footer">
-      <span>
-        {{ nodeCount }} 个节点
-      </span>
-
-      <span class="focus-mind-map-separator">
-        ·
-      </span>
-
-      <span
-        :class="{
-          'is-error':
-            snapshotState === 'error',
-        }"
-      >
-        {{ snapshotLabel }}
-      </span>
-
-      <span class="focus-mind-map-card-hint">
-        双击进入全屏编辑
-      </span>
-    </footer>
+    <!-- FOCUS_POLISH_20261028_V2：极简卡片——只留画布；悬停浮出操作 -->
+    <div class="fmm-card-actions">
+      <button type="button" class="fmm-card-action is-primary" title="全屏编辑（双击画布）" @click.stop="openEditor">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3H4a1 1 0 0 0-1 1v3M13 3h3a1 1 0 0 1 1 1v3M7 17H4a1 1 0 0 1-1-1v-3M13 17h3a1 1 0 0 0 1-1v-3" /></svg>
+        <span>全屏编辑</span>
+      </button>
+      <button type="button" class="fmm-card-action is-danger" title="删除思维导图" aria-label="删除思维导图" @click.stop="requestDelete">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 3h4l1 2H7l1-2ZM6 6l.7 11h6.6L14 6M8.5 9v5M11.5 9v5" /></svg>
+      </button>
+    </div>
 
     <Teleport to="body">
       <div
@@ -713,6 +652,8 @@ import {
 } from "./focusMindMapEnhancer.js";
 /* FOCUS_DOCUMENT_UPGRADE_20261005_V1 */
 import "./focusMindMapPreviewFit.js";
+/* FOCUS_POLISH_20261028_V2 */
+import "./focusMindMapMinimal.css";
 /* FOCUS_EXPERIENCE_20261005_V2 */
 import { focusMindMapViewportMixin } from "./focusMindMapViewportController.js";
 

@@ -1,0 +1,140 @@
+/* FOCUS_POLISH_20261028_V2 · 全屏专注模式：铺满窗口 + 顶部标签栏 + 宽屏/标准 */
+
+body .focus-dialog-backdrop.fdx-mode {
+  padding: 0;
+  background: #fff;
+  backdrop-filter: none;
+  animation: fdx-in 0.16s ease-out;
+}
+
+@keyframes fdx-in {
+  from { opacity: 0; transform: scale(0.992); }
+}
+
+body .fdx-mode .focus-dialog {
+  --fdx-col: 780px;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body .fdx-mode .focus-dialog.is-wide { --fdx-col: 1180px; }
+
+/* 正文宽度 */
+body .fdx-mode .focus-dialog .focus-editor.spacious .focus-prosemirror {
+  width: min(var(--fdx-col), calc(100% - 120px));
+}
+
+/* 标题区与正文左对齐（正文自带 28px 内边距） */
+body .fdx-mode .focus-dialog > header {
+  padding-right: max(26px, calc((100% - min(var(--fdx-col), 100% - 120px)) / 2));
+  padding-left: max(26px, calc((100% - min(var(--fdx-col), 100% - 120px)) / 2 + 28px));
+}
+
+/* 标签栏 */
+.fdx-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 10px;
+  border-bottom: 1px solid #eceef1;
+  background: #f7f8fa;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.fdx-tabs::-webkit-scrollbar { display: none; }
+
+.fdx-tab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #6b727c;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.fdx-tab span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fdx-tab svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.fdx-tab:hover { background: #eceff3; color: #2f353d; }
+
+.fdx-tab.is-active {
+  background: #fff;
+  color: #24282e;
+  font-weight: 600;
+  box-shadow: 0 0 0 1px #e3e6ea, 0 1px 2px rgba(24, 29, 38, 0.05);
+}
+
+.fdx-tabs-spacer { flex: 1 1 auto; min-width: 12px; }
+
+.fdx-hint {
+  flex: 0 0 auto;
+  margin-right: 8px;
+  color: #a8aeb6;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.fdx-tool {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #e1e5ea;
+  border-radius: 7px;
+  background: #fff;
+  color: #535b66;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.fdx-tool:hover { border-color: #a8b8f0; color: #4263eb; }
+
+.fdx-tool svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 深色 */
+.dark-theme .focus-dialog-backdrop.fdx-mode { background: #161b22; }
+.dark-theme .fdx-tabs { border-color: #262d36; background: #12171d; }
+.dark-theme .fdx-tab { color: #9aa2ad; }
+.dark-theme .fdx-tab:hover { background: #1f262f; color: #dfe3e8; }
+.dark-theme .fdx-tab.is-active { background: #1d232b; color: #eef1f4; box-shadow: 0 0 0 1px #333a44; }
+.dark-theme .fdx-tool { border-color: #39414c; background: #1d232b; color: #c4cad1; }

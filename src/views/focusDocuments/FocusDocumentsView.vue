@@ -91,6 +91,8 @@
               @move-document="fdMoveDocument"
               @move-folder="fdMoveFolder"
               @document-action="fdDocumentAction"
+              @create-document="fxDirCreateDocument"
+              @edit-document="fxDirEditDocument"
             />
           </Teleport>
         </div>
@@ -174,7 +176,10 @@
 
     <FocusDocumentDialog
       v-if="dialogDocument"
+      :key="dialogDocument.id"
       :document="dialogDocument"
+      :tabs="dialogTabs"
+      @switch="switchDialog"
       :folder-paths="folderPaths"
       @close="closeDialog"
       @action="handleDocumentAction"
@@ -282,6 +287,15 @@ export default {
   },
 
   computed: {
+    /* FOCUS_POLISH_20261028_V2：全屏标签栏 = 当前所有分栏 */
+    dialogTabs() {
+      const map = new Map(this.documents.map((item) => [item.id, item]));
+      return (this.layout.columns || [])
+        .map((column) => map.get(column.documentId))
+        .filter(Boolean)
+        .map((item) => ({ id: item.id, title: item.title }));
+    },
+
     openIds() {
       return (this.layout.columns || []).map(
         (column) => column.documentId
@@ -387,6 +401,26 @@ export default {
   },
 
   methods: {
+    /* FOCUS_POLISH_20261028_V2 */
+    switchDialog(id) {
+      const next = this.documents.find((item) => item.id === id);
+      if (next) this.dialogDocument = next;
+    },
+
+    async fxDirCreateDocument(payload = {}) {
+      this.treeVisible = false;
+      await this.createDocumentAt({
+        folderId: payload.folderId || null,
+        index: (this.layout.columns || []).length,
+        open: true,
+      });
+    },
+
+    fxDirEditDocument(id) {
+      this.treeVisible = false;
+      this.editDocument(id);
+    },
+
     onDocumentsImported(created) {
       created.forEach((document) => this.replaceDocument(document));
     },

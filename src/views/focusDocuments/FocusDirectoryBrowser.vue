@@ -61,6 +61,30 @@
           <AppIcon name="plus" />
         </button>
 
+        <!-- FOCUS_POLISH_20261028_V2 -->
+        <button
+          v-if="canManage"
+          type="button"
+          class="dir-icon-btn"
+          v-tip="{ label: '在当前目录新建文档' }"
+          @click="fxCreateDocumentHere"
+        >
+          <svg class="dir-svg" viewBox="0 0 20 20" aria-hidden="true"><path d="M11.5 3H6a1.5 1.5 0 0 0-1.5 1.5v11A1.5 1.5 0 0 0 6 17h8a1.5 1.5 0 0 0 1.5-1.5V7Z" /><path d="M11.5 3v4h4M10 9.5v5M7.5 12h5" /></svg>
+        </button>
+
+        <button
+          v-if="canManage && folders.length"
+          type="button"
+          class="dir-icon-btn"
+          v-tip="{ label: fxAllCollapsed ? '全部展开' : '全部折叠' }"
+          @click="fxToggleAll"
+        >
+          <svg class="dir-svg" viewBox="0 0 20 20" aria-hidden="true">
+            <path v-if="fxAllCollapsed" d="m6 4 4 4 4-4M6 12l4 4 4-4" />
+            <path v-else d="m6 8 4-4 4 4M6 16l4-4 4 4" />
+          </svg>
+        </button>
+
         <button
           type="button"
           class="dir-icon-btn"
@@ -77,9 +101,9 @@
         role="tree"
         aria-label="文件目录"
         tabindex="0"
-        @keydown="onTreeKeydown"
-        @dragover.prevent="onRootDragOver"
-        @drop.prevent="onRootDrop"
+        @keydown="fxTreeKeydown"
+        @dragover.prevent="fxTreeDragOver"
+        @drop.prevent="fxRootDrop"
       >
         <!-- 根目录在选择模式下是一个真实可选项。
              "移出所有目录"是高频意图，不该只能靠拖到空白处完成。 -->
@@ -109,6 +133,7 @@
             'drop-into': dropTarget.key === row.key && dropTarget.zone === 'into',
             'drop-before': dropTarget.key === row.key && dropTarget.zone === 'before',
             'drop-after': dropTarget.key === row.key && dropTarget.zone === 'after',
+            'is-dragging': dragged && dragged.key === row.key,
           }"
           :style="{ '--depth': row.depth }"
           role="treeitem"
@@ -120,12 +145,15 @@
           :draggable="canDrag && editingKey !== row.key"
           @click="activeKey = row.key"
           @dblclick="onRowActivate(row)"
-          @dragstart="onDragStart(row, $event)"
-          @dragend="resetDrop"
-          @dragover.prevent.stop="onRowDragOver(row, $event)"
-          @dragleave.stop="onRowDragLeave(row)"
-          @drop.prevent.stop="onRowDrop(row)"
+          @dragstart="fxDragStart(row, $event)"
+          @dragend="fxDragEnd"
+          @dragover.prevent.stop="fxRowDragOver(row, $event)"
+          @dragleave.stop="fxRowDragLeave(row, $event)"
+          @drop.prevent.stop="fxRowDrop(row, $event)"
+          @contextmenu.prevent="fxContextMenu(row, $event)"
         >
+          <span v-if="canDrag" class="dir-grip" aria-hidden="true"></span>
+
           <button
             v-if="row.type === 'folder'"
             type="button"
@@ -177,8 +205,8 @@
               v-if="row.type === 'folder'"
               type="button"
               class="dir-row-btn"
-              v-tip="{ label: '在此新建子目录' }"
-              @click.stop="beginCreate(row.id)"
+              v-tip="{ label: '新建文档或子目录' }"
+              @click.stop="fxOpenAddMenu(row, $event)"
             >
               <AppIcon name="plus" />
             </button>
@@ -222,6 +250,14 @@
           />
         </div>
 
+        <div
+          v-if="canManage && dragged && dragged.parentId"
+          class="dir-root-drop"
+          :class="{ 'is-over': dropTarget.key === '__root__' }"
+        >
+          拖到此处 · 移出目录（未归档）
+        </div>
+
         <p v-if="!visibleRows.length && !creating" class="dir-empty">
           {{ query ? "没有匹配的目录或文档" : "还没有目录，右上角可以新建" }}
         </p>
@@ -235,8 +271,8 @@
         <span class="dir-footer-spacer"></span>
 
         <span v-if="canManage" class="dir-tips">
-          <kbd>↑↓</kbd> 移动 · <kbd>→</kbd> 展开 · <kbd>F2</kbd> 重命名 ·
-          <kbd>拖拽</kbd> 排序
+          <kbd>拖拽</kbd> 移动 · <kbd>⌥↑↓</kbd> 排序 · <kbd>⌘↵</kbd> 全屏 ·
+          <kbd>F2</kbd> 重命名 · 右键更多
         </span>
 
         <button
@@ -257,6 +293,11 @@
           {{ isPick ? pickLabel : (isDocumentPick ? "添加到此分栏" : "在新分栏打开") }}
         </button>
       </footer>
+
+      <div v-if="fxToast" class="dir-toast" role="status">
+        <span>{{ fxToast.text }}</span>
+        <button v-if="fxToast.undo" type="button" @click="fxUndo">撤销</button>
+      </div>
     </section>
 
     <Teleport to="body">
@@ -273,6 +314,13 @@
         </button>
 
         <template v-if="rowMenu.row.type === 'doc'">
+          <button type="button" role="menuitem" @click="fxMenuOpenColumn">
+            在新分栏打开<kbd>↵</kbd>
+          </button>
+          <button type="button" role="menuitem" @click="fxMenuEdit">
+            全屏编辑<kbd>⌘↵</kbd>
+          </button>
+          <div class="dir-menu-divider" role="separator"></div>
           <button type="button" role="menuitem" @click="menuAction('move')">
             移动到目录…
           </button>
@@ -285,6 +333,9 @@
         </template>
 
         <template v-else>
+          <button type="button" role="menuitem" @click="fxMenuNewDocument">
+            新建文档
+          </button>
           <button type="button" role="menuitem" @click="menuNewChild">
             新建子目录
           </button>
@@ -297,6 +348,25 @@
         </button>
       </div>
     </Teleport>
+
+    <Teleport to="body">
+      <div
+        v-if="fxAddMenu.row"
+        class="dir-add-menu"
+        :style="fxAddMenu.style"
+        role="menu"
+        @mousedown.stop
+      >
+        <button type="button" role="menuitem" @click="fxAddDocument">
+          <svg class="dir-svg" viewBox="0 0 20 20" aria-hidden="true"><path d="M11.5 3H6a1.5 1.5 0 0 0-1.5 1.5v11A1.5 1.5 0 0 0 6 17h8a1.5 1.5 0 0 0 1.5-1.5V7Z" /><path d="M11.5 3v4h4" /></svg>
+          新建文档
+        </button>
+        <button type="button" role="menuitem" @click="fxAddFolder">
+          <svg class="dir-svg" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h5l1.5 2H17v8H3Z" /></svg>
+          新建子目录
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -305,6 +375,8 @@ import focusOwnership from "../../mixins/focusOwnership";
 /* FOCUS_UI_SYSTEM_20260912_V8 */
 import AppIcon from "../../components/ui/AppIcon.vue";
 import { tip } from "../../directives/tooltip";
+/* FOCUS_POLISH_20261028_V2 */
+import focusDirectoryEnhance from "./focusDirectoryEnhance";
 
 /**
  * 文件目录浏览器。一个组件，两种模式。
@@ -331,7 +403,7 @@ const EDGE_RATIO = 0.28;
 export default {
   name: "FocusDirectoryBrowser",
 
-  mixins: [focusOwnership],
+  mixins: [focusOwnership, focusDirectoryEnhance],
 
   components: { AppIcon },
 
@@ -368,6 +440,7 @@ export default {
     "document-action",
     "pick",
     "create-document",
+    "edit-document",
   ],
 
   data() {

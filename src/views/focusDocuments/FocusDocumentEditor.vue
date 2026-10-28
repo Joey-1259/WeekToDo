@@ -52,6 +52,7 @@
       v-if="editor"
       :editor="editor"
       :options="{ placement: 'top', offset: 8 }"
+      :should-show="bubbleShouldShow"
       class="focus-bubble"
     >
       <button :class="{ active: editor.isActive('bold') }" @click="run('toggleBold')">
@@ -312,6 +313,8 @@ import {
   DetailsContent,
 } from "@tiptap/extension-details";
 import { Markdown } from "@tiptap/markdown";
+/* FOCUS_POLISH_20261028_V2 */
+import { NodeSelection } from "@tiptap/pm/state";
 import SlashCommands from "../../editor/extensions/SlashCommands";
 import LinkedTask from "../../editor/extensions/LinkedTask";
 import FocusImage from "../../editor/extensions/FocusImage";
@@ -1219,6 +1222,17 @@ export default {
 
     focus() {
       this.editor?.commands.focus("end");
+    },
+
+    /* FOCUS_POLISH_20261028_V2：图片 / 思维导图 / 代码块不弹文字格式栏 */
+    bubbleShouldShow({ editor, view, state, from, to }) {
+      const { selection } = state;
+      if (!editor.isEditable || selection.empty) return false;
+      if (selection instanceof NodeSelection) return false;
+      if (editor.isActive("codeBlock")) return false;
+      if (!state.doc.textBetween(from, to, " ").trim()) return false;
+      const active = document.activeElement;
+      return view.hasFocus() || Boolean(active?.closest?.(".focus-bubble"));
     },
 
     insertLinkedTask(attrs) {

@@ -6,7 +6,7 @@
   >
     <section
       class="focus-dialog"
-      :class="{ 'is-wide': wide, 'has-sidebar': showSidebar }"
+      :class="{ 'is-wide': true, 'has-sidebar': showSidebar }"
       :style="fdxStyle"
       role="dialog"
       aria-modal="true"
@@ -39,14 +39,8 @@
           <span>{{ tab.title || "未命名文档" }}</span>
         </button>
         <span class="fdx-tabs-spacer"></span>
-        <span class="fdx-hint">
-          <template v-if="tabItems.length > 1"><kbd>⌘⇧[</kbd><kbd>]</kbd> 切换<i>·</i></template>
-          <kbd>Esc</kbd> 退出
-        </span>
-        <button type="button" class="fdx-tool" :title="wide ? '切换为标准宽度（780px 居中）' : '切换为宽屏（铺满窗口 · 显示目录）'" @click="toggleWide">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4v8M14 4v8M5 8h6M6.5 6.5 5 8l1.5 1.5M9.5 6.5 11 8l-1.5 1.5" /></svg>
-          {{ wide ? "标准宽度" : "宽屏" }}
-        </button>
+        <!-- FOCUS_V4_20261109：固定宽屏，去掉宽度切换；提示只保留 Esc -->
+        <span class="fdx-hint"><kbd>Esc</kbd> 退出</span>
       </nav>
 
       <!-- FOCUS_SIDEBAR_20261109_V1 -->
@@ -406,6 +400,8 @@ export default {
   },
 
   mounted() {
+    /* FOCUS_V4_20261109 · 固定宽屏 */
+    this.wide = true;
     /* FOCUS_POLISH_20261028_V3：已有标题时光标直接进正文 */
     if (String(this.draft.title || "").trim()) this.$nextTick(() => this.$refs.editor?.focus());
     else this.$refs.title?.focus();

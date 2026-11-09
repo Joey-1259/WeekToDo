@@ -10,7 +10,7 @@ import {
 } from "electron";
 
 import path from "node:path";
-import { writeFile } from "node:fs/promises";
+import { writeFile, stat } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import AutoLaunch from "auto-launch";
 
@@ -574,6 +574,122 @@ async function saveDocumentExport(
   };
 }
 
+/* FOCUS_ATTACHMENT_20261109_V1
+ * 附件只记录本地路径，渲染进程不接触 fs：选择 / 状态 / 在 Finder 中显示 / 打开 全部走受信 IPC。
+ * 打开时拦截可执行类文件（只在 Finder 中显示），避免文档里的一个链接直接运行程序。
+ */
+const ATTACHMENT_BLOCKED_OPEN = new Set([
+  ".app", ".command", ".sh", ".bash", ".zsh", ".csh", ".tool", ".terminal",
+  ".workflow", ".action", ".scpt", ".applescript", ".osax", ".pkg", ".mpkg",
+  ".kext", ".prefpane", ".jar", ".exe", ".msi", ".bat", ".cmd", ".com",
+  ".scr", ".ps1", ".vbs",
+]);
+const MAX_ATTACHMENT_PICK = 50;
+const MAX_ATTACHMENT_STAT = 500;
+
+function assertTrustedSender(event) {
+  if (!isTrustedSender(event)) {
+    throw new Error("Untrusted renderer");
+  }
+}
+
+function normalizeAttachmentPath(value) {
+  const text = String(value || "");
+  if (!text || text.length > 4096 || text.includes("\u0000") || !path.isAbsolute(text)) {
+    throw new Error("无效的附件路径");
+  }
+  return path.normalize(text);
+}
+
+async function describeAttachmentPath(filePath) {
+  try {
+    const info = await stat(filePath);
+    const isDirectory = info.isDirectory();
+    return {
+      exists: true,
+      isDirectory,
+      size: isDirectory ? null : info.size,
+      mtime: info.mtime.toISOString(),
+    };
+  } catch (_) {
+    return { exists: false };
+  }
+}
+
+async function pickAttachments(event, options) {
+  assertTrustedSender(event);
+  const multiple = !(options && options.multiple === false);
+  let defaultPath = app.getPath("documents");
+  try {
+    if (options && options.defaultPath) {
+      defaultPath = normalizeAttachmentPath(options.defaultPath);
+    }
+  } catch (_) {
+    // 非法默认路径回落到「文稿」
+  }
+  const owner = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const properties = process.platform === "darwin" ? ["openFile", "openDirectory"] : ["openFile"];
+  if (multiple) properties.push("multiSelections");
+
+  const result = await dialog.showOpenDialog(owner, {
+    title: "添加附件",
+    buttonLabel: "添加",
+    message: "附件只记录文件位置，不会复制到 WeekToDo",
+    defaultPath,
+    properties,
+  });
+  if (result.canceled || !result.filePaths || !result.filePaths.length) return [];
+
+  const list = [];
+  for (const filePath of result.filePaths.slice(0, MAX_ATTACHMENT_PICK)) {
+    const info = await describeAttachmentPath(filePath);
+    list.push({
+      path: filePath,
+      name: path.basename(filePath),
+      size: info.size ?? null,
+      isDirectory: Boolean(info.isDirectory),
+    });
+  }
+  return list;
+}
+
+async function revealAttachment(event, value) {
+  assertTrustedSender(event);
+  const filePath = normalizeAttachmentPath(value);
+  const info = await describeAttachmentPath(filePath);
+  if (!info.exists) return { ok: false, missing: true };
+  shell.showItemInFolder(filePath);
+  return { ok: true };
+}
+
+async function openAttachment(event, value) {
+  assertTrustedSender(event);
+  const filePath = normalizeAttachmentPath(value);
+  const info = await describeAttachmentPath(filePath);
+  if (!info.exists) return { ok: false, missing: true };
+  if (ATTACHMENT_BLOCKED_OPEN.has(path.extname(filePath).toLowerCase())) {
+    shell.showItemInFolder(filePath);
+    return { ok: false, blocked: true };
+  }
+  const error = await shell.openPath(filePath);
+  return error ? { ok: false, error } : { ok: true };
+}
+
+async function statAttachments(event, values) {
+  assertTrustedSender(event);
+  const list = Array.isArray(values) ? values.slice(0, MAX_ATTACHMENT_STAT) : [];
+  const out = {};
+  await Promise.all(list.map(async (value) => {
+    const key = String(value || "");
+    try {
+      out[key] = await describeAttachmentPath(normalizeAttachmentPath(key));
+    } catch (_) {
+      out[key] = { exists: false, invalid: true };
+    }
+  }));
+  return out;
+}
+
 function registerIpcHandlers() {
   ipcMain.on(
     "show-current-window",
@@ -746,6 +862,16 @@ function registerIpcHandlers() {
     "save-document-export",
     saveDocumentExport
   );
+
+  /* FOCUS_ATTACHMENT_20261109_V1 */
+  ipcMain.handle("attachment:pick", pickAttachments);
+  ipcMain.handle("attachment:reveal", revealAttachment);
+  ipcMain.handle("attachment:open", openAttachment);
+  ipcMain.handle("attachment:stat", statAttachments);
+  ipcMain.handle("attachment:home", (event) => {
+    assertTrustedSender(event);
+    return app.getPath("home");
+  });
 }
 
 /*

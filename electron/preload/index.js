@@ -1,6 +1,7 @@
 import {
   contextBridge,
   ipcRenderer,
+  webUtils,
 } from "electron";
 
 const desktopApi = Object.freeze({
@@ -108,6 +109,42 @@ const desktopApi = Object.freeze({
       "save-document-export",
       payload
     );
+  },
+
+  /* FOCUS_ATTACHMENT_20261109_V1：附件只传路径字符串，不传文件内容 */
+  pickAttachments(options) {
+    return ipcRenderer.invoke("attachment:pick", {
+      multiple: !(options && options.multiple === false),
+      defaultPath: String((options && options.defaultPath) || ""),
+    });
+  },
+
+  revealAttachment(filePath) {
+    return ipcRenderer.invoke("attachment:reveal", String(filePath || ""));
+  },
+
+  openAttachment(filePath) {
+    return ipcRenderer.invoke("attachment:open", String(filePath || ""));
+  },
+
+  statAttachments(paths) {
+    return ipcRenderer.invoke(
+      "attachment:stat",
+      Array.isArray(paths) ? paths.map((item) => String(item || "")) : []
+    );
+  },
+
+  getHomeDir() {
+    return ipcRenderer.invoke("attachment:home");
+  },
+
+  /* Electron 32+ 移除了 File.path，拖入的文件用 webUtils 取路径 */
+  getPathForFile(file) {
+    try {
+      return webUtils.getPathForFile(file) || "";
+    } catch (_) {
+      return "";
+    }
   },
 });
 

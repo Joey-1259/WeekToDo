@@ -257,8 +257,9 @@
                     <div class="data-section-heading">
                       <strong>完整备份</strong>
                       <span>
-                        包含每周事项、日历中心、重点事项、图片和设置
+                        包含全部应用数据：每周事项、重复事项、纪念日、归档、资金快照、人生印记、重点事项（文档、目录、标签、历史版本、图片、思维导图）与全部设置。附件只保存文件路径，不含原文件。
                       </span>
+                      <span class="data-last-backup">{{ lastBackupLabel }}</span>
                     </div>
 
                     <div class="form-check form-switch d-flex px-1 mb-3 justify-content-between align-items-center">
@@ -380,6 +381,9 @@
 <script>
 import configRepository from "../repositories/configRepository";
 import exportTool from "../helpers/exportTool";
+/* FOCUS_BACKUP_20261109_V1 */
+import dataBackupService from "../services/dataBackupService";
+import { showBackupReceipt, describeBackup } from "../helpers/backupReceipt";
 import toastMessage from "../components/toastMessage";
 import excelTool from "../helpers/excelTool";
 import linkList from "../components/linkList";
@@ -405,6 +409,7 @@ export default {
       configData: this.$store.getters.config,
       activeTab: "config-general-tab",
       FEATURE_FLAGS,
+      lastBackupAt: localStorage.getItem("weektodo.lastBackupAt") || "",
     };
   },
   methods: {
@@ -430,7 +435,9 @@ export default {
       exportingModal.show();
 
       try {
-        await exportTool.export();
+        const receipt = await exportTool.export();
+        this.lastBackupAt = receipt?.exportedAt || this.lastBackupAt;
+        showBackupReceipt(receipt);
       } catch {
         // exportTool 已负责错误提示。
       }
@@ -442,10 +449,29 @@ export default {
 
       if (!file) return;
 
+      /* FOCUS_BACKUP_20261109_V1：导入前先读取并展示备份内容，校验不通过直接拒绝 */
+      let summary = null;
+      try {
+        summary = await dataBackupService.summarizeBackup(file);
+      } catch (error) {
+        window.alert(error?.message || "无法读取该备份文件。");
+        input.value = "";
+        return;
+      }
+
+      if (summary.integrity === "mismatch") {
+        window.alert(
+          "备份文件校验失败：文件可能已损坏、被截断或被修改。\n\n为保护当前数据，已停止导入。"
+        );
+        input.value = "";
+        return;
+      }
+
       const confirmed = window.confirm(
-        "导入完整备份将替换当前设备上的所有 WeekToDo 数据。\n\n" +
-        "系统会在导入失败时尝试自动回滚，但仍建议先导出一次当前数据。\n\n" +
-        "确定继续吗？"
+        describeBackup(summary) +
+        "\n\n导入将替换当前设备上的所有 WeekToDo 数据。" +
+        "\n导入失败会自动回滚；仍建议先导出一次当前数据。" +
+        "\n\n确定继续吗？"
       );
 
       if (!confirmed) {
@@ -545,6 +571,15 @@ export default {
     },
   },
   computed: {
+    /* FOCUS_BACKUP_20261109_V1 */
+    lastBackupLabel() {
+      if (!this.lastBackupAt) return "本设备还没有导出过完整备份";
+      const time = new Date(this.lastBackupAt);
+      if (Number.isNaN(time.getTime())) return "";
+      const days = Math.floor((Date.now() - time.getTime()) / 86400000);
+      const when = days <= 0 ? "今天" : days === 1 ? "昨天" : `${days} 天前`;
+      return `上次导出：${when}（${time.toLocaleString("zh-CN", { hour12: false })}）`;
+    },
     configLinks: function () {
       return configList.configList(this);
     },
@@ -608,6 +643,10 @@ export default {
   .dark-theme & {
     border-color: #303842;
   }
+}
+
+.data-section-heading .data-last-backup {
+  color: #5f6670;
 }
 
 .form-check-label {

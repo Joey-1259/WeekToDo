@@ -319,6 +319,8 @@ import SlashCommands from "../../editor/extensions/SlashCommands";
 import LinkedTask from "../../editor/extensions/LinkedTask";
 import FocusImage from "../../editor/extensions/FocusImage";
 import FocusMindMap from "../../editor/extensions/FocusMindMap";
+/* FOCUS_ATTACHMENT_20261109_V1 */
+import FocusAttachment from "../../editor/extensions/FocusAttachment";
 /* FOCUS_DOCUMENT_UPGRADE_20261005_V1 */
 /* FOCUS_CALLOUT_COLOR_20261007_V3：按键扩展单独注册——扩展 priority 只影响按键顺序，不影响 schema 默认块 */
 import FocusCallout, {
@@ -561,6 +563,7 @@ export default {
         }),
         FocusImage,
         FocusMindMap,
+        FocusAttachment,
         FocusCallout,
         FocusCalloutKeymap,
         Details.configure({

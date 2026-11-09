@@ -1,3 +1,6 @@
+/* FOCUS_ATTACHMENT_20261109_V1 */
+import { pickAndInsertAttachments } from "./extensions/FocusAttachment";
+
 /* FOCUS_EXPERIENCE_20261005_V2 */
 function base(editor, range) {
   return editor.chain().focus().deleteRange(range);
@@ -98,6 +101,24 @@ export function createSlashCommandItems(
       command: ({ editor, range }) => {
         base(editor, range).run();
         onImage?.();
+      },
+    },
+
+    /* FOCUS_ATTACHMENT_20261109_V1 */
+    {
+      id: "attachment",
+      category: "进阶内容",
+      title: "附件",
+      description: "关联本地文件或文件夹 · 只记录位置，单击在 Finder 中显示",
+      icon: "⎘",
+      shortcut: "/fj",
+      aliases: [
+        "attachment", "file", "finder", "附件", "添加附件",
+        "文件", "本地文件", "文件夹", "fj", "tjfj",
+      ],
+      command: ({ editor, range }) => {
+        base(editor, range).run();
+        pickAndInsertAttachments(editor);
       },
     },
 

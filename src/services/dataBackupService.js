@@ -1,5 +1,7 @@
 import dbRepository from "../repositories/dbRepository";
 import packageInfo from "../../package.json";
+/* FOCUS_BACKUP_20261109_V1 */
+import { digestOf, verifyIntegrity } from "./backupIntegrity";
 
 const FORMAT = "weektodo.full-backup";
 const SCHEMA_VERSION = 3;
@@ -219,16 +221,42 @@ async function readStore(db, storeName) {
   return entries;
 }
 
+/* FOCUS_BACKUP_20261109_V1：所有 Store 在同一个只读事务里读取，
+ * 保证文档 / 图片 / 历史版本来自同一时刻（原来 8 次独立事务，中途自动保存会造成不一致）。 */
 async function readIndexedDB() {
   const db = await openDatabase();
   const result = {};
 
   try {
+    const names = STORE_NAMES.filter((name) => db.objectStoreNames.contains(name));
+    const raw = {};
+
+    if (names.length) {
+      const transaction = db.transaction(names, "readonly");
+      const done = transactionDone(transaction);
+
+      await Promise.all(names.map((name) => {
+        const store = transaction.objectStore(name);
+        return Promise.all([
+          requestResult(store.getAllKeys()),
+          requestResult(store.getAll()),
+        ]).then(([keys, records]) => {
+          raw[name] = { keys, records };
+        });
+      }));
+
+      await done;
+    }
+
     for (const storeName of STORE_NAMES) {
-      result[storeName] = await readStore(
-        db,
-        storeName
-      );
+      const entry = raw[storeName];
+      const list = [];
+      if (entry) {
+        for (let index = 0; index < entry.keys.length; index += 1) {
+          list.push([entry.keys[index], await encodeValue(entry.records[index])]);
+        }
+      }
+      result[storeName] = list;
     }
   } finally {
     db.close();
@@ -264,14 +292,22 @@ function moduleCounts(localData, indexedData) {
     lifeImprintCards: parsedLength("lifeImprint"),
     focusDocuments: storeLength("focus_documents"),
     focusAssets: storeLength("focus_assets"),
+    /* FOCUS_BACKUP_20261109_V1 */
+    focusRevisions: storeLength("focus_document_revisions"),
+    focusFolders: parsedLength("weektodo.focus-folders.v1"),
+    archivedTasks: parsedLength("archivedTasks"),
+    repeatingEvents: storeLength("repeating_events"),
+    localStorageKeys: Object.keys(localData || {}).length,
   };
 }
 
 async function capture() {
   const localData = readLocalStorage();
   const indexedData = await readIndexedDB();
+  const digest = await digestOf(localData, indexedData);
 
   return {
+    integrity: digest ? { algorithm: "SHA-256", digest } : null,
     format: FORMAT,
     schemaVersion: SCHEMA_VERSION,
     appVersion: packageInfo.version,
@@ -521,6 +557,8 @@ function downloadJson(data) {
   anchor.remove();
 
   setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+  return { name: anchor.download, size: blob.size };
 }
 
 function readFile(file) {
@@ -550,8 +588,20 @@ const dataBackupService = {
 
   async exportBackup() {
     const backup = await capture();
-    downloadJson(backup);
-    return backup.manifest;
+    const file = downloadJson(backup);
+
+    try {
+      localStorage.setItem("weektodo.lastBackupAt", backup.exportedAt);
+    } catch {
+      /* 存储不可用时不影响导出 */
+    }
+
+    return {
+      ...backup.manifest,
+      exportedAt: backup.exportedAt,
+      integrity: backup.integrity,
+      file,
+    };
   },
 
   async importBackup(file) {
@@ -564,6 +614,13 @@ const dataBackupService = {
     } catch {
       throw new Error(
         "文件不是有效的 WeekToDo JSON 备份"
+      );
+    }
+
+    /* FOCUS_BACKUP_20261109_V1：校验不通过直接拒绝，不触碰现有数据 */
+    if ((await verifyIntegrity(parsed)) === "mismatch") {
+      throw new Error(
+        "备份文件校验失败：文件可能已损坏、被截断或被修改，已停止导入。"
       );
     }
 
@@ -622,6 +679,29 @@ const dataBackupService = {
   async inspectBackup(file) {
     const text = await readFile(file);
     return normalizeBackup(JSON.parse(text));
+  },
+
+  /* FOCUS_BACKUP_20261109_V1：导入前读取摘要（时间 / 版本 / 校验 / 各模块条数） */
+  async summarizeBackup(file) {
+    const text = await readFile(file);
+    let parsed;
+
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error("文件不是有效的 WeekToDo JSON 备份");
+    }
+
+    const integrity = await verifyIntegrity(parsed);
+    const target = normalizeBackup(parsed);
+
+    return {
+      exportedAt: target.exportedAt || null,
+      appVersion: target.appVersion || "unknown",
+      counts: moduleCounts(target.localStorage || {}, target.indexedDB || {}),
+      integrity,
+      size: file?.size || 0,
+    };
   },
 
   cloneJson,

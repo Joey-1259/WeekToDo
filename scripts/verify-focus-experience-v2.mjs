@@ -45,11 +45,23 @@ const storage = {
   setItem: (key, value) => memory.set(key, value),
 };
 
+/* FOCUS_RELEASE_20261109_V2_9_0
+ * 高亮块 V3（FOCUS_CALLOUT_COLOR_20261007_V3）起只有背景色是可见属性，
+ * 偏好里 tone 固定为 info，颜色原样保留。
+ */
 rememberCalloutPreference({ tone: "warning", color: "purple" }, storage);
-assert.deepEqual(readCalloutPreference(storage), {
-  tone: "warning",
-  color: "purple",
-});
+assert.deepEqual(readCalloutPreference(storage), { tone: "info", color: "purple" });
+
+// 旧版偏好（只有类型、颜色为 default）→ 换算成该类型的默认色
+rememberCalloutPreference({ tone: "warning", color: "default" }, storage);
+assert.deepEqual(readCalloutPreference(storage), { tone: "info", color: "yellow" });
+
+// V2 时代直接写入存储的旧数据也能读出正确颜色
+memory.set(
+  "weektodo.focus.callout.presentation.v2",
+  JSON.stringify({ tone: "danger", color: "default" })
+);
+assert.deepEqual(readCalloutPreference(storage), { tone: "info", color: "red" });
 
 const events = [];
 let releaseOld;
@@ -95,6 +107,24 @@ for (const relative of vueFiles) {
 
   const id = relative.replace(/\W/g, "_");
   const script = compileScript(result.descriptor, { id });
+  /* FOCUS_RELEASE_20261109_V2_9_0_RENDER
+   * render 函数组件（如 FocusImportContentPreview.vue）没有 <template>，
+   * 改为确认它确实导出了 render()，而不是直接跳过。
+   */
+  if (!result.descriptor.template) {
+    const scriptSource =
+      result.descriptor.script?.content ||
+      result.descriptor.scriptSetup?.content ||
+      "";
+    assert.match(
+      scriptSource,
+      /\brender\s*\(/,
+      `${relative}: 既没有 <template> 也没有 render()`
+    );
+    console.log("✓", relative, "（render 函数组件）");
+    continue;
+  }
+
   const template = compileTemplate({
     source: result.descriptor.template.content,
     filename: relative,

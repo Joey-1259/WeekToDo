@@ -49,15 +49,21 @@
         </button>
       </nav>
 
+      <!-- FOCUS_SIDEBAR_20261109_V1 -->
+      <div v-if="!showSidebar" class="fdx-peek-edge" @mouseenter="peekEnter" @mouseleave="peekLeave"></div>
       <FocusDialogSidebar
-        v-if="showSidebar"
+        v-if="showSidebar || peekOpen"
+        ref="sidebar"
         :folders="folders"
         :documents="documents"
         :current-id="draft.id"
         :current-title="draft.title"
         :open-ids="tabIds"
-        @select="switchTab"
+        :peek="!showSidebar"
+        @command="onSidebarCommand"
         @resize="onSidebarResize"
+        @mouseenter="peekCancel"
+        @mouseleave="peekLeave"
       />
 
       <header>
@@ -263,6 +269,8 @@ export default {
     "create-task",
     "action",
     "switch",
+    "pin",
+    "sidebar",
   ],
 
   data() {
@@ -290,6 +298,7 @@ export default {
       wide: localStorage.getItem("focusDialogWide") !== "false",
       sidebarOpen: localStorage.getItem("focusDialogSidebar") !== "false",
       sidebarWidth: Number(localStorage.getItem("focusDialogSidebarWidth")) || 248,
+      peekOpen: false,
     };
   },
 
@@ -300,7 +309,8 @@ export default {
     },
 
     showSidebar() {
-      return this.wide && this.sidebarOpen;
+      /* FOCUS_SIDEBAR_20261109_V1：目录与宽度解耦 */
+      return this.sidebarOpen;
     },
 
     fdxStyle() {
@@ -362,6 +372,15 @@ export default {
       this.$nextTick(() => this.$refs.editor?.focus());
     },
 
+    /* FOCUS_SIDEBAR_20261109_V1 */
+    documents(list) {
+      const me = (list || []).find((d) => d.id === this.draft.id);
+      if (me && (me.folderId || null) !== (this.draft.folderId || null)) {
+        this.draft.folderId = me.folderId || null;
+        this.folderId = me.folderId || "__root__";
+      }
+    },
+
     folderPanel(value) {
       if (!value) return;
 
@@ -392,6 +411,7 @@ export default {
     else this.$refs.title?.focus();
     window.addEventListener("keydown", this.onKeydown);
     document.addEventListener("mousedown", this.onPointerDown);
+    window.addEventListener("weektodo:focus-folders-changed", this.reloadFolders);
   },
 
   beforeUnmount() {
@@ -401,9 +421,85 @@ export default {
       this.onPointerDown
     );
     clearTimeout(this.timer);
+    clearTimeout(this.peekTimer);
+    window.removeEventListener("weektodo:focus-folders-changed", this.reloadFolders);
   },
 
   methods: {
+    /* FOCUS_SIDEBAR_20261109_V1 · 侧栏 */
+    reloadFolders() {
+      this.folders = focusFolderService.listFolders();
+    },
+
+    peekEnter() {
+      if (this.showSidebar) return;
+      clearTimeout(this.peekTimer);
+      this.peekTimer = setTimeout(() => { this.peekOpen = true; }, 100);
+    },
+
+    peekCancel() {
+      clearTimeout(this.peekTimer);
+    },
+
+    peekLeave() {
+      clearTimeout(this.peekTimer);
+      if (this.showSidebar || !this.peekOpen) return;
+      this.peekTimer = setTimeout(() => {
+        if (this.$refs.sidebar?.busy) { this.peekLeave(); return; }
+        this.peekOpen = false;
+      }, 250);
+    },
+
+    async onSidebarCommand(cmd) {
+      const type = cmd && cmd.type;
+      if (!type) return;
+
+      if (type === "dock") {
+        this.peekOpen = false;
+        if (!this.sidebarOpen) this.toggleSidebar();
+        return;
+      }
+      if (type === "open") { await this.switchTab(cmd.id); return; }
+
+      if (type === "rename" && cmd.kind === "doc" && cmd.id === this.draft.id) {
+        this.draft.title = cmd.name;
+        this.scheduleSave();
+        return;
+      }
+
+      if (type === "create-folder") {
+        try {
+          const folder = focusFolderService.createFolder(cmd.name, cmd.parentId || null);
+          this.reloadFolders();
+          if (cmd.done) cmd.done(folder);
+        } catch (error) {
+          console.error(error);
+          window.alert("新建目录失败，请重试。");
+        }
+        return;
+      }
+
+      /* 其余操作会写存储（排序会重写同级文档）：先落盘，避免旧内容覆盖 */
+      try {
+        await this.flush();
+      } catch {
+        if (!window.confirm("当前内容保存失败，仍要继续吗？")) return;
+      }
+
+      if (type === "pin") { this.$emit("pin", cmd.id); return; }
+
+      /* 删除当前文档：先切到相邻标签，避免后台保存把它写回来 */
+      if (type === "delete" && cmd.kind === "doc" && cmd.id === this.draft.id) {
+        const next = this.tabItems.find((t) => t.id !== this.draft.id);
+        if (next) {
+          this.$emit("switch", next.id);
+          await this.$nextTick();
+        }
+      }
+
+      this.$emit("sidebar", cmd);
+    },
+
     /* FOCUS_POLISH_20261028_V2 · 标签切换：先落盘再切换 */
     async switchTab(id) {
       if (!id || id === this.draft.id) return;
@@ -425,6 +521,7 @@ export default {
 
     /* FOCUS_POLISH_20261028_V3 */
     toggleSidebar() {
+      this.peekOpen = false;
       this.sidebarOpen = !this.sidebarOpen;
       localStorage.setItem("focusDialogSidebar", String(this.sidebarOpen));
     },
@@ -495,7 +592,14 @@ export default {
       /* FOCUS_POLISH_20261028_V3：⌘⇧\ 显示/隐藏目录栏 */
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.code === "Backslash") {
         event.preventDefault();
-        if (this.wide) this.toggleSidebar();
+        this.toggleSidebar();
+        return;
+      }
+      /* FOCUS_SIDEBAR_20261109_V1：⌘P 搜索文档 */
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "p") {
+        event.preventDefault();
+        if (!this.showSidebar) this.toggleSidebar();
+        this.$nextTick(() => this.$refs.sidebar?.focusSearch());
         return;
       }
       /* FOCUS_POLISH_20261028_V2：⌘⇧[ / ⌘⇧] 或 Ctrl+Tab 切换标签 */

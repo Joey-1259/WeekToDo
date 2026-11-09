@@ -180,6 +180,8 @@
       :tabs="dialogTabs"
       :documents="documents"
       @switch="switchDialog"
+      @pin="pinDocument"
+      @sidebar="onDialogSidebar"
       :folder-paths="folderPaths"
       @close="closeDialog"
       @action="handleDocumentAction"
@@ -401,6 +403,51 @@ export default {
   },
 
   methods: {
+    /* FOCUS_SIDEBAR_20261109_V1：全屏侧栏操作，全部复用既有实现 */
+    pinDocument(id) {
+      this.openAtEnd(id);
+    },
+
+    async onDialogSidebar(cmd) {
+      const findDoc = (id) => this.documents.find((d) => d.id === id);
+      try {
+        switch (cmd.type) {
+          case "create-document":
+            await this.createDocumentAt({
+              folderId: cmd.folderId || null,
+              index: (this.layout.columns || []).length,
+              open: true,
+            });
+            break;
+          case "rename":
+            if (cmd.kind === "folder") await this.fdRenameFolder({ id: cmd.id, name: cmd.name });
+            else await this.fdRenameDocument({ id: cmd.id, name: cmd.name });
+            break;
+          case "move":
+            if (cmd.event === "move-folder") await this.fdMoveFolder(cmd.payload);
+            else await this.fdMoveDocument(cmd.payload);
+            break;
+          case "duplicate": {
+            const doc = findDoc(cmd.id);
+            if (doc) await this.handleDocumentAction({ action: "duplicate", document: doc });
+            break;
+          }
+          case "delete":
+            if (cmd.kind === "folder") await this.fdDeleteFolder(cmd.id);
+            else {
+              const doc = findDoc(cmd.id);
+              if (doc) await this.handleDocumentAction({ action: "delete", document: doc });
+            }
+            break;
+          default:
+            break;
+        }
+      } catch (error) {
+        console.error("[focus-sidebar]", error);
+        window.alert("操作失败，请重试。");
+      }
+    },
+
     /* FOCUS_POLISH_20261028_V2 */
     switchDialog(id) {
       const next = this.documents.find((item) => item.id === id);

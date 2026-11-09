@@ -203,3 +203,25 @@ body .fdx-mode .focus-dialog.is-wide .fx-toolbar { padding-left: 50px; }
 .dark-theme .fdx-tab.is-active { background: #1d232b; color: #eef1f4; box-shadow: 0 0 0 1px #333a44; }
 .dark-theme .fdx-hint kbd { border-color: #39414c; background: #1d232b; color: #9aa1ab; }
 .dark-theme .fdx-tool { border-color: #39414c; background: #1d232b; color: #c4cad1; }
+
+/* FOCUS_SIDEBAR_20261109_V1 */
+/* 浮出态：侧栏隐藏时，从左缘悬浮出现，不占布局 */
+body .fdx-mode .focus-dialog > .fdx-sidebar.is-peek {
+  position: fixed;
+  z-index: 40;
+  top: 48px;
+  bottom: 10px;
+  left: 8px;
+  display: flex !important;
+  width: 272px;
+}
+.fdx-peek-edge {
+  position: fixed;
+  z-index: 39;
+  top: 40px;
+  bottom: 0;
+  left: 0;
+  width: 10px;
+}
+/* 当前文档用灰底加粗，不再用蓝色 */
+body .fdx-mode .fdx-sb-toggle.is-on { background: transparent; }

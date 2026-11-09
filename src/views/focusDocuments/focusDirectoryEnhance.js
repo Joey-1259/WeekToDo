@@ -171,6 +171,7 @@ export default {
       this.closeRowMenu?.();
       this.fxAddMenu = { row: null, style: {} };
       document.body.classList.add("dir-is-dragging");
+      window.getSelection?.()?.removeAllRanges(); /* FOCUS_POLISH_20261109_V3_1 */
 
       const ghost = document.createElement("div");
       ghost.className = "dir-drag-ghost";

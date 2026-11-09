@@ -7,7 +7,7 @@
           v-model.trim="query"
           type="text"
           placeholder="搜索文档"
-          @keydown.esc.stop.prevent="query = ''"
+          @keydown.esc="onSearchEsc"
         />
       </label>
       <button
@@ -201,6 +201,14 @@ export default {
   },
 
   methods: {
+    /* FOCUS_POLISH_20261109_V3_1：Esc 一次退一层——有内容先清空，空则失焦，再按才退出全屏 */
+    onSearchEsc(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (this.query) this.query = "";
+      else event.target.blur();
+    },
+
     isCollapsed(id) {
       return this.collapsed.has(id);
     },

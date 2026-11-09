@@ -35,6 +35,9 @@ const has = [
   ["src/editor/extensions/FocusMindMap.js", "previewHeight", "思维导图高度属性"],
   [V + "FocusDirectoryBrowser.vue", "fxPointerDown(row, $event)", "目录 Pointer 拖拽"],
   [V + "FocusDirectoryBrowser.vue", "data-root-drop", "移出目录落区"],
+  [V + "FocusDocumentDialog.vue", "切换前保存失败", "切换文档前兜底保存"],
+  [V + "FocusDocumentEditor.vue", "onPreviewEsc", "Esc 关闭图片预览"],
+  [V + "focusMindMapResize.js", "contentWidth(parent)", "思维导图宽度按内容区计算"],
 ];
 for (const [file, needle, label] of has) {
   check(label, () => assert.ok(read(file).includes(needle), `${file} 缺少 ${needle}`));

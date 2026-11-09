@@ -19,6 +19,13 @@ function parsePct(value) {
   return Number.isFinite(n) ? Math.min(100, Math.max(10, n)) : 100;
 }
 
+/* FOCUS_POLISH_20261109_V3_1：CSS 百分比相对内容区，需扣除正文左右内边距（宽屏各 56px） */
+function contentWidth(el) {
+  const cs = window.getComputedStyle(el);
+  const w = el.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+  return w > 0 ? w : el.getBoundingClientRect().width || 1;
+}
+
 export const focusMindMapResizeMixin = {
   data() {
     return { fmrDrag: null, fmrLive: { w: null, h: null } };
@@ -79,7 +86,7 @@ export const focusMindMapResizeMixin = {
         y: event.clientY,
         w: block.getBoundingClientRect().width,
         h: shell ? shell.getBoundingClientRect().height : 360,
-        avail: parent.getBoundingClientRect().width || 1,
+        avail: contentWidth(parent),
       };
       this.fmrLive = { w: null, h: null };
 
@@ -120,7 +127,11 @@ export const focusMindMapResizeMixin = {
       const attrs = {};
       if (live.w != null) attrs.width = live.w >= 99.5 ? "100%" : `${live.w.toFixed(2)}%`;
       if (live.h != null) attrs.previewHeight = live.h;
-      if (Object.keys(attrs).length) this.updateAttributes(attrs);
+      if (Object.keys(attrs).length) {
+        this.updateAttributes(attrs);
+        /* 通知预览取景重新适配；若取景已用 ResizeObserver，此句无副作用 */
+        this.$nextTick(() => window.dispatchEvent(new Event("resize")));
+      }
       this.fmrLive = { w: null, h: null };
     },
 
@@ -147,6 +158,7 @@ export const focusMindMapResizeMixin = {
 
     fmrReset() {
       this.updateAttributes({ width: "100%", previewHeight: null });
+      this.$nextTick(() => window.dispatchEvent(new Event("resize")));
     },
   },
 };

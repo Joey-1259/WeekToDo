@@ -8,6 +8,7 @@
       'fmr-has-h': Boolean(fmrHeight),
     }"
     :style="fmrStyle"
+    @dragstart="fmrDrag && $event.preventDefault()"
     data-type="focus-mind-map"
     contenteditable="false"
     @mousedown.stop

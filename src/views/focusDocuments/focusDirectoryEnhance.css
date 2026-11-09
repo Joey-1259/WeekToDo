@@ -187,3 +187,9 @@ body.dark-theme .dir-dialog .dir-row.drop-into { background: #1e2740; box-shadow
 
 /* V3-grip-gap */
 .dir-dialog .dir-tree .dir-row { padding-left: calc(14px + var(--depth, 0) * 18px); }
+
+/* V3.1-drop-line */
+body .dir-dialog .dir-tree .dir-row.drop-before::before,
+body .dir-dialog .dir-tree .dir-row.drop-after::after {
+  left: calc(18px + var(--depth, 0) * 18px);
+}

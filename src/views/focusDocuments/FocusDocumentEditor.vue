@@ -691,6 +691,8 @@ export default {
       "focus-image-preview",
       this.onImagePreview
     );
+    /* FOCUS_POLISH_20261109_V3_1 */
+    window.addEventListener("keydown", this.onPreviewEsc, true);
 
     window.addEventListener(
       "focus-task-toggle",
@@ -729,6 +731,7 @@ export default {
       "focus-image-preview",
       this.onImagePreview
     );
+    window.removeEventListener("keydown", this.onPreviewEsc, true);
 
     window.removeEventListener(
       "focus-task-toggle",
@@ -965,6 +968,14 @@ export default {
       } catch (error) {
         window.alert(error?.message || "下载失败");
       }
+    },
+
+    /* FOCUS_POLISH_20261109_V3_1：预览打开时 Esc 只关预览（捕获阶段，先于全屏层） */
+    onPreviewEsc(event) {
+      if (event.key !== "Escape" || !this.imagePreviewVisible) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeImagePreview();
     },
 
     closeImagePreview() {

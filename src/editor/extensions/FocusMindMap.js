@@ -121,6 +121,14 @@ export default Node.create({
         default: 1,
       },
 
+      /* FOCUS_POLISH_20261028_V3：画布自定义高度（px） */
+      previewHeight: {
+        default: null,
+        parseHTML: (element) => Number(element.getAttribute("data-preview-height")) || null,
+        renderHTML: (attributes) =>
+          attributes.previewHeight ? { "data-preview-height": attributes.previewHeight } : {},
+      },
+
       updatedAt: {
         default: null,
       },

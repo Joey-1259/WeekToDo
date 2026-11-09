@@ -6,7 +6,8 @@
   >
     <section
       class="focus-dialog"
-      :class="{ 'is-wide': wide }"
+      :class="{ 'is-wide': wide, 'has-sidebar': showSidebar }"
+      :style="fdxStyle"
       role="dialog"
       aria-modal="true"
       aria-label="文档编辑"
@@ -14,12 +15,22 @@
       <!-- FOCUS_POLISH_20261028_V2：已分栏文档标签栏 -->
       <nav class="fdx-tabs" role="tablist" aria-label="已分栏文档">
         <button
+          v-if="wide"
+          type="button"
+          class="fdx-sb-toggle"
+          :class="{ 'is-on': sidebarOpen }"
+          :title="(sidebarOpen ? '隐藏目录' : '显示目录') + '（⌘⇧\\）'"
+          @click="toggleSidebar"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="2" /><path d="M6 2.5v11" /></svg>
+        </button>
+        <button
           v-for="tab in tabItems"
           :key="tab.id"
           type="button"
           role="tab"
           class="fdx-tab"
-          :class="{ 'is-active': tab.id === draft.id }"
+          :class="{ 'is-active': tab.id === draft.id, 'is-temp': !tabIds.includes(tab.id) }"
           :aria-selected="String(tab.id === draft.id)"
           :title="tab.title || '未命名文档'"
           @click="switchTab(tab.id)"
@@ -28,17 +39,32 @@
           <span>{{ tab.title || "未命名文档" }}</span>
         </button>
         <span class="fdx-tabs-spacer"></span>
-        <span v-if="tabItems.length > 1" class="fdx-hint">⌘⇧[ / ] 切换</span>
+        <span class="fdx-hint">
+          <template v-if="tabItems.length > 1"><kbd>⌘⇧[</kbd><kbd>]</kbd> 切换<i>·</i></template>
+          <kbd>Esc</kbd> 退出
+        </span>
         <button type="button" class="fdx-tool" :title="wide ? '切换为标准宽度（780px）' : '切换为宽屏（1180px）'" @click="toggleWide">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4v8M14 4v8M5 8h6M6.5 6.5 5 8l1.5 1.5M9.5 6.5 11 8l-1.5 1.5" /></svg>
           {{ wide ? "标准宽度" : "宽屏" }}
         </button>
       </nav>
 
+      <FocusDialogSidebar
+        v-if="showSidebar"
+        :folders="folders"
+        :documents="documents"
+        :current-id="draft.id"
+        :current-title="draft.title"
+        :open-ids="tabIds"
+        @select="switchTab"
+        @resize="onSidebarResize"
+      />
+
       <header>
         <div class="focus-dialog-heading">
           <FocusDocumentTitle
             ref="title"
+            :key="'title-' + draft.id"
             v-model="draft.title"
             :styles="draft.titleStyle"
             variant="dialog"
@@ -118,6 +144,7 @@
 
       <FocusDocumentEditor
         ref="editor"
+        :key="draft.id"
         v-model="draft.content"
         :document-id="draft.id"
         spacious
@@ -196,6 +223,8 @@ import FocusDocumentTitle, {
 } from "./FocusDocumentTitle.vue";
 import FocusFolderPicker from "./FocusFolderPicker.vue";
 import FocusDocumentActionMenu from "./FocusDocumentActionMenu.vue";
+/* FOCUS_POLISH_20261028_V3 */
+import FocusDialogSidebar from "./FocusDialogSidebar.vue";
 import focusDocumentService from "../../services/focusDocumentService";
 import focusFolderService from "../../services/focusFolderService";
 /* FOCUS_POLISH_20261028_V2 */
@@ -215,6 +244,7 @@ export default {
     FocusDocumentTitle,
     FocusFolderPicker,
     FocusDocumentActionMenu,
+    FocusDialogSidebar,
   },
 
   props: {
@@ -222,6 +252,7 @@ export default {
     folderPaths: { type: Object, default: () => ({}) },
     /* FOCUS_POLISH_20261028_V2 */
     tabs: { type: Array, default: () => [] },
+    documents: { type: Array, default: () => [] },
   },
 
   emits: [
@@ -257,10 +288,25 @@ export default {
       notice: "",
       noticeTimer: null,
       wide: localStorage.getItem("focusDialogWide") !== "false",
+      sidebarOpen: localStorage.getItem("focusDialogSidebar") !== "false",
+      sidebarWidth: Number(localStorage.getItem("focusDialogSidebarWidth")) || 248,
     };
   },
 
   computed: {
+    /* FOCUS_POLISH_20261028_V3 */
+    tabIds() {
+      return (this.tabs || []).map((tab) => tab.id);
+    },
+
+    showSidebar() {
+      return this.wide && this.sidebarOpen;
+    },
+
+    fdxStyle() {
+      return { "--fdx-sb": this.showSidebar ? `${this.sidebarWidth}px` : "0px" };
+    },
+
     /* FOCUS_POLISH_20261028_V2：当前文档始终在标签栏里，标题实时同步 */
     tabItems() {
       const list = (this.tabs || []).map((tab) =>
@@ -286,6 +332,22 @@ export default {
   },
 
   watch: {
+    /* FOCUS_POLISH_20261028_V3：切换文档只换内容，不重建全屏层（去闪烁、保留目录栏滚动） */
+    document(next) {
+      if (!next || next.id === this.draft.id) return;
+      clearTimeout(this.timer);
+      const draft = JSON.parse(JSON.stringify(next));
+      draft.titleStyle = { ...DEFAULT_TITLE_STYLE, ...(draft.titleStyle || {}) };
+      this.draft = draft;
+      this.folderId = next.folderId || "__root__";
+      this.dirty = false;
+      this.saveState = "saved";
+      this.tagEditing = false;
+      this.actionMenuVisible = false;
+      this.folderPanel = false;
+      this.$nextTick(() => this.$refs.editor?.focus());
+    },
+
     folderPanel(value) {
       if (!value) return;
 
@@ -311,7 +373,9 @@ export default {
   },
 
   mounted() {
-    this.$refs.title?.focus();
+    /* FOCUS_POLISH_20261028_V3：已有标题时光标直接进正文 */
+    if (String(this.draft.title || "").trim()) this.$nextTick(() => this.$refs.editor?.focus());
+    else this.$refs.title?.focus();
     window.addEventListener("keydown", this.onKeydown);
     document.addEventListener("mousedown", this.onPointerDown);
   },
@@ -343,6 +407,17 @@ export default {
       const index = list.findIndex((tab) => tab.id === this.draft.id);
       const next = list[(index + delta + list.length) % list.length];
       if (next) this.switchTab(next.id);
+    },
+
+    /* FOCUS_POLISH_20261028_V3 */
+    toggleSidebar() {
+      this.sidebarOpen = !this.sidebarOpen;
+      localStorage.setItem("focusDialogSidebar", String(this.sidebarOpen));
+    },
+
+    onSidebarResize(width) {
+      this.sidebarWidth = width;
+      localStorage.setItem("focusDialogSidebarWidth", String(width));
     },
 
     toggleWide() {
@@ -403,6 +478,12 @@ export default {
     },
 
     onKeydown(event) {
+      /* FOCUS_POLISH_20261028_V3：⌘⇧\ 显示/隐藏目录栏 */
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.code === "Backslash") {
+        event.preventDefault();
+        if (this.wide) this.toggleSidebar();
+        return;
+      }
       /* FOCUS_POLISH_20261028_V2：⌘⇧[ / ⌘⇧] 或 Ctrl+Tab 切换标签 */
       if ((event.metaKey || event.ctrlKey) && event.shiftKey &&
           (event.code === "BracketLeft" || event.code === "BracketRight")) {
@@ -425,6 +506,13 @@ export default {
       }
 
       if (event.key !== "Escape") return;
+
+      /* FOCUS_POLISH_20261028_V3：Esc 先交给菜单 / 弹层 / 编辑器，最后才退出全屏 */
+      if (event.defaultPrevented) return;
+      if (document.querySelector(
+        ".focus-command-menu, .focus-image-preview-dialog, .focus-mind-map-fullscreen, " +
+        ".dir-backdrop, .fx-pop, .focus-column-menu, .fmma-export-menu"
+      )) return;
 
       if (this.tagEditing) {
         event.preventDefault();
@@ -508,10 +596,12 @@ export default {
     async persist() {
       clearTimeout(this.timer);
 
+      /* FOCUS_POLISH_20261028_V3：保存竞态——完成时文档已切走则不回写 */
+      const savingId = this.draft.id;
       try {
         const saved =
           await focusDocumentService.updateDocument(
-            this.draft.id,
+            savingId,
             {
               title: this.draft.title,
               titleStyle: this.draft.titleStyle,
@@ -519,6 +609,11 @@ export default {
               content: this.draft.content,
             }
           );
+
+        if (this.draft.id !== savingId) {
+          this.$emit("saved", saved);
+          return saved;
+        }
 
         this.draft = {
           ...saved,

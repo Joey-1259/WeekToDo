@@ -176,9 +176,9 @@
 
     <FocusDocumentDialog
       v-if="dialogDocument"
-      :key="dialogDocument.id"
       :document="dialogDocument"
       :tabs="dialogTabs"
+      :documents="documents"
       @switch="switchDialog"
       :folder-paths="folderPaths"
       @close="closeDialog"

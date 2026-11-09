@@ -4,7 +4,10 @@
     :class="{
       'is-selected': selected,
       'is-missing': Boolean(errorMessage),
+      'is-resizing': Boolean(fmrDrag),
+      'fmr-has-h': Boolean(fmrHeight),
     }"
+    :style="fmrStyle"
     data-type="focus-mind-map"
     contenteditable="false"
     @mousedown.stop
@@ -51,11 +54,20 @@
       ></div>
     </button>
 
+    <!-- FOCUS_POLISH_20261028_V3：尺寸手柄（与图片一致） -->
+    <span class="fmr-handle is-left" title="拖动调整宽度 · ⌥ 关闭吸附 · 双击还原" @pointerdown="fmrStart('left', $event)" @dblclick.stop="fmrReset"></span>
+    <span class="fmr-handle is-right" title="拖动调整宽度 · ⌥ 关闭吸附 · 双击还原" @pointerdown="fmrStart('right', $event)" @dblclick.stop="fmrReset"></span>
+    <span class="fmr-handle is-bottom" title="拖动调整高度 · 双击还原" @pointerdown="fmrStart('bottom', $event)" @dblclick.stop="fmrReset"></span>
+    <span v-if="fmrDrag" class="fmr-badge">{{ fmrLabel }}</span>
+
     <!-- FOCUS_POLISH_20261028_V2：极简卡片——只留画布；悬停浮出操作 -->
     <div class="fmm-card-actions">
       <button type="button" class="fmm-card-action is-primary" title="全屏编辑（双击画布）" @click.stop="openEditor">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3H4a1 1 0 0 0-1 1v3M13 3h3a1 1 0 0 1 1 1v3M7 17H4a1 1 0 0 1-1-1v-3M13 17h3a1 1 0 0 0 1-1v-3" /></svg>
         <span>全屏编辑</span>
+      </button>
+      <button v-if="fmrCustom" type="button" class="fmm-card-action" title="还原默认尺寸" @click.stop="fmrReset">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10a6 6 0 1 0 1.8-4.3M4 4v3.5h3.5" /></svg>
       </button>
       <button type="button" class="fmm-card-action is-danger" title="删除思维导图" aria-label="删除思维导图" @click.stop="requestDelete">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 3h4l1 2H7l1-2ZM6 6l.7 11h6.6L14 6M8.5 9v5M11.5 9v5" /></svg>
@@ -654,6 +666,8 @@ import {
 import "./focusMindMapPreviewFit.js";
 /* FOCUS_POLISH_20261028_V2 */
 import "./focusMindMapMinimal.css";
+/* FOCUS_POLISH_20261028_V3 */
+import { focusMindMapResizeMixin } from "./focusMindMapResize.js";
 /* FOCUS_EXPERIENCE_20261005_V2 */
 import { focusMindMapViewportMixin } from "./focusMindMapViewportController.js";
 
@@ -1480,7 +1494,7 @@ async function fitMindMap(
 }
 
 export default {
-  mixins: [focusMindMapEnhancerMixin, focusMindMapViewportMixin],
+  mixins: [focusMindMapResizeMixin, focusMindMapEnhancerMixin, focusMindMapViewportMixin],
   name: "FocusMindMapNodeView",
 
   components: {

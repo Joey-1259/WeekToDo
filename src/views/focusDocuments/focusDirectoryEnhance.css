@@ -184,3 +184,6 @@ body.dark-theme .dir-dialog .dir-row.drop-into { background: #1e2740; box-shadow
 .dark-theme .dir-add-menu { border-color: #39414c; background: #1d232b; }
 .dark-theme .dir-add-menu button { color: #d3d8de; }
 .dark-theme .dir-add-menu button:hover { background: #262e38; color: #a9bbff; }
+
+/* V3-grip-gap */
+.dir-dialog .dir-tree .dir-row { padding-left: calc(14px + var(--depth, 0) * 18px); }

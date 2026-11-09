@@ -142,14 +142,10 @@
           :aria-expanded="
             row.type === 'folder' ? String(!collapsed.has(row.id)) : undefined
           "
-          :draggable="canDrag && editingKey !== row.key"
-          @click="activeKey = row.key"
+          :data-key="row.key"
+          @click="fxRowClick(row)"
           @dblclick="onRowActivate(row)"
-          @dragstart="fxDragStart(row, $event)"
-          @dragend="fxDragEnd"
-          @dragover.prevent.stop="fxRowDragOver(row, $event)"
-          @dragleave.stop="fxRowDragLeave(row, $event)"
-          @drop.prevent.stop="fxRowDrop(row, $event)"
+          @pointerdown="fxPointerDown(row, $event)"
           @contextmenu.prevent="fxContextMenu(row, $event)"
         >
           <span v-if="canDrag" class="dir-grip" aria-hidden="true"></span>
@@ -252,6 +248,7 @@
 
         <div
           v-if="canManage && dragged && dragged.parentId"
+          data-root-drop
           class="dir-root-drop"
           :class="{ 'is-over': dropTarget.key === '__root__' }"
         >
@@ -814,7 +811,7 @@ export default {
 
       const rect = event.currentTarget.getBoundingClientRect();
       const width = 178;
-      const height = row.type === "doc" ? 214 : 130;
+      const height = row.type === "doc" ? 320 : 190; /* FOCUS_POLISH_20261028_V3 */
 
       const openAbove = rect.bottom + height > window.innerHeight - 12;
 
@@ -890,6 +887,12 @@ export default {
 
       if (event.key === "Escape" && !this.editingKey && !this.creating) {
         event.preventDefault();
+
+        /* FOCUS_POLISH_20261028_V3：Esc 先关 + 号菜单 */
+        if (this.fxAddMenu && this.fxAddMenu.row) {
+          this.fxAddMenu = { row: null, style: {} };
+          return;
+        }
 
         if (this.rowMenu.row) {
           this.closeRowMenu();

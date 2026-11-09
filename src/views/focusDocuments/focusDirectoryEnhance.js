@@ -1,15 +1,15 @@
-/* FOCUS_POLISH_20261028_V2：目录树增强（参考语雀 / Notion）
- * 拖拽：把手 + 预览 + 悬停自动展开 + 边缘滚动 + 落点即时计算（修复 dragleave 清空落点）
+/* FOCUS_POLISH_20261028_V3：目录树增强（参考语雀 / Notion）
+ * 拖拽：放弃 HTML5 DnD，改用 Pointer 事件——落点确定、无 dragleave 抖动、Electron 下稳定
+ *       跟手预览卡写明"松手会发生什么"；悬停 0.6s 展开折叠目录；边缘自动滚动；Esc 取消
  * 撤销：移动后 5 秒内可撤销
  * 右键菜单 / + 号二选一 / ⌥↑↓ 同级排序 / ⌘↵ 全屏 / 折叠状态记忆 / 全部展开折叠
  */
 import "./focusDirectoryEnhance.css";
+import { DRAG_THRESHOLD, resolveDropZone, buildMovePayload } from "./focusTreeDnd";
 
 const COLLAPSE_KEY = "focusDirCollapsed";
-const EXPAND_DELAY = 650;
-const SCROLL_EDGE = 40;
-const SCROLL_STEP = 14;
-const DOCUMENT_DRAG_TYPE = "application/x-weektodo-document";
+const EXPAND_DELAY = 600;
+const SCROLL_EDGE = 44;
 
 export default {
   data() {
@@ -19,6 +19,12 @@ export default {
       fxExpandTimer: null,
       fxExpandKey: null,
       fxAddMenu: { row: null, style: {} },
+      fxPress: null,
+      fxDragging: false,
+      fxGhost: null,
+      fxPointer: { x: 0, y: 0 },
+      fxScrollRaf: 0,
+      fxSuppressClick: false,
     };
   },
 
@@ -62,11 +68,11 @@ export default {
   beforeUnmount() {
     document.removeEventListener("mousedown", this.fxCloseAddMenu);
     clearTimeout(this.fxToastTimer);
-    clearTimeout(this.fxExpandTimer);
+    this.fxEndDrag();
   },
 
   methods: {
-    /* ---------- 工具 ---------- */
+    /* ================= 工具 ================= */
 
     fxFolderName(id) {
       if (!id) return "未归档";
@@ -89,7 +95,6 @@ export default {
       return (this.childFolders.get(parent || "__root__") || []).map((f) => ({ ...f, type: "folder" }));
     },
 
-    /** 记录移动前的位置，供撤销使用 */
     fxSnapshot(row) {
       const siblings = this.fxSiblings(row);
       const index = siblings.findIndex((item) => item.id === row.id);
@@ -117,29 +122,195 @@ export default {
       clearTimeout(this.fxToastTimer);
       if (!undo) return;
 
-      if (undo.type === "doc") {
-        this.$emit("move-document", {
-          id: undo.id,
-          folderId: undo.parentId,
-          beforeId: undo.beforeId,
-          afterId: undo.afterId,
-        });
-      } else {
-        this.$emit("move-folder", {
-          id: undo.id,
-          parentId: undo.parentId,
-          beforeId: undo.beforeId,
-          afterId: undo.afterId,
-        });
+      const base = { id: undo.id, beforeId: undo.beforeId, afterId: undo.afterId };
+      if (undo.type === "doc") this.$emit("move-document", { ...base, folderId: undo.parentId });
+      else this.$emit("move-folder", { ...base, parentId: undo.parentId });
+    },
+
+    fxRowName(row) {
+      return row?.name || (row?.type === "folder" ? "未命名目录" : "未命名文档");
+    },
+
+    /* ================= Pointer 拖拽 ================= */
+
+    fxRowClick(row) {
+      if (this.fxSuppressClick) return;
+      this.activeKey = row.key;
+    },
+
+    fxPointerDown(row, event) {
+      if (!this.canDrag || event.button !== 0 || this.editingKey || this.creating) return;
+      if (event.target.closest("button, input, textarea, a")) return;
+
+      this.fxPress = { row, x: event.clientX, y: event.clientY };
+      window.addEventListener("pointermove", this.fxOnMove, true);
+      window.addEventListener("pointerup", this.fxOnUp, true);
+      window.addEventListener("pointercancel", this.fxEndDrag, true);
+      window.addEventListener("keydown", this.fxOnKey, true);
+    },
+
+    fxOnMove(event) {
+      const press = this.fxPress;
+      if (!press) return;
+      this.fxPointer = { x: event.clientX, y: event.clientY };
+
+      if (!this.fxDragging) {
+        if (Math.hypot(event.clientX - press.x, event.clientY - press.y) < DRAG_THRESHOLD) return;
+        this.fxBeginDrag(press.row);
+      }
+
+      event.preventDefault();
+      this.fxMoveGhost(event.clientX, event.clientY);
+      this.fxUpdateTarget(event.clientX, event.clientY);
+    },
+
+    fxBeginDrag(row) {
+      this.fxDragging = true;
+      this.dragged = row;
+      this.activeKey = row.key;
+      this.closeRowMenu?.();
+      this.fxAddMenu = { row: null, style: {} };
+      document.body.classList.add("dir-is-dragging");
+
+      const ghost = document.createElement("div");
+      ghost.className = "dir-drag-ghost";
+      const name = document.createElement("strong");
+      name.textContent = this.fxRowName(row);
+      const hint = document.createElement("small");
+      ghost.append(name, hint);
+      document.body.appendChild(ghost);
+      this.fxGhost = ghost;
+
+      cancelAnimationFrame(this.fxScrollRaf);
+      this.fxScrollRaf = requestAnimationFrame(this.fxScrollLoop);
+    },
+
+    fxMoveGhost(x, y) {
+      if (this.fxGhost) this.fxGhost.style.transform = `translate(${x + 14}px, ${y + 10}px)`;
+    },
+
+    fxComputeTarget(x, y) {
+      const dragged = this.dragged;
+      const tree = this.$refs.tree;
+      if (!dragged || !tree) return null;
+
+      const element = document.elementFromPoint(x, y);
+      if (!element || !tree.contains(element)) return null;
+      if (element.closest("[data-root-drop]")) return { key: "__root__", zone: "into" };
+
+      const rowElement = element.closest(".dir-row[data-key]");
+      if (!rowElement) return dragged.parentId ? { key: "__root__", zone: "into" } : null;
+
+      const row = this.visibleRows.find((item) => item.key === rowElement.dataset.key);
+      if (!row || row.key === dragged.key) return null;
+      if (dragged.type === "folder" && this.isDescendant(row, dragged.id)) return null;
+
+      const rect = rowElement.getBoundingClientRect();
+      const zone = resolveDropZone(dragged.type, row.type, (y - rect.top) / rect.height);
+      if (!zone) return null;
+      if (zone === "into" && (dragged.parentId || null) === row.id) return null;
+
+      return { key: row.key, zone };
+    },
+
+    fxUpdateTarget(x, y) {
+      const target = this.fxComputeTarget(x, y);
+      this.dropTarget = target || { key: null, zone: null };
+
+      if (this.fxGhost) {
+        const hint = this.fxGhost.querySelector("small");
+        let text = "";
+        if (target?.key === "__root__") text = "移出目录（未归档）";
+        else if (target) {
+          const row = this.visibleRows.find((item) => item.key === target.key);
+          const name = this.fxRowName(row);
+          text = target.zone === "into" ? `移入「${name}」` : `排在「${name}」${target.zone === "before" ? "之前" : "之后"}`;
+        }
+        hint.textContent = text;
+        this.fxGhost.classList.toggle("is-invalid", !target);
+      }
+
+      const expandable =
+        target && target.zone === "into" && target.key.startsWith("f:") && this.collapsed.has(target.key.slice(2));
+
+      if (!expandable) {
+        this.fxClearExpand();
+      } else if (this.fxExpandKey !== target.key) {
+        this.fxClearExpand();
+        this.fxExpandKey = target.key;
+        const id = target.key.slice(2);
+        this.fxExpandTimer = setTimeout(() => {
+          this.fxExpandKey = null;
+          if (this.fxDragging && this.collapsed.has(id)) this.toggleCollapse(id);
+        }, EXPAND_DELAY);
       }
     },
 
-    fxAutoScroll(event) {
+    fxScrollLoop() {
+      if (!this.fxDragging) return;
       const tree = this.$refs.tree;
-      if (!tree) return;
-      const rect = tree.getBoundingClientRect();
-      if (event.clientY < rect.top + SCROLL_EDGE) tree.scrollTop -= SCROLL_STEP;
-      else if (event.clientY > rect.bottom - SCROLL_EDGE) tree.scrollTop += SCROLL_STEP;
+      if (tree) {
+        const rect = tree.getBoundingClientRect();
+        const y = this.fxPointer.y;
+        let delta = 0;
+        if (y < rect.top + SCROLL_EDGE) delta = -Math.min(18, Math.ceil((rect.top + SCROLL_EDGE - y) / 3));
+        else if (y > rect.bottom - SCROLL_EDGE) delta = Math.min(18, Math.ceil((y - rect.bottom + SCROLL_EDGE) / 3));
+        if (delta) {
+          tree.scrollTop += delta;
+          this.fxUpdateTarget(this.fxPointer.x, this.fxPointer.y);
+        }
+      }
+      this.fxScrollRaf = requestAnimationFrame(this.fxScrollLoop);
+    },
+
+    fxOnUp(event) {
+      const wasDragging = this.fxDragging;
+      const dragged = this.dragged;
+      const target = wasDragging ? this.fxComputeTarget(event.clientX, event.clientY) : null;
+
+      this.fxEndDrag();
+      if (!wasDragging) return;
+
+      this.fxSuppressClick = true;
+      setTimeout(() => {
+        this.fxSuppressClick = false;
+      }, 0);
+
+      if (target && dragged) this.fxCommitDrop(dragged, target);
+    },
+
+    fxOnKey(event) {
+      if (event.key !== "Escape" || !this.fxPress) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.fxEndDrag();
+    },
+
+    fxEndDrag() {
+      window.removeEventListener("pointermove", this.fxOnMove, true);
+      window.removeEventListener("pointerup", this.fxOnUp, true);
+      window.removeEventListener("pointercancel", this.fxEndDrag, true);
+      window.removeEventListener("keydown", this.fxOnKey, true);
+      cancelAnimationFrame(this.fxScrollRaf);
+      this.fxClearExpand();
+      this.fxGhost?.remove();
+      this.fxGhost = null;
+      document.body.classList.remove("dir-is-dragging");
+      this.fxPress = null;
+      this.fxDragging = false;
+      this.dragged = null;
+      this.dropTarget = { key: null, zone: null };
+    },
+
+    fxCommitDrop(dragged, target) {
+      const row = target.key === "__root__" ? null : this.allRows.find((item) => item.key === target.key);
+      const move = buildMovePayload(dragged, target, row);
+      if (!move) return;
+
+      const undo = this.fxSnapshot(dragged);
+      this.$emit(move.event, move.payload);
+      const newParent = move.event === "move-document" ? move.payload.folderId : move.payload.parentId;
+      this.fxAfterMove(dragged, undo, newParent);
     },
 
     fxClearExpand() {
@@ -148,113 +319,7 @@ export default {
       this.fxExpandKey = null;
     },
 
-    /* ---------- 拖拽 ---------- */
-
-    fxDragStart(row, event) {
-      this.onDragStart(row, event);
-      if (!this.dragged || !event.dataTransfer) return;
-
-      if (row.type === "doc") {
-        try {
-          event.dataTransfer.setData(DOCUMENT_DRAG_TYPE, row.id);
-        } catch {
-          /* ignore */
-        }
-      }
-
-      const ghost = document.createElement("div");
-      ghost.className = "dir-drag-ghost";
-      ghost.textContent = row.name || (row.type === "folder" ? "未命名目录" : "未命名文档");
-      document.body.appendChild(ghost);
-      event.dataTransfer.setDragImage(ghost, 14, 14);
-      setTimeout(() => ghost.remove(), 0);
-    },
-
-    fxDragEnd() {
-      this.fxClearExpand();
-      this.resetDrop();
-    },
-
-    fxRowDragOver(row, event) {
-      this.onRowDragOver(row, event);
-      this.fxAutoScroll(event);
-
-      const hovering =
-        row.type === "folder" &&
-        this.collapsed.has(row.id) &&
-        this.dropTarget.key === row.key &&
-        this.dropTarget.zone === "into";
-
-      if (!hovering) {
-        if (this.fxExpandKey === row.key) this.fxClearExpand();
-        return;
-      }
-
-      if (this.fxExpandKey === row.key) return;
-
-      this.fxClearExpand();
-      this.fxExpandKey = row.key;
-      this.fxExpandTimer = setTimeout(() => {
-        if (this.dragged && this.collapsed.has(row.id)) this.toggleCollapse(row.id);
-        this.fxExpandKey = null;
-      }, EXPAND_DELAY);
-    },
-
-    /** 只有真正离开整行才清落点；在行内子元素之间移动不算离开 */
-    fxRowDragLeave(row, event) {
-      const to = event.relatedTarget;
-      if (to && event.currentTarget.contains(to)) return;
-      this.onRowDragLeave(row);
-      if (this.fxExpandKey === row.key) this.fxClearExpand();
-    },
-
-    /** 落点在 drop 时按指针位置即时计算，不依赖可能被清空的 dropTarget */
-    fxRowDrop(row, event) {
-      this.fxClearExpand();
-      const dragged = this.dragged;
-
-      if (!dragged || dragged.key === row.key) {
-        this.resetDrop();
-        return;
-      }
-      if (dragged.type === "folder" && this.isDescendant(row, dragged.id)) {
-        this.resetDrop();
-        return;
-      }
-
-      let zone = this.zoneOf(event, event.currentTarget);
-      if (zone === "into" && row.type === "doc") zone = "after";
-
-      const undo = this.fxSnapshot(dragged);
-      const newParent = zone === "into" ? row.id : row.parentId || null;
-
-      this.dropTarget = { key: row.key, zone };
-      this.onRowDrop(row);
-      this.fxAfterMove(dragged, undo, newParent);
-    },
-
-    fxTreeDragOver(event) {
-      this.onRootDragOver(event);
-      this.fxAutoScroll(event);
-    },
-
-    fxRootDrop() {
-      this.fxClearExpand();
-      const dragged = this.dragged;
-      if (!dragged) return;
-
-      if (!dragged.parentId) {
-        this.resetDrop();
-        return;
-      }
-
-      const undo = this.fxSnapshot(dragged);
-      this.dropTarget = { key: "__root__", zone: "into" };
-      this.onRootDrop();
-      this.fxAfterMove(dragged, undo, null);
-    },
-
-    /* ---------- 键盘 ---------- */
+    /* ================= 键盘 ================= */
 
     fxTreeKeydown(event) {
       if (this.editingKey || this.creating) return;
@@ -287,21 +352,18 @@ export default {
         afterId: direction > 0 ? target.id : null,
       };
 
-      if (row.type === "doc") {
-        this.$emit("move-document", { ...payload, folderId: row.parentId || null });
-      } else {
-        this.$emit("move-folder", { ...payload, parentId: row.parentId || null });
-      }
+      if (row.type === "doc") this.$emit("move-document", { ...payload, folderId: row.parentId || null });
+      else this.$emit("move-folder", { ...payload, parentId: row.parentId || null });
     },
 
-    /* ---------- 菜单 ---------- */
+    /* ================= 菜单 ================= */
 
     fxContextMenu(row, event) {
       if (!this.canManage) return;
       this.activeKey = row.key;
 
       const width = 188;
-      const height = row.type === "doc" ? 280 : 180;
+      const height = row.type === "doc" ? 320 : 190;
       const left = Math.max(12, Math.min(window.innerWidth - width - 12, event.clientX));
       const top =
         event.clientY + height > window.innerHeight - 12

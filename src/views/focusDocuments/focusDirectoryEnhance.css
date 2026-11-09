@@ -1,8 +1,6 @@
-/* FOCUS_POLISH_20261028_V2 · 目录树增强 */
+/* FOCUS_POLISH_20261028_V3 · 目录树增强 */
 
 .dir-dialog { position: relative; }
-
-.dir-dialog .dir-tree .dir-row { padding-left: calc(14px + var(--depth, 0) * 18px); }
 
 /* 拖拽把手 */
 .dir-dialog .dir-row .dir-grip {
@@ -20,24 +18,68 @@
 }
 
 .dir-dialog .dir-row:hover .dir-grip { opacity: 1; }
-.dir-dialog .dir-row.is-dragging { opacity: 0.42; }
 
+body .dir-dialog .dir-row.is-dragging { opacity: 0.4; }
+
+/* 落点指示：into 整行高亮；before/after 一条带圆点的蓝线，缩进对齐目标层级 */
+body .dir-dialog .dir-row.drop-into {
+  background: #e8edff;
+  box-shadow: inset 0 0 0 1.5px #4263eb;
+}
+
+body .dir-dialog .dir-row.drop-before::before,
+body .dir-dialog .dir-row.drop-after::after {
+  position: absolute;
+  z-index: 2;
+  right: 8px;
+  left: calc(10px + var(--depth, 0) * 18px);
+  height: 2px;
+  border-radius: 2px;
+  background: #4263eb;
+  box-shadow: -4px 0 0 2px #fff, -4px 0 0 4px #4263eb;
+  content: "";
+  pointer-events: none;
+}
+
+body .dir-dialog .dir-row.drop-before::before { top: -1px; }
+body .dir-dialog .dir-row.drop-after::after { bottom: -1px; }
+
+/* 跟手预览卡 */
 .dir-drag-ghost {
   position: fixed;
-  top: -100px;
-  left: -100px;
-  max-width: 240px;
-  padding: 6px 10px;
+  z-index: 30000;
+  top: 0;
+  left: 0;
+  display: flex;
+  max-width: 280px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 11px;
   border: 1px solid #c9d3f5;
-  border-radius: 7px;
+  border-radius: 9px;
   background: #fff;
-  color: #2f4bc4;
-  font-size: 12.5px;
-  box-shadow: 0 8px 20px rgba(24, 29, 38, 0.16);
+  box-shadow: 0 10px 26px rgba(24, 29, 38, 0.18);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.dir-drag-ghost strong {
   overflow: hidden;
+  color: #24282e;
+  font-size: 12.5px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-  pointer-events: none;
+}
+
+.dir-drag-ghost small { color: #4263eb; font-size: 11px; }
+.dir-drag-ghost small:empty { display: none; }
+.dir-drag-ghost.is-invalid { border-color: #e1e5ea; opacity: 0.85; }
+
+body.dir-is-dragging,
+body.dir-is-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
 }
 
 /* 移出目录落区 */
@@ -94,7 +136,7 @@
   from { opacity: 0; transform: translate(-50%, 6px); }
 }
 
-/* 新建菜单（+ 号） */
+/* + 号菜单 */
 .dir-add-menu {
   z-index: 22000;
   padding: 4px;
@@ -133,7 +175,10 @@
 }
 
 /* 深色 */
-.dark-theme .dir-drag-ghost { border-color: #3d4a75; background: #1d232b; color: #a9bbff; }
+.dark-theme .dir-drag-ghost { border-color: #3d4a75; background: #1d232b; }
+.dark-theme .dir-drag-ghost strong { color: #eef1f4; }
+.dark-theme .dir-drag-ghost small { color: #a9bbff; }
+body.dark-theme .dir-dialog .dir-row.drop-into { background: #1e2740; box-shadow: inset 0 0 0 1.5px #6d86f0; }
 .dark-theme .dir-root-drop { border-color: #3a424d; color: #7d8590; }
 .dark-theme .dir-root-drop.is-over { border-color: #6d86f0; background: #1e2740; color: #a9bbff; }
 .dark-theme .dir-add-menu { border-color: #39414c; background: #1d232b; }

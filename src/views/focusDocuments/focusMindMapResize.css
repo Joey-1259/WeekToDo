@@ -1,0 +1,90 @@
+/* FOCUS_POLISH_20261028_V3 · 思维导图尺寸手柄（与图片 fi-handle 同一视觉语言） */
+
+.focus-mind-map-block .fmr-handle {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity 0.14s ease;
+  touch-action: none;
+}
+
+.focus-mind-map-block .fmr-handle::after {
+  border-radius: 3px;
+  background: rgba(55, 61, 70, 0.55);
+  content: "";
+  transition: background-color 0.12s ease;
+}
+
+.focus-mind-map-block .fmr-handle:hover::after { background: #4263eb; }
+
+.focus-mind-map-block .fmr-handle.is-left,
+.focus-mind-map-block .fmr-handle.is-right {
+  top: 50%;
+  width: 16px;
+  height: 64px;
+  cursor: ew-resize;
+  transform: translateY(-50%);
+}
+
+.focus-mind-map-block .fmr-handle.is-left { left: 2px; }
+.focus-mind-map-block .fmr-handle.is-right { right: 2px; }
+
+.focus-mind-map-block .fmr-handle.is-left::after,
+.focus-mind-map-block .fmr-handle.is-right::after { width: 4px; height: 40px; }
+
+.focus-mind-map-block .fmr-handle.is-bottom {
+  bottom: 2px;
+  left: 50%;
+  width: 64px;
+  height: 14px;
+  cursor: ns-resize;
+  transform: translateX(-50%);
+}
+
+.focus-mind-map-block .fmr-handle.is-bottom::after { width: 40px; height: 4px; }
+
+.focus-mind-map-block:hover .fmr-handle,
+.focus-mind-map-block.is-selected .fmr-handle,
+.focus-mind-map-block.is-resizing .fmr-handle { opacity: 1; }
+
+.focus-mind-map-block.is-resizing { box-shadow: 0 0 0 1px #4263eb !important; }
+
+/* 自定义高度：外壳与画布跟随；预览取景插件监听宿主尺寸，会自动重新适配 */
+.focus-mind-map-block.fmr-has-h .focus-mind-map-preview-shell {
+  height: var(--fmr-h) !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+.focus-mind-map-block.fmr-has-h .focus-mind-map-preview-canvas {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+.fmr-badge {
+  position: absolute;
+  z-index: 5;
+  top: 10px;
+  left: 50%;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: #24282e;
+  color: #fff;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+body.fmr-resizing-x,
+body.fmr-resizing-x * { cursor: ew-resize !important; user-select: none !important; }
+
+body.fmr-resizing-y,
+body.fmr-resizing-y * { cursor: ns-resize !important; user-select: none !important; }
+
+.ProseMirror[contenteditable="false"] .fmr-handle { display: none; }
+
+.dark-theme .focus-mind-map-block .fmr-handle::after { background: rgba(210, 216, 224, 0.5); }
